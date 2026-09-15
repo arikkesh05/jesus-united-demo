@@ -1,5 +1,5 @@
-import DailyReflection from 'app/components/DailyReflection';
-import { getDailyReflection } from 'lib/reflections';
+import DailyReflection from '@/app/components/DailyReflection';
+import { getDailyReflection } from '@/lib/reflections';
 
 const upcomingModules = [
   {

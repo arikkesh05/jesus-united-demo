@@ -1,6 +1,6 @@
 'use client';
 
-import type { Reflection } from 'lib/types';
+import type { Reflection } from '@/lib/types';
 
 interface DailyReflectionProps {
   reflection: Reflection | null;
