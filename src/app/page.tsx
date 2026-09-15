@@ -1,13 +1,9 @@
 import DailyReflection from '@/app/components/DailyReflection';
+import GatheringMap from '@/app/components/GatheringMap';
+import { getGatherings } from '@/lib/gatherings';
 import { getDailyReflection } from '@/lib/reflections';
 
 const upcomingModules = [
-  {
-    module: 'Module 2',
-    title: 'Church Gathering Map',
-    description:
-      'Discover fellowships and local church gatherings near you on a PostGIS-powered map, then connect with a leader over WhatsApp in one tap.',
-  },
   {
     module: 'Module 3',
     title: 'Sunday Pulpit Kit Generator',
@@ -18,6 +14,7 @@ const upcomingModules = [
 
 export default async function Home() {
   const reflection = await getDailyReflection();
+  const gatherings = await getGatherings();
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
@@ -47,6 +44,16 @@ export default async function Home() {
           </div>
         </section>
 
+        <section aria-labelledby="gathering-map-heading" className="mt-16">
+          <h2
+            id="gathering-map-heading"
+            className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-slate-500"
+          >
+            Module 2 &middot; Church Gathering Map
+          </h2>
+          <GatheringMap gatherings={gatherings} />
+        </section>
+
         <section aria-labelledby="upcoming-modules-heading" className="mt-16">
           <h2
             id="upcoming-modules-heading"
@@ -54,7 +61,7 @@ export default async function Home() {
           >
             More Modules In Progress
           </h2>
-          <div className="mt-4 grid gap-6 sm:grid-cols-2">
+          <div className="mt-4 grid gap-6">
             {upcomingModules.map((item) => (
               <article
                 key={item.module}
