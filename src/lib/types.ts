@@ -21,3 +21,24 @@ export interface Gathering {
   distance_meters?: number;
   created_at: string;
 }
+
+export interface PulpitKitOutlinePoint {
+  section: string;
+  subtext: string;
+}
+
+export interface PulpitKit {
+  id: string;
+  title: string;
+  theme: string;
+  series_name?: string | null;
+  scripture_passages: string[];
+  outline: PulpitKitOutlinePoint[];
+  talking_points: string[];
+  discussion_questions: string[];
+  key_quote?: string | null;
+  call_to_action?: string | null;
+  estimated_minutes?: number;
+  target_sunday: string;
+  created_at: string;
+}

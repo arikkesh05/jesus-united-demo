@@ -63,3 +63,56 @@ export function DirectionsIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+export function BookIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5Z" />
+      <path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H19v3H6.5A2.5 2.5 0 0 1 4 20.5Z" />
+    </svg>
+  );
+}
+
+export function ClockIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </svg>
+  );
+}
+
+export function ListIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />
+    </svg>
+  );
+}
+
+export function CopyIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V6a2 2 0 0 1 2-2h9" />
+    </svg>
+  );
+}
+
+export function CheckIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <path d="m5 12.5 4.5 4.5L19 7" />
+    </svg>
+  );
+}
+
+export function PrinterIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <path d="M7 9V4h10v5" />
+      <rect x="4" y="9" width="16" height="7" rx="2" />
+      <path d="M7 14h10v6H7z" />
+    </svg>
+  );
+}
