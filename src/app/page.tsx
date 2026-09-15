@@ -11,8 +11,8 @@ export default async function Home() {
   const pulpitKit = await getLatestPulpitKit();
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
-      <main className="mx-auto max-w-3xl px-4 py-12">
+    <div className="min-h-screen font-sans text-slate-900">
+      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
         <header className="text-center">
           <span className="inline-flex items-center rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-teal-700">
             Demo Preview
@@ -26,7 +26,7 @@ export default async function Home() {
           </p>
         </header>
 
-        <section aria-labelledby="daily-reflection-heading" className="mt-12">
+        <section id="daily-reflection-section" aria-labelledby="daily-reflection-heading" className="mt-12">
           <h2
             id="daily-reflection-heading"
             className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-slate-500"
@@ -38,7 +38,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <section aria-labelledby="gathering-map-heading" className="mt-16">
+        <section id="gathering-map-section" aria-labelledby="gathering-map-heading" className="mt-16">
           <h2
             id="gathering-map-heading"
             className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-slate-500"
@@ -48,7 +48,7 @@ export default async function Home() {
           <GatheringMap gatherings={gatherings} />
         </section>
 
-        <section aria-labelledby="pulpit-kit-heading" className="mt-16">
+        <section id="pulpit-kit-section" aria-labelledby="pulpit-kit-heading" className="mt-16">
           <h2
             id="pulpit-kit-heading"
             className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-slate-500"

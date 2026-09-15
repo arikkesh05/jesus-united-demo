@@ -116,3 +116,39 @@ export function PrinterIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+export function PlayIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <path d="M8 5.5v13l11-6.5-11-6.5Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function PauseIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <rect x="7" y="5.5" width="3.5" height="13" rx="1" fill="currentColor" />
+      <rect x="13.5" y="5.5" width="3.5" height="13" rx="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function VolumeIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <path d="M11 5 6.5 9H3v6h3.5L11 19V5Z" />
+      <path d="M15.5 9.5a4 4 0 0 1 0 5" />
+      <path d="M18 7a7.5 7.5 0 0 1 0 10" />
+    </svg>
+  );
+}
+
+export function VolumeOffIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <path d="M11 5 6.5 9H3v6h3.5L11 19V5Z" />
+      <path d="m16 10 4 4M20 10l-4 4" />
+    </svg>
+  );
+}

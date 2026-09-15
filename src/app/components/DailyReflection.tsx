@@ -1,6 +1,7 @@
 'use client';
 
 import type { Reflection } from '@/lib/types';
+import AudioPlayer from '@/app/components/AudioPlayer';
 
 interface DailyReflectionProps {
   reflection: Reflection | null;
@@ -30,7 +31,7 @@ function formatReflectionDate(value: string): string {
 export default function DailyReflection({ reflection }: DailyReflectionProps) {
   if (!reflection) {
     return (
-      <section className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center shadow-sm sm:p-8">
+      <section className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
         <span className="inline-flex items-center rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
           Daily Bread
         </span>
@@ -46,7 +47,7 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
   }
 
   return (
-    <article className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-sm sm:p-8">
+    <article className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
       <div className="flex flex-wrap items-center gap-3">
         <span className="inline-flex items-center rounded-full bg-teal-700 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
           Daily Bread
@@ -71,11 +72,9 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
       </p>
 
       {reflection.audio_url ? (
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+        <div className="mt-6">
           <p className="mb-3 text-sm font-semibold text-slate-800">Listen to the reflection</p>
-          <audio controls src={reflection.audio_url} className="w-full">
-            Your browser does not support the audio element.
-          </audio>
+          <AudioPlayer src={reflection.audio_url} title={reflection.title} />
         </div>
       ) : null}
     </article>

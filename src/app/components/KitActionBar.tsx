@@ -52,7 +52,7 @@ export default function KitActionBar({ kit }: KitActionBarProps) {
 
   return (
     <>
-      <div className="mt-4 flex flex-col gap-2 print:hidden sm:flex-row sm:items-center">
+      <div className="no-print mt-4 flex flex-col gap-2 print:hidden sm:flex-row sm:items-center">
         <button
           type="button"
           onClick={handleCopy}

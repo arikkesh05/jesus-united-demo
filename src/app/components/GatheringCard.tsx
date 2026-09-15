@@ -40,7 +40,7 @@ export default function GatheringCard({ gathering }: GatheringCardProps) {
   const emailHref = buildEmailHref(gathering);
 
   return (
-    <article className="flex w-full flex-col rounded-xl border border-slate-200 bg-slate-50 p-4">
+    <article className="flex w-full flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
       <h3 className="text-base font-semibold leading-6 text-slate-900">{gathering.name}</h3>
 
       <span className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700">

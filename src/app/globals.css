@@ -24,3 +24,38 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Phase 5: print isolation - exporting prints only the Pulpit Kit. */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Scoped to direct children of <main> so the Pulpit Kit's own <header> still prints. */
+  main > header,
+  main > footer,
+  #daily-reflection-section,
+  #gathering-map-section,
+  .no-print {
+    display: none !important;
+  }
+
+  #pulpit-kit-section {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Forces every tab panel visible so the printed kit is complete. */
+  .print-force-visible {
+    display: block !important;
+  }
+
+  @page {
+    size: portrait;
+    margin: 1.5cm;
+  }
+}

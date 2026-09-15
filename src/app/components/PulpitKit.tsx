@@ -33,10 +33,11 @@ export default function PulpitKit({ kit }: PulpitKitProps) {
   };
 
   // Printing reveals every panel so the exported view holds the whole kit.
-  const panelClass = (tab: TabId) => `${activeTab === tab ? 'block' : 'hidden'} print:block`;
+  const panelClass = (tab: TabId) =>
+    `${activeTab === tab ? 'block' : 'hidden'} print:block print-force-visible`;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 print:border-0 print:p-0 print:shadow-none">
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 print:border-0 print:p-0 print:shadow-none sm:print:p-0">
       <KitHeader kit={kit} />
       <KitActionBar kit={kit} />
 
@@ -60,8 +61,8 @@ export default function PulpitKit({ kit }: PulpitKitProps) {
               onClick={() => setActiveTab(tab.id)}
               className={
                 isActive
-                  ? 'flex-1 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-teal-800 shadow-sm sm:text-sm'
-                  : 'flex-1 rounded-lg px-3 py-2 text-xs font-semibold text-slate-500 transition hover:text-slate-800 sm:text-sm'
+                  ? 'flex-1 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm ring-1 ring-slate-200 transition-all duration-200 sm:text-sm'
+                  : 'flex-1 rounded-lg px-3 py-2 text-xs font-semibold text-slate-500 transition-all duration-200 hover:bg-white/60 hover:text-slate-800 sm:text-sm'
               }
             >
               {tab.label}

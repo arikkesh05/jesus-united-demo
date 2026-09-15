@@ -34,8 +34,8 @@ export default function GatheringMap({ gatherings }: GatheringMapProps) {
   }, [gatherings, query]);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end sm:justify-between sm:p-5">
         <div className="w-full sm:max-w-xs">
           <label
             htmlFor="gathering-search"
@@ -65,14 +65,14 @@ export default function GatheringMap({ gatherings }: GatheringMapProps) {
       </div>
 
       {gatherings.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+        <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
           <p className="text-sm font-semibold text-slate-800">No gatherings published yet</p>
           <p className="mt-1 text-sm leading-6 text-slate-600">
             New fellowships will appear here as soon as they are added to the map.
           </p>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+        <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
           <p className="text-sm font-semibold text-slate-800">
             No gatherings match &ldquo;{query.trim()}&rdquo;
           </p>
@@ -88,7 +88,7 @@ export default function GatheringMap({ gatherings }: GatheringMapProps) {
           </button>
         </div>
       ) : (
-        <ul className="mt-6 grid list-none gap-5 sm:grid-cols-2">
+        <ul className="mt-6 grid list-none grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map((gathering) => (
             <li key={gathering.id} className="flex">
               <GatheringCard gathering={gathering} />
