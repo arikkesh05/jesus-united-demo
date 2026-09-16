@@ -24,6 +24,13 @@
 - Rendering: the homepage is statically prerendered at build time, so reflection data is
   fetched from Supabase during `next build`. Add `export const revalidate = 60` (ISR) or
   `export const dynamic = 'force-dynamic'` if the card must refresh without a redeploy.
+- Audio resilience (permanent, multi-tier): `getDailyReflection()` normalises `audio_url` in
+  `src/lib/reflections.ts` (`normalizeReflectionAudioUrl`) so missing/empty/Ogg-family values resolve to
+  the bundled `/audio/daily-reflection.mp3`; `src/lib/reflectionFallback.ts` is the single source of
+  truth (`FALLBACK_REFLECTION_AUDIO_URL` + `FALLBACK_REFLECTION`) shared by the data layer and the
+  player; `AudioPlayer` renders `<audio>` with **two `<source>` candidates** (the reflection's own URL
+  first, the same-origin MP3 last) and deliberately **no `src` attribute** - a `src` on `<audio>`
+  overrides `<source>` children and would defeat the fallback. Never reintroduce a single-source player.
 
 ## Phase Progress
 - [x] **Phase 0: Environment Setup**
@@ -76,3 +83,134 @@
   - [x] Hierarchy fixes (box-in-a-box): GatheringMap's outer card was demoted to a plain wrapper (toolbar keeps its own card); gathering cards, empty states, and DailyReflection cards promoted to `bg-white shadow-sm` (cards are now the elevated layer); active kit tab upgraded to `bg-white ring-1 ring-slate-200 text-slate-900 shadow-sm font-semibold`; gathering/slide cards got `transition-all duration-200 hover:border-slate-300 hover:shadow-md`.
   - [x] Test results - Tier 1: `npx tsc --noEmit` exit 0. Tier 2: `npm run lint` exit 0. Tier 3: `npm run build` exit 0 (clean Turbopack compile + static prerender of `/`).
   - [x] Test results - Tier 4: built CSS contains `@media print`, `print-force-visible`, `@page`, `size:portrait`; client chunks contain `playbackRate`, `1.25`, and the `Seek through the reflection` handler; prerendered HTML contains all 3 section IDs, `max-w-5xl`, `bg-slate-50/75`, `md:grid-cols-2`/`lg:grid-cols-3`/`lg:grid-cols-4`, the play button (`Play the reflection`), and zero `<audio controls>` elements (only the hidden no-controls `<audio>` remains); `next start` runtime check returned HTTP 200 with the reflection, all three gatherings, and the kit rendered.
+  - [x] **Critical bug fix - AudioPlayer dead in production (`0:00 / 0:00`, unresponsive Play), 2026-09-16** - all 4 tiers verified:
+    - Root cause: the seeded `reflections.audio_url` values point at Google's retired Actions sound library
+      (`https://actions.google.com/sounds/v1/ambiences/morning_birds.ogg` and `gentle_rain.ogg`), which now
+      returns **HTTP 404** with `content-type: text/html`. The media element therefore never loads metadata, so
+      `duration` stays `NaN` (rendered as `0:00`) and `play()` rejects with `MEDIA_ERR_SRC_NOT_SUPPORTED` (code 4);
+      the previous `catch {}` swallowed that rejection silently, which is why the button looked unresponsive.
+    - `AudioPlayer.tsx` now resolves the incoming `src` defensively (`resolveAudioSrc`): absolute `http(s)://`,
+      `//host`, `blob:` and `data:` values pass through untouched; root-relative values stay as-is; bare DB
+      filenames (`morning_birds.ogg`) map to `/audio/<file>`; other relative paths are treated as root-relative;
+      empty values resolve to the bundled track.
+    - Added `hasError` + `usingFallback` state, a detailed `onError` log (media error code, human-readable
+      `MEDIA_ERR_*` label, `networkState`/`readyState`, requested vs. active source), and a Promise-safe
+      `togglePlay` (`await audio.play()` in try/catch that logs the rejection and surfaces the notice whenever
+      `audio.error` is set - autoplay-policy `NotAllowedError` leaves `audio.error` null so it is not misreported).
+    - Automatic fallback: the first load failure of a non-bundled source swaps `<audio>` to
+      `/audio/reflection-demo.mp3` (the `key={activeSrc}` swap forces a fresh load); if the bundled track also
+      fails, an amber "Audio stream currently unavailable" notice renders with a direct source link plus a retry
+      button. A gentler slate notice appears while the bundled track stands in for an unreachable original source.
+    - `onLoadedMetadata` / `onDurationChange` / `onTimeUpdate` / `onEnded` / `onError` are now all named handlers;
+      `duration` is only stored when finite and positive, and the seek slider is disabled + clamped while metadata
+      is missing (so `NaN`/`Infinity` can never reach the UI).
+    - Bundled asset: `public/audio/reflection-demo.mp3` - 189 KB, 24.14 s, mono 44.1 kHz, 64 kbps. Synthesized
+      locally (F-major pad built from `ffmpeg` `sine` sources + lowpass/tremolo/`aecho`/`alimiter`/fades), so it is
+      original work with no third-party licence or attribution requirement. Regenerate with:
+      `ffmpeg -y -f lavfi -i "sine=frequency=174.61:duration=24:sample_rate=44100" -f lavfi -i "sine=frequency=220:duration=24:sample_rate=44100" -f lavfi -i "sine=frequency=261.63:duration=24:sample_rate=44100" -f lavfi -i "sine=frequency=349.23:duration=24:sample_rate=44100" -filter_complex "[0:a][1:a][2:a][3:a]amix=inputs=4:normalize=0,volume=0.22,lowpass=f=1600,tremolo=f=0.12:d=0.35,aecho=0.8:0.5:60|140:0.25|0.15,alimiter=limit=0.9,afade=t=in:st=0:d=2.5,afade=t=out:st=21:d=3,aformat=channel_layouts=mono" -c:a libmp3lame -b:a 64k -ar 44100 -ac 1 public/audio/reflection-demo.mp3`
+    - Deploy gotcha (same class as the earlier `src/lib` one): `public/audio/` is a new **untracked** path and is
+      *not* gitignored, so it must be `git add`-ed and committed or Vercel will serve a 404 for the fallback track.
+    - Optional data remediation (not applied - the component fallback already makes playback work without touching
+      production data): `update reflections set audio_url = '/audio/reflection-demo.mp3' where audio_url like 'https://actions.google.com/%';`
+    - Test results - Tier 1: `npx tsc --noEmit` exit 0. Tier 2: `npm run lint` exit 0. Tier 3: `npm run build`
+      exit 0 (clean Turbopack compile + static prerender of `/`).
+    - Test results - Tier 4 (runtime via `next start` + curl): `/` HTTP 200 with the player markup
+      (`Listen to the reflection`, `Play the reflection`, `Playback speed and mute`); `/audio/reflection-demo.mp3`
+      HTTP 200 with `Content-Type: audio/mpeg`, `Accept-Ranges: bytes`, 193934 bytes; a `Range: bytes=0-1023`
+      request correctly returned `206 Partial Content` (so seeking works in Chrome/Safari).
+    - Test results - Tier 4 (real-browser playback, headless Chrome over CDP, trusted mouse click - no
+      `--autoplay-policy` bypass): the metadata step showed `src=/audio/reflection-demo.mp3`, `duration=24.14`,
+      `readyState=4`, `mediaError=null`, counter `0:00 / 0:24` (no longer stuck) and the fallback notice visible;
+      after the trusted click `paused=false`, `currentTime=2.41`, the button flipped to `Pause the reflection`
+      with `aria-pressed=true`, counter `0:02 / 0:24`; pause worked; a seek to 12 s set `currentTime=12` and
+      counter `0:12 / 0:24`; the console showed
+      `Audio source failed to load (code 4): MEDIA_ERR_SRC_NOT_SUPPORTED: the source is missing or its format is unsupported`,
+      proving the previously silent rejection is now logged and surfaced.
+    - Test results - Tier 4 (source-normalisation matrix, extracted from the shipped function and executed in Node):
+      `''`/whitespace -> `/audio/reflection-demo.mp3`; `morning_birds.ogg` -> `/audio/morning_birds.ogg`;
+      `Morning_Birds.OGG` -> `/audio/Morning_Birds.OGG`; `audio/sermon.mp3` -> `/audio/sermon.mp3`;
+      `media/kit/wav/talk.wav` -> `/media/kit/wav/talk.wav`; `/audio/x.mp3` unchanged; `https://`, `http://`,
+      `//cdn...`, `blob:` and `data:` values unchanged; padded input trimmed; non-audio extensions resolved
+      root-relative (`notaudio.txt` -> `/notaudio.txt`).
+  - [x] **Bulletproof multi-tier audio architecture + universal MP3 fallback (`daily-reflection.mp3`), 2026-09-16** - all 4 tiers verified:
+    - **Tier 1 data.** `getDailyReflection()` in `src/lib/reflections.ts` now normalises `audio_url` before
+      it leaves the data layer: `null`/`undefined`/empty/whitespace and every Ogg-family path (`*.ogg`,
+      `*.oga`, `*.opus`, `*.webm`, with `?query`/`#fragment` stripped before the check) are replaced by the
+      bundled `/audio/daily-reflection.mp3`; `http(s)://`, `//host`, `data:`, `blob:` and other
+      root-relative URLs pass through untouched so real hosted audio still plays as the primary source.
+      Supabase errors, thrown network failures and an empty table now return `FALLBACK_REFLECTION` (new
+      `src/lib/reflectionFallback.ts`, mirroring the existing `pulpitKitFallback.ts` convention), whose
+      `audio_url` is the bundled MP3 - so Module 1 always renders a complete reflection and a playable
+      track, even fully offline.
+    - **Tier 2 asset.** `public/audio/daily-reflection.mp3` - 161,584 bytes, 20.14 s, mono 44.1 kHz,
+      64 kbps MP3, ID3-tagged. Synthesised locally with `ffmpeg` (original work, no third-party licence or
+      attribution), so there is always a valid same-origin asset at `/audio/daily-reflection.mp3`:
+      `ffmpeg -y -f lavfi -i "sine=frequency=174.61:duration=20:sample_rate=44100" -f lavfi -i "sine=frequency=220:duration=20:sample_rate=44100" -f lavfi -i "sine=frequency=261.63:duration=20:sample_rate=44100" -f lavfi -i "sine=frequency=349.23:duration=20:sample_rate=44100" -filter_complex "[0:a][1:a][2:a][3:a]amix=inputs=4:normalize=0,volume=0.22,lowpass=f=1600,tremolo=f=0.12:d=0.35,aecho=0.8:0.5:60|140:0.25|0.15,alimiter=limit=0.9,afade=t=in:st=0:d=2.5,afade=t=out:st=17:d=3,aformat=channel_layouts=mono" -c:a libmp3lame -b:a 64k -ar 44100 -ac 1 public/audio/daily-reflection.mp3`
+      The previous session's `public/audio/reflection-demo.mp3` was **deleted** (untracked, and nothing
+      referenced it after the refactor) so `public/audio/` holds exactly one canonical asset.
+    - **Tier 3 player.** `AudioPlayer.tsx` was re-architected into a multi-source player: the media element
+      has **no `src` attribute** and instead renders `<source src={primarySrc} type={primaryType} />` plus a
+      guaranteed `<source src="/audio/daily-reflection.mp3" type="audio/mpeg" />` as the last candidate.
+      Browsers run the resource-selection algorithm across the candidates, so a 404/decode failure on the
+      primary transparently falls through to the MP3 (an element-level `error` only fires once *every*
+      candidate has failed). MIME hints are derived per extension (`resolveAudioType`) so a valid
+      `.m4a`/`.wav` primary is never wrongly skipped by a hardcoded `audio/mpeg` type, and Ogg-family values
+      are still swapped for the MP3 client-side as a second safety net. `key={primarySrc}` remounts the
+      element if the prop changes; `retrySource()` re-runs selection via `audio.load()`.
+    - `togglePlay` is promise-safe: `await audio.play()` inside `try`; on rejection it logs
+      `Primary audio play blocked or failed, retrying reload:`, calls `audio.load()`, retries once, then logs
+      `Audio playback fully rejected:` and surfaces `hasError`. A pre-flight guard routes an already-broken
+      element (`audio.error` set, where some engines leave `play()` pending forever) into that same branch.
+    - **Hydration race fix (the real "0:00 / 0:00" lock).** Because the page is statically prerendered, a
+      fast same-origin MP3 can finish loading *before* React hydration attaches the media listeners -
+      `loadedmetadata`/`canplay`/`durationchange` have then already fired, so the counter stayed at
+      `0:00 / 0:00` forever even though `audio.duration` was 20.14. The player now syncs state from the
+      element in the **ref callback** at commit time (`attachAudioElement` -> `syncFromElement`), with a
+      `timeupdate` safety net that repairs a missing duration; `onLoadedMetadata` and `onCanPlay` share the
+      same handler.
+    - UI guarantees: every duration render uses `formatTime(duration || 0)` and duration is only stored when
+      finite and positive, so `NaN`/`Infinity` can never reach the DOM; when `hasError` is true a clean amber
+      badge reads **"Audio temporarily unavailable"** with a Retry action, and the transport button is
+      disabled and always shows Play (`showPlaying = isPlaying && !hasError`) so the UI can never claim to be
+      playing while it reports a failure. A slate notice appears when the selected candidate is the bundled
+      track instead of the reflection's own URL (detected from the element's real `currentSrc`, not guessed).
+      `DailyReflection.tsx` also now renders the player unconditionally (`src={reflection.audio_url ?? ''}`),
+      so a missing URL can never remove the transport from the card at all.
+- Test results - Tier 1: `npx tsc --noEmit` exit 0. Tier 2: `npm run lint` exit 0. Tier 3:
+      `npm run build` exit 0 (clean Turbopack compile + TypeScript + static prerender of `/`).
+    - Test results - Tier 4 (asset + markup via `next start` + curl): `/audio/daily-reflection.mp3`
+      returns HTTP 200 with `Content-Type: audio/mpeg`, `Accept-Ranges: bytes`, `Content-Length: 161584`,
+      an `ID3` header, and HTTP 206 for `Range: bytes=0-1023` (seeking works); the live Supabase row still
+      stores `https://actions.google.com/sounds/v1/ambiences/morning_birds.ogg` while the prerendered HTML
+      emits two `<source src="/audio/daily-reflection.mp3" type="audio/mpeg"/>` tags with no `src` on the
+      `<audio>` element - proving the live `.ogg` value is normalised end-to-end; no error badge in the
+      initial HTML.
+    - Test results - Tier 4 (real browser, headless Chrome over CDP with a *trusted* mouse click, no
+      autoplay-policy bypass, 9 scenarios): mount -> two sources, `currentSrc=/audio/daily-reflection.mp3`,
+      `duration=20.14`, `readyState=4`, counter `0:00 / 0:20`; trusted click -> `paused=false`,
+      `currentTime=1.92`, counter `0:01 / 0:20`, button `Pause the reflection`; pause -> `paused=true`; the
+      primary `<source>` was then pointed at a 404 and `load()` called -> the browser selected the second
+      candidate, `currentSrc=/audio/daily-reflection.mp3`, `duration=20.14` (Tier 2 fallback proven) and
+      playback advanced to 1.75 s; with **both** candidates 404 -> the badge "Audio temporarily unavailable"
+      rendered, `counter=0:00 / 0:00` (no `NaN`) and the transport was disabled; Retry while still broken ->
+      stayed unavailable without crashing; restoring a working candidate cleared the badge, restored
+      `0:00 / 0:20` and re-enabled the transport (self-heal); the final click played (1.71 s). A separate run
+      with an **untrusted** programmatic click (fresh page, `navigator.userActivation.hasBeenActive=false`)
+      forced the promise-safe path and logged `warning: Primary audio play blocked or failed, retrying
+      reload: NotAllowedError...` then `error: Audio playback fully rejected: NotAllowedError...`, leaving
+      the UI sane and never stuck.
+    - Test results - Tier 4 (deterministic hydration-race reproduction): with every `/_next/static/chunks/*`
+      request held for 3 s via CDP `Fetch` interception, the pre-hydration sample showed
+      `counter="0:00 / 0:00"` with `elementDuration=20.14, readyState=4` (metadata beat hydration - the exact
+      old failure state) and the post-hydration sample showed `counter="0:00 / 0:20"` with no badge, proving
+      the ref-callback sync closes the race.
+    - Observation: in one CDP run the very first `play()` reported `paused=false` while the clock stayed at 0;
+      the same flow advanced in real time (0 -> 3.32 s in 3.6 s, pause at 3.63 s, resume to 5.14 s) in a
+      dedicated sampling run on the same build, so this is a headless Chrome audio-sink warm-up artifact,
+      not component state (the counter is driven by the browser's own `timeupdate`).
+    - Optional data remediation (not applied - the layers above already make playback work without touching
+      production data): `update reflections set audio_url = '/audio/daily-reflection.mp3' where audio_url like 'https://actions.google.com/%';`
+    - Deploy gotcha (same class as the earlier `src/lib` one): `public/audio/daily-reflection.mp3` is a new
+      **untracked** path and is *not* gitignored, so it must be `git add`-ed and committed or Vercel will
+      serve a 404 for the guaranteed fallback track.
+

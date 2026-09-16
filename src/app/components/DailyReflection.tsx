@@ -71,12 +71,15 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
         {reflection.reflection_text}
       </p>
 
-      {reflection.audio_url ? (
-        <div className="mt-6">
-          <p className="mb-3 text-sm font-semibold text-slate-800">Listen to the reflection</p>
-          <AudioPlayer src={reflection.audio_url} title={reflection.title} />
-        </div>
-      ) : null}
+      <div className="mt-6">
+        <p className="mb-3 text-sm font-semibold text-slate-800">Listen to the reflection</p>
+        {/*
+          Always rendered: the data layer normalises `audio_url` to the bundled
+          MP3, and an empty value would still resolve to it inside the player -
+          so a missing URL can never remove the player itself.
+        */}
+        <AudioPlayer src={reflection.audio_url ?? ''} title={reflection.title} />
+      </div>
     </article>
   );
 }
