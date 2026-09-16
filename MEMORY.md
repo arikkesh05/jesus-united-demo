@@ -309,3 +309,40 @@
 - Phase 0 completion re-certification: `npx tsc --noEmit` exit 0, `npm run lint` exit 0, `npm run build`
   clean (4/4 pages prerendered) — all three mandatory gates green on the final tree.
 
+## PHASE 1 - Authentication & Community - Task 1: Session Middleware & Typed Schemas (2026-09-16)
+- **Next.js 16 gotcha honored (AGENTS.md rule)**: the task asked for `src/middleware.ts`, but this Next
+  version **deprecates the `middleware` file convention and renames it to `proxy`** (verified in
+  `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md`). Implemented as
+  **`src/proxy.ts`** exporting a single async `proxy(request: NextRequest)` function + `config.matcher`;
+  the build route table confirms registration (`ƒ Proxy (Middleware)`). Do not add a `middleware.ts` —
+  it would conflict/deprecate-warn.
+- **Session refresh** (`src/proxy.ts`): standard `@supabase/ssr` v0.12 server-client pattern on
+  `NextRequest` cookies — `getAll()` reads request cookies; `setAll()` re-sets them on the request and
+  replays each rotated cookie onto a FRESH `NextResponse.next({ request })` (recreated inside `setAll`
+  so token rotations always reach the browser). Calls `supabase.auth.getUser()` — the server-VERIFIED
+  refresh path; never `getSession()`/`getClaims()` in proxy, which trust the client-forgable cookie
+  payload. Resilience: env-gated pass-through when `NEXT_PUBLIC_SUPABASE_URL/ANON_KEY` are absent
+  (same DSN-gated philosophy as Sentry init), and `getUser()` is wrapped in try/catch so an auth-server
+  outage logs and continues as guest rather than blocking page loads.
+- **Matcher** (all routes minus static assets): `'/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|mp3|ogg|wav|woff|woff2)$).*)'`
+  — covers pages, `/api/*`, and Server Actions; excludes build chunks, image optimizer, favicon, images,
+  audio, and webfonts. Per Next 16 docs, auth must still be verified inside Server Functions (proxy
+  matchers can silently skip them); RLS remains the real authorization layer.
+- **Typed schemas** (`src/lib/types.ts`, appended after the demo-portal types): `DatabaseTimestamp`
+  (timestamptz → ISO string) and `DatabaseDate` (`date` → `YYYY-MM-DD`) aliases, then strict interfaces —
+  `Profile` (city/country nullable), `AltarCompletion` (evening_journal nullable), `HabitEntry` (four
+  minute counters), `GatheringSubmissionStatus` union (`'pending' | 'approved' | 'rejected'`),
+  `GatheringSubmissionData` (strict shape for the `gathering_data` jsonb so approved rows can be
+  inserted into `gatherings` without inference surprises), `GatheringSubmission`, `GatheringAttendance`,
+  `PrayerRequest` (`topics: string[]` for `text[]`), `PrayerIntercession`. Nullable columns are typed
+  `| null` (never `undefined`), per the deterministic-schema rule.
+- Test results - Tier 1: `npx tsc --noEmit` exit 0. Tier 2: `npm run lint` exit 0. Tier 3: `npm run
+  build` exit 0 with **zero warnings**, route table showing `ƒ Proxy (Middleware)`.
+- Test results - Tier 4 (`next start` + curl): `/` HTTP 200, `/api/sentry-test` HTTP 200 (proxy-covered
+  route), `/audio/daily-reflection.mp3` HTTP 200 (matcher-excluded asset), server log clean (no errors).
+- Files touched: new `src/proxy.ts`; extended `src/lib/types.ts`. No changes to `supabaseBrowser.ts`,
+  `supabaseServer.ts` (their try/catch `setAll` comment now refers to this proxy), or any component.
+- Note for next tasks: no test runner is installed (tdd-workflow skill) — `tsc` type-determinism plus
+  the three gates are the verification layer, consistent with Phases 2-5.
+
+
