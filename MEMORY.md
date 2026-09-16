@@ -214,3 +214,17 @@
       **untracked** path and is *not* gitignored, so it must be `git add`-ed and committed or Vercel will
       serve a 404 for the guaranteed fallback track.
 
+## PHASE 5 - Sentry Integration (@sentry/nextjs v10.74.0)
+- Installed `@sentry/nextjs@^10.74.0`; DSN comes from `NEXT_PUBLIC_SENTRY_DSN` in `.env.local` (already present).
+- Init is **DSN-gated** in every config: with no DSN, `Sentry.init` never runs, so local/CI builds with no credentials stay silent and healthy. Files: `sentry.client.config.ts` (traces 1.0, replays 0.1/1.0), `sentry.server.config.ts` (traces 1.0), `sentry.edge.config.ts` (traces 1.0).
+- Next.js 16 + SDK v10 loading gotchas (verified against `node_modules/next/dist/docs` and the SDK's own build output):
+  - **Server/edge**: SDK v10 requires an `instrumentation.ts` file; `sentry.server.config.ts` alone is not picked up. `instrumentation.ts` lazily imports server or edge config by `NEXT_RUNTIME` and exports `onRequestError = Sentry.captureRequestError`.
+  - **Client**: with Turbopack (Next 16 default), `sentry.client.config.ts` is NOT auto-loaded (SDK logs "When using Turbopack `sentry.client.config.ts` will no longer work"). `instrumentation-client.ts` imports it and exports `onRouterTransitionStart = Sentry.captureRouterTransitionStart` (SDK warns at build time if this hook is missing).
+  - Both instrumentation modules just evaluate the config files; module singleton guarantees `Sentry.init` runs exactly once per bundle.
+- `next.config.ts` wrapped with `withSentryConfig` imported from **`@sentry/nextjs/config`** (root re-export is deprecated, removed in v11). Options used: `silent: !process.env.CI`, `widenClientFileUpload: true`, and v10 replacements for two deprecated task options - `sourcemaps: { deleteSourcemapsAfterUpload: true }` (instead of `hideSourceMaps`, removed in v10) and `webpack.treeshake.removeDebugLogging: true` (instead of `disableLogger`; webpack-only, no-op under Turbopack).
+- Smoke route `src/app/api/sentry-test/route.ts`: `force-dynamic` GET, captures a labeled test exception, awaits `Sentry.flush(2000)` (serverless freeze safety), wraps everything in try/catch so monitoring failures can never break the endpoint, returns `{success, message, timestamp}`.
+- Test results - Tier 1/2/3: `npx tsc --noEmit` exit 0, `npm run lint` exit 0, `npm run build` exit 0 (also clean under `CI=1`; route appears as `ƒ /api/sentry-test`).
+- Test results - Tier 4 (real browser, headless Chrome over CDP against `next start`): client SDK initialized with exactly the configured options (`tracesSampleRate=1`, `replaysSessionSampleRate=0.1`, `replaysOnErrorSampleRate=1`) and **5 envelopes delivered HTTP 200** to the real Sentry ingest host - client init, transport, and DSN proven end-to-end. Server-side `onRequestError` wired via `instrumentation.ts`.
+- Build-log note (expected, not a failure): with `CI=1`, `[@sentry/nextjs - After Production Compile]` prints "No auth token provided" warnings - source-map upload + release creation are skipped until `SENTRY_AUTH_TOKEN` (+ optional `SENTRY_ORG`/`SENTRY_PROJECT`) are set. Build itself succeeds and source maps are simply kept on disk (nothing is deleted when upload is off).
+- Untracked files to commit: `sentry.{client,server,edge}.config.ts`, `instrumentation.ts`, `instrumentation-client.ts`, `src/app/api/`, plus the modified `next.config.ts` / `package.json` / `package-lock.json`.
+
