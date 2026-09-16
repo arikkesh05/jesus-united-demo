@@ -300,7 +300,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
+    <div className="rounded-2xl border border-sand bg-pill/40 p-4">
       {/*
         No `src` attribute on the media element on purpose: a `src` on <audio>
         takes precedence over <source> children and would defeat the multi-tier
@@ -333,24 +333,24 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
           disabled={hasError}
           aria-label={showPlaying ? 'Pause the reflection' : 'Play the reflection'}
           aria-pressed={showPlaying}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teal-700 text-white transition-all duration-200 hover:bg-teal-800 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-teal-700 disabled:hover:shadow-none"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold text-espresso transition-all duration-200 hover:bg-gold-deep hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-gold disabled:hover:shadow-none"
         >
           {showPlaying ? <PauseIcon className="h-5 w-5" /> : <PlayIcon className="h-5 w-5" />}
         </button>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="truncate text-sm font-semibold text-slate-800">
+            <p className="truncate text-sm font-bold text-espresso">
               {title ?? 'Reflection audio'}
             </p>
-            <p className="shrink-0 text-xs font-medium tabular-nums text-slate-500">
+            <p className="shrink-0 text-xs font-medium tabular-nums text-muted">
               {formatTime(currentTime)} / {formatTime(duration || 0)}
             </p>
           </div>
 
-          <div className="relative mt-2 h-2 w-full rounded-full bg-slate-200">
+          <div className="relative mt-2 h-2 w-full rounded-full bg-sand">
             <div
-              className="absolute inset-y-0 left-0 rounded-full bg-teal-700"
+              className="absolute inset-y-0 left-0 rounded-full bg-gold"
               style={{ width: `${progress}%` }}
             />
             <input
@@ -363,7 +363,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
               disabled={!hasDuration}
               aria-label="Seek through the reflection"
               aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration || 0)}`}
-              className="absolute inset-0 h-2 w-full cursor-pointer appearance-none bg-transparent outline-none disabled:cursor-not-allowed [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-teal-700 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-teal-700"
+              className="absolute inset-0 h-2 w-full cursor-pointer appearance-none rounded-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-gold [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gold"
             />
           </div>
 
@@ -372,7 +372,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
               type="button"
               onClick={cycleSpeed}
               aria-label={`Playback speed ${SPEEDS[speedIndex]}x - activate to change`}
-              className="rounded-full border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 transition-all duration-200 hover:border-slate-300 hover:text-slate-900"
+              className="rounded-full border border-sand px-2.5 py-1 text-xs font-bold text-muted transition-all duration-200 hover:border-gold hover:text-espresso"
             >
               {SPEEDS[speedIndex]}x
             </button>
@@ -382,12 +382,12 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
               onClick={toggleMute}
               aria-label={isMuted ? 'Unmute the reflection' : 'Mute the reflection'}
               aria-pressed={isMuted}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-all duration-200 hover:border-slate-300 hover:text-slate-900"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-sand text-muted transition-all duration-200 hover:border-gold hover:text-espresso"
             >
               {isMuted ? <VolumeOffIcon className="h-4 w-4" /> : <VolumeIcon className="h-4 w-4" />}
             </button>
 
-            <span className="text-xs text-slate-400">Playback speed and mute</span>
+            <span className="text-xs text-muted">Playback speed and mute</span>
           </div>
         </div>
       </div>
@@ -396,14 +396,14 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
         <p
           role="status"
           aria-live="polite"
-          className="mt-3 inline-flex flex-wrap items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900"
+          className="mt-3 inline-flex flex-wrap items-center gap-2 rounded-full border border-amber-300/70 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-900"
         >
           <span aria-hidden="true" className="h-2 w-2 rounded-full bg-amber-500" />
           Audio temporarily unavailable
           <button
             type="button"
             onClick={retrySource}
-            className="font-semibold underline underline-offset-2"
+            className="font-bold underline underline-offset-2"
           >
             Retry
           </button>
@@ -412,14 +412,14 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
         <p
           role="status"
           aria-live="polite"
-          className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600"
+          className="mt-3 rounded-2xl border border-sand bg-pill px-3 py-2 text-xs leading-5 text-espresso/80"
         >
           The original reflection source could not be reached, so the bundled track is playing
           instead.{' '}
           <button
             type="button"
             onClick={retrySource}
-            className="font-semibold text-teal-700 underline underline-offset-2"
+            className="font-bold text-pill-ink underline underline-offset-2"
           >
             Retry the original source
           </button>

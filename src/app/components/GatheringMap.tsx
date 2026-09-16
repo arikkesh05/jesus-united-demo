@@ -35,11 +35,11 @@ export default function GatheringMap({ gatherings }: GatheringMapProps) {
 
   return (
     <div>
-      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end sm:justify-between sm:p-5">
+      <div className="flex flex-col gap-4 rounded-3xl border border-sand bg-white p-4 shadow-soft sm:flex-row sm:items-end sm:justify-between sm:p-5">
         <div className="w-full sm:max-w-xs">
           <label
             htmlFor="gathering-search"
-            className="text-xs font-semibold uppercase tracking-widest text-slate-500"
+            className="text-xs font-bold uppercase tracking-[0.18em] text-muted"
           >
             Find a gathering
           </label>
@@ -49,40 +49,40 @@ export default function GatheringMap({ gatherings }: GatheringMapProps) {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search by name, city, or area"
-            className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+            className="mt-2 w-full rounded-full border border-sand bg-canvas px-4 py-2.5 text-sm text-espresso outline-none transition placeholder:text-muted/70 focus:border-gold focus:ring-2 focus:ring-gold/25"
           />
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-pill px-3 py-1 text-xs font-bold text-pill-ink">
             <MapPinIcon className="h-3.5 w-3.5" />
             {METRO_LABEL}
           </span>
-          <span className="text-xs font-medium text-slate-500">
+          <span className="text-xs font-medium text-muted">
             {filtered.length} of {gatherings.length} gatherings
           </span>
         </div>
       </div>
 
       {gatherings.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
-          <p className="text-sm font-semibold text-slate-800">No gatherings published yet</p>
-          <p className="mt-1 text-sm leading-6 text-slate-600">
+        <div className="mt-6 rounded-3xl border border-dashed border-sand bg-white p-8 text-center shadow-soft">
+          <p className="text-sm font-bold text-espresso">No gatherings published yet</p>
+          <p className="mt-1 text-sm leading-6 text-muted">
             New fellowships will appear here as soon as they are added to the map.
           </p>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
-          <p className="text-sm font-semibold text-slate-800">
+        <div className="mt-6 rounded-3xl border border-dashed border-sand bg-white p-8 text-center shadow-soft">
+          <p className="text-sm font-bold text-espresso">
             No gatherings match &ldquo;{query.trim()}&rdquo;
           </p>
-          <p className="mt-1 text-sm leading-6 text-slate-600">
+          <p className="mt-1 text-sm leading-6 text-muted">
             Try a different name, city, or area &mdash; or clear the search to browse them all.
           </p>
           <button
             type="button"
             onClick={() => setQuery('')}
-            className="mt-4 inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+            className="mt-4 inline-flex items-center justify-center rounded-full border border-sand bg-white px-4 py-2 text-xs font-bold text-espresso transition hover:border-gold hover:bg-pill"
           >
             Clear search
           </button>

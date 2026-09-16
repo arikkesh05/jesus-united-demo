@@ -56,7 +56,7 @@ export default function KitActionBar({ kit }: KitActionBarProps) {
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800"
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-gold px-4 py-2.5 text-sm font-bold text-espresso transition hover:bg-gold-deep hover:shadow-md"
         >
           {copyStatus === 'copied' ? (
             <CheckIcon className="h-4 w-4" />
@@ -69,13 +69,13 @@ export default function KitActionBar({ kit }: KitActionBarProps) {
         <button
           type="button"
           onClick={handlePrint}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+          className="inline-flex items-center justify-center gap-2 rounded-full border border-sand bg-white px-4 py-2.5 text-sm font-bold text-espresso transition hover:border-gold/50 hover:bg-pill"
         >
           <PrinterIcon className="h-4 w-4" />
           Print / Export View
         </button>
 
-        <p className="text-xs leading-5 text-slate-500 sm:ml-auto">
+        <p className="text-xs leading-5 text-muted sm:ml-auto">
           Copies the full kit as Markdown for Obsidian, Notion, or Google Docs.
         </p>
       </div>

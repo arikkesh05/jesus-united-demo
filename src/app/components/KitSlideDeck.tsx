@@ -59,19 +59,19 @@ export default function KitSlideDeck({ kit }: KitSlideDeckProps) {
       {slides.map((slide, index) => (
         <figure
           key={slide.label}
-          className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-900 text-white transition-all duration-200 hover:border-slate-300 hover:shadow-md"
+          className="flex flex-col overflow-hidden rounded-2xl border border-sand bg-white shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-lift"
         >
-          <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-2">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-teal-300">
+          <div className="flex items-center justify-between gap-2 border-b border-sand bg-pill/60 px-4 py-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-pill-ink">
               {slide.label}
             </span>
-            <span className="text-[10px] font-medium text-slate-400">Slide {index + 1}</span>
+            <span className="text-[10px] font-medium text-muted">Slide {index + 1}</span>
           </div>
           <figcaption className="flex flex-1 flex-col gap-2 p-5">
-            <p className="text-lg font-semibold leading-6">{slide.title}</p>
-            <p className="text-sm leading-6 text-slate-300">{slide.body}</p>
+            <p className="text-lg font-bold leading-6 text-espresso">{slide.title}</p>
+            <p className="text-sm leading-6 text-muted">{slide.body}</p>
             {slide.footnote ? (
-              <p className="mt-auto pt-2 text-xs text-slate-400">{slide.footnote}</p>
+              <p className="mt-auto pt-2 text-xs text-muted">{slide.footnote}</p>
             ) : null}
           </figcaption>
         </figure>

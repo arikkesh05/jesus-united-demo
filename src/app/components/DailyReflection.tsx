@@ -31,14 +31,14 @@ function formatReflectionDate(value: string): string {
 export default function DailyReflection({ reflection }: DailyReflectionProps) {
   if (!reflection) {
     return (
-      <section className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
-        <span className="inline-flex items-center rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
+      <section className="w-full max-w-2xl rounded-3xl border border-sand bg-white p-6 text-center shadow-soft sm:p-8">
+        <span className="inline-flex items-center rounded-full bg-pill px-3 py-1 text-xs font-bold uppercase tracking-wide text-pill-ink">
           Daily Bread
         </span>
-        <h2 className="mt-4 text-xl font-semibold text-slate-900">
+        <h2 className="mt-4 text-xl font-bold text-espresso">
           No reflection available today
         </h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
+        <p className="mt-2 text-sm leading-6 text-muted">
           Today&apos;s reflection has not been published yet. Please check back soon and keep
           abiding in His word.
         </p>
@@ -47,32 +47,32 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
   }
 
   return (
-    <article className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+    <article className="w-full max-w-2xl rounded-3xl border border-sand bg-white p-6 shadow-soft sm:p-8">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="inline-flex items-center rounded-full bg-teal-700 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
+        <span className="inline-flex items-center rounded-full bg-pill px-3 py-1 text-xs font-bold uppercase tracking-wide text-pill-ink">
           Daily Bread
         </span>
         <time
           dateTime={reflection.reflection_date}
-          className="text-sm font-medium text-slate-500"
+          className="text-sm font-medium text-muted"
         >
           {formatReflectionDate(reflection.reflection_date)}
         </time>
       </div>
 
-      <h2 className="mt-4 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+      <h2 className="mt-4 text-2xl font-extrabold tracking-tight text-espresso sm:text-3xl">
         {reflection.title}
       </h2>
-      <p className="mt-2 text-base font-semibold text-teal-700">
+      <p className="mt-2 text-base font-bold text-pill-ink">
         {reflection.scripture_reference}
       </p>
 
-      <p className="mt-5 whitespace-pre-line text-base leading-7 text-slate-700">
+      <p className="mt-5 whitespace-pre-line text-base leading-7 text-espresso/80">
         {reflection.reflection_text}
       </p>
 
       <div className="mt-6">
-        <p className="mb-3 text-sm font-semibold text-slate-800">Listen to the reflection</p>
+        <p className="mb-3 text-sm font-bold text-espresso">Listen to the reflection</p>
         {/*
           Always rendered: the data layer normalises `audio_url` to the bundled
           MP3, and an empty value would still resolve to it inside the player -

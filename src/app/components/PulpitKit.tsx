@@ -37,7 +37,7 @@ export default function PulpitKit({ kit }: PulpitKitProps) {
     `${activeTab === tab ? 'block' : 'hidden'} print:block print-force-visible`;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 print:border-0 print:p-0 print:shadow-none sm:print:p-0">
+    <div className="rounded-3xl border border-sand bg-white p-5 shadow-soft sm:p-6 print:border-0 print:p-0 print:shadow-none sm:print:p-0">
       <KitHeader kit={kit} />
       <KitActionBar kit={kit} />
 
@@ -45,7 +45,7 @@ export default function PulpitKit({ kit }: PulpitKitProps) {
         role="tablist"
         aria-label="Pulpit kit sections"
         onKeyDown={handleTabKeyDown}
-        className="mt-5 flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1 print:hidden"
+        className="mt-5 flex flex-wrap gap-1 rounded-full border border-sand bg-pill p-1 print:hidden"
       >
         {TABS.map((tab) => {
           const isActive = tab.id === activeTab;
@@ -61,8 +61,8 @@ export default function PulpitKit({ kit }: PulpitKitProps) {
               onClick={() => setActiveTab(tab.id)}
               className={
                 isActive
-                  ? 'flex-1 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm ring-1 ring-slate-200 transition-all duration-200 sm:text-sm'
-                  : 'flex-1 rounded-lg px-3 py-2 text-xs font-semibold text-slate-500 transition-all duration-200 hover:bg-white/60 hover:text-slate-800 sm:text-sm'
+                  ? 'flex-1 rounded-full bg-gold px-3 py-2 text-xs font-bold text-espresso shadow-sm transition-all duration-200 sm:text-sm'
+                  : 'flex-1 rounded-full px-3 py-2 text-xs font-bold text-muted transition-all duration-200 hover:bg-white/60 hover:text-espresso sm:text-sm'
               }
             >
               {tab.label}
@@ -95,7 +95,7 @@ export default function PulpitKit({ kit }: PulpitKitProps) {
         aria-labelledby="kit-tab-deck"
         className={`mt-5 ${panelClass('deck')}`}
       >
-        <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
+        <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-pill-ink">
           <ListIcon className="h-4 w-4" />
           Slide Preview
         </h4>

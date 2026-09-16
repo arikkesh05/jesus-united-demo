@@ -7,13 +7,13 @@ interface KitHeaderProps {
 }
 
 const pillClass =
-  'inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600';
+  'inline-flex items-center gap-1.5 rounded-full border border-sand bg-white px-2.5 py-1 text-xs font-semibold text-muted';
 
 export default function KitHeader({ kit }: KitHeaderProps) {
   return (
     <header>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-indigo-700">
+        <span className="inline-flex items-center rounded-full bg-pill px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-pill-ink">
           Pulpit Kit
         </span>
         <span className={pillClass}>
@@ -28,13 +28,13 @@ export default function KitHeader({ kit }: KitHeaderProps) {
         ) : null}
       </div>
 
-      <h3 className="mt-3 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+      <h3 className="mt-3 text-xl font-extrabold tracking-tight text-espresso sm:text-2xl">
         {kit.title}
       </h3>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {kit.theme ? (
-          <span className="inline-flex items-center rounded-full bg-teal-700 px-3 py-1 text-xs font-semibold text-white">
+          <span className="inline-flex items-center rounded-full bg-gold px-3 py-1 text-xs font-bold text-espresso">
             {kit.theme}
           </span>
         ) : null}
@@ -42,7 +42,7 @@ export default function KitHeader({ kit }: KitHeaderProps) {
         {kit.scripture_passages.map((passage) => (
           <span
             key={passage}
-            className="inline-flex items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700"
+            className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-pill px-2.5 py-1 text-xs font-bold text-pill-ink"
           >
             <BookIcon className="h-3.5 w-3.5" />
             {passage}

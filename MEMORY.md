@@ -228,3 +228,84 @@
 - Build-log note (expected, not a failure): with `CI=1`, `[@sentry/nextjs - After Production Compile]` prints "No auth token provided" warnings - source-map upload + release creation are skipped until `SENTRY_AUTH_TOKEN` (+ optional `SENTRY_ORG`/`SENTRY_PROJECT`) are set. Build itself succeeds and source maps are simply kept on disk (nothing is deleted when upload is off).
 - Untracked files to commit: `sentry.{client,server,edge}.config.ts`, `instrumentation.ts`, `instrumentation-client.ts`, `src/app/api/`, plus the modified `next.config.ts` / `package.json` / `package-lock.json`.
 
+
+## PHASE 0 COMPLETION - Official Visual Reskin & Brand Alignment with JesusUnited.org (2026-09-16)
+> Originally executed and logged as the visual reskin phase; this record certifies Phase 0 completion
+> (brand system foundation: typography, palette, canvas, and module treatments for all three modules).
+- **Design tokens** (`src/app/globals.css`, Tailwind v4 `@theme inline`): full JesusUnited.org palette as
+  named tokens — `--color-canvas #FAF7EE` (warm ivory canvas), `--color-espresso #2D261E` (primary text),
+  `--color-muted #786F66` (secondary text), `--color-sand #EDE7D9` (warm borders/dividers), `--color-gold
+  #D4A359` + `--color-gold-deep #C49348` (honey gold accent/hover), `--color-pill #F6EFE2` +
+  `--color-pill-ink #8C6221` (badges/pills). Warm ambient elevation via theme shadows: `--shadow-soft`
+  (cards) and `--shadow-lift` (hover) — both rgba(45,38,30,*) warm-tinted instead of cold black. Removed the
+  `prefers-color-scheme: dark` override (it broke the warm brand in dark mode); `:root` now sets
+  `--background #FAF7EE` / `--foreground #2D261E` and `body` uses `var(--font-jakarta)`.
+- **Typography** (`src/app/layout.tsx`): Geist/Geist Mono replaced with `Plus_Jakarta_Sans` from
+  `next/font/google` (self-hosted, weights 400/500/600/700/800, `display: swap`, variable
+  `--font-jakarta`, zero CLS). Geometric tracking + bold weights applied across headings: `font-extrabold
+  tracking-tight` (800) on the hero h1, reflection title, and kit title; `font-bold` (700) on card/module
+  headings; uppercase eyebrow labels use `tracking-[0.18em]`–`[0.2em]` with `font-bold`. Metadata rebranded
+  ("JesusUnited — Guest-First Ministry Toolkit"). `<html>` gained `scroll-smooth`; `<body>` is
+  `bg-canvas font-sans text-espresso`. Verified in build: 4 self-hosted woff2 files in
+  `.next/static/media/`, `@font-face "Plus Jakarta"` in the compiled CSS chunk, and
+  `--font-sans:var(--font-jakarta)` emitted.
+- **Demo shell** (`src/app/page.tsx`): brand hero (pill "Demo Preview" badge in pill/pill-ink, espresso
+  extrabold h1, muted lede) plus a NEW accessible pill navigation (`<nav aria-label="Module shortcuts">`)
+  with rounded-full anchor links to the three module sections (white surface → gold border/pill bg on
+  hover). Module eyebrow headings moved to muted + tracking-[0.2em]; footer divider is now warm
+  `border-sand`. Sections gained `scroll-mt-8` for anchor offsets under smooth scroll.
+- **Module 1 — Daily Reflection**: card is `rounded-3xl border-sand bg-white shadow-soft`; "DAILY BREAD"
+  is now a soft warm pill (`bg-pill text-pill-ink`, both states — the solid teal badge is gone); scripture
+  reference uses `text-pill-ink` (5.4:1 on white); body text `text-espresso/80`; title extrabold.
+  `AudioPlayer.tsx` is gold-accented: play transport `bg-gold text-espresso hover:bg-gold-deep`, track
+  `bg-sand` with gold progress fill and gold webkit/moz range thumbs (plus a `focus-visible:ring-gold`
+  keyboard-focus ring on the scrubber input), warm pill speed/mute buttons, warm inset container
+  (`rounded-2xl border-sand bg-pill/40`); fallback notice restyled to `bg-pill text-espresso/80` with
+  `text-pill-ink` retry link; error badge keeps amber semantics. No playback-architecture logic was
+  touched (multi-tier `<source>` fallback and hydration sync from Phase 3/5 are intact).
+- **Module 2 — Gatherings Map**: toolbar card `rounded-3xl` + `shadow-soft`; search input is now
+  **rounded-full** on warm `bg-canvas` with gold focus (`focus:border-gold ring-gold/25`); metro badge and
+  counts use pill/pill-ink and muted; empty states rounded-3xl with warm dashed sand borders.
+  `GatheringCard.tsx` is `rounded-3xl` with soft elevation and a hover lift (`hover:-translate-y-0.5
+  hover:border-gold/40 hover:shadow-lift`); meeting-time badge is a warm pill; **NEW warm distance badge**
+  renders when PostGIS `distance_meters` is present (`formatDistance` → `(m/1609.34).toFixed(1) mi away`),
+  in the same pill style; WhatsApp CTA is the primary gold action (`bg-gold text-espresso rounded-full
+  hover:bg-gold-deep`); Email/Google Maps secondary links are rounded-full with warm hover.
+- **Module 3 — Pulpit Kit Generator**: container `rounded-3xl shadow-soft`; the tab switcher is now a
+  **rounded-full** pill rail on `bg-pill` with the active tab highlighted in gold (`bg-gold text-espresso
+  rounded-full shadow-sm`) and muted inactive tabs (keyboard arrow-key navigation and print-forcing
+  classes unchanged). `KitHeader` badges: "Pulpit Kit" pill in pill/pill-ink, meta pills white with sand
+  border + muted text, theme pill gold with espresso ink, scripture pills pill/pill-ink.
+  `KitActionBar` triggers are rounded-full: "Copy Markdown Kit" gold/espresso, "Print / Export View"
+  white/sand with gold hover. `KitSlideDeck` slide previews are clean white cards (`rounded-2xl
+  border-sand shadow-soft`, pill-tinted header strip, pill-ink label, espresso title, muted body) — the
+  old slate-900 dark slides are gone. `KitOutlinePanel`/`KitStudyPanel` use warm `bg-canvas` inset rows,
+  gold number circles (`bg-gold text-espresso`), pill-ink section eyebrows, gold-bordered quote block
+  (`border-l-4 border-gold bg-pill`), and warm CTA panel.
+- **Accessibility (WCAG 2.1 AA)** — every gold/pill pairing was contrast-computed before adoption; white
+  text on gold (#D4A359) was REJECTED at ~2.3:1, so all gold buttons/controls carry espresso ink:
+  espresso-on-gold 6.5:1, espresso-on-gold-deep 5.4:1, pill-ink-on-pill 4.7:1, pill-ink-on-white 5.4:1,
+  muted-on-white 4.9:1, muted-on-canvas 4.6:1, espresso-on-canvas ≈12:1. All ARIA labels/roles (tablist,
+  tab, tabpanel, range slider `aria-valuetext`, live-region notices, `sr-only` dl terms) preserved
+  unchanged through the reskin; new nav is a labelled landmark; scrubber gained a visible keyboard focus
+  ring. All icons remain `aria-hidden` decorations.
+- Test results - Tier 1: `npx tsc --noEmit` exit 0. Tier 2: `npm run lint` exit 0. Tier 3: `npm run
+  build` exit 0 (clean Turbopack compile + TypeScript + static prerender of `/`, 4/4 pages).
+- Test results - Tier 4: all 8 brand hex values present in the compiled CSS chunk; 4 self-hosted
+  Plus Jakarta woff2 files emitted and referenced; `--font-sans:var(--font-jakarta)` in CSS; prerendered
+  HTML contains the brand utilities (text-espresso ×54, border-sand ×50, text-muted ×41, bg-pill ×32,
+  text-pill-ink ×23, bg-gold ×19, bg-canvas ×8, rounded-3xl ×6) and zero legacy teal/slate/indigo
+  classes (grep hits were only `-translate-y-` false positives); `next start` runtime smoke: HTTP 200
+  with Daily Bread pill, WhatsApp CTA, Print/Export View, and Sermon Architecture all rendered.
+- Files touched: `src/app/globals.css`, `src/app/layout.tsx`, `src/app/page.tsx`, and all 10 components
+  under `src/app/components/` (DailyReflection, AudioPlayer, GatheringMap, GatheringCard, PulpitKit,
+  KitHeader, KitActionBar, KitSlideDeck, KitOutlinePanel, KitStudyPanel). No changes to `src/lib/`,
+  print isolation CSS, or audio fallback architecture.
+- Lint-gate fix (Phase 0 re-certification): after the `.cline/skills/` directory landed in the workspace,
+  `npm run lint` swept up skill tooling (`html2pptx.js` require-import errors) that is not app code.
+  Fixed by adding `".cline/**"` to `globalIgnores` in `eslint.config.mjs` (the config overrides
+  eslint-config-next's default ignores, so the skills dir must be ignored explicitly). Zero lint
+  warnings/errors across the app after the fix.
+- Phase 0 completion re-certification: `npx tsc --noEmit` exit 0, `npm run lint` exit 0, `npm run build`
+  clean (4/4 pages prerendered) — all three mandatory gates green on the final tree.
+

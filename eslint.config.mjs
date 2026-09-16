@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Cline agent skill tooling (.cline/skills/) is reference material, not app code.
+    ".cline/**",
   ]),
 ]);
 

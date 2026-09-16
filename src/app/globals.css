@@ -1,28 +1,51 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Phase 6 brand canvas: warm linen/ivory with deep espresso ink. */
+  --background: #FAF7EE;
+  --foreground: #2D261E;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Brand typography (Plus Jakarta Sans via next/font, self-hosted). */
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+
+  /*
+   * JesusUnited.org brand palette (Phase 6):
+   * - canvas   #FAF7EE  warm linen/ivory page canvas
+   * - espresso #2D261E  primary deep charcoal text
+   * - muted    #786F66  secondary text (4.9:1 on white, 4.6:1 on canvas — AA)
+   * - sand     #EDE7D9  warm card borders and dividers
+   * - gold     #D4A359  honey gold accent (paired with espresso ink: 6.5:1)
+   * - gold-deep #C49348 honey gold hover (5.4:1 with espresso ink)
+   * - pill     #F6EFE2  pill/badge surface
+   * - pill-ink #8C6221  pill/badge text (4.7:1 on pill, 5.4:1 on white — AA)
+   */
+  --color-canvas: #FAF7EE;
+  --color-espresso: #2D261E;
+  --color-muted: #786F66;
+  --color-sand: #EDE7D9;
+  --color-gold: #D4A359;
+  --color-gold-deep: #C49348;
+  --color-pill: #F6EFE2;
+  --color-pill-ink: #8C6221;
+
+  /* Soft ambient elevation (warm-tinted shadows, no cold black). */
+  --shadow-soft: 0 1px 2px rgba(45, 38, 30, 0.04),
+    0 8px 24px rgba(45, 38, 30, 0.06);
+  --shadow-lift: 0 2px 4px rgba(45, 38, 30, 0.05),
+    0 16px 32px rgba(45, 38, 30, 0.1);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
 }
 
 /* Phase 5: print isolation - exporting prints only the Pulpit Kit. */

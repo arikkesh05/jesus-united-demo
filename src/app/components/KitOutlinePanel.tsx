@@ -8,7 +8,7 @@ interface KitOutlinePanelProps {
 export default function KitOutlinePanel({ kit }: KitOutlinePanelProps) {
   if (kit.outline.length === 0) {
     return (
-      <p className="mt-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+      <p className="mt-3 rounded-2xl border border-dashed border-sand bg-pill/50 p-4 text-sm text-muted">
         No outline has been published for this kit yet.
       </p>
     );
@@ -16,7 +16,7 @@ export default function KitOutlinePanel({ kit }: KitOutlinePanelProps) {
 
   return (
     <>
-      <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
+      <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-pill-ink">
         <ListIcon className="h-4 w-4" />
         Homiletical Progression
       </h4>
@@ -30,24 +30,24 @@ export default function KitOutlinePanel({ kit }: KitOutlinePanelProps) {
           const hook = kit.talking_points[index] ?? null;
 
           return (
-            <li key={point.section} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <li key={point.section} className="rounded-2xl border border-sand bg-canvas p-4">
               <div className="flex items-start gap-3">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-700 text-xs font-bold text-white">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gold text-xs font-bold text-espresso">
                   {index + 1}
                 </span>
                 <div>
-                  <p className="text-base font-semibold text-slate-900">{point.section}</p>
+                  <p className="text-base font-bold text-espresso">{point.section}</p>
                   {point.subtext ? (
-                    <p className="mt-1 text-sm leading-6 text-slate-600">{point.subtext}</p>
+                    <p className="mt-1 text-sm leading-6 text-muted">{point.subtext}</p>
                   ) : null}
                   {crossReference ? (
-                    <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700">
+                    <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-sand bg-pill px-2.5 py-1 text-xs font-bold text-pill-ink">
                       <BookIcon className="h-3.5 w-3.5" />
                       {crossReference}
                     </p>
                   ) : null}
                   {hook ? (
-                    <p className="mt-2 text-sm italic leading-6 text-slate-500">Hook: {hook}</p>
+                    <p className="mt-2 text-sm italic leading-6 text-muted">Hook: {hook}</p>
                   ) : null}
                 </div>
               </div>
