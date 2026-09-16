@@ -1,3 +1,4 @@
+import AltarOS from '@/app/components/AltarOS';
 import DailyReflection from '@/app/components/DailyReflection';
 import GatheringMap from '@/app/components/GatheringMap';
 import PulpitKit from '@/app/components/PulpitKit';
@@ -28,6 +29,12 @@ export default async function Home() {
             aria-label="Module shortcuts"
             className="mt-8 flex flex-wrap items-center justify-center gap-2"
           >
+            <a
+              href="#altar-os-section"
+              className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-white px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
+            >
+              Altar OS
+            </a>
             <a
               href="#daily-reflection-section"
               className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-white px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
@@ -63,6 +70,30 @@ export default async function Home() {
           <div className="flex justify-center">
             <DailyReflection reflection={reflection} />
           </div>
+        </section>
+
+        <section
+          id="altar-os-section"
+          aria-labelledby="altar-os-heading"
+          className="mt-16 scroll-mt-8"
+        >
+          <h2
+            id="altar-os-heading"
+            className="mb-4 text-center text-xs font-bold uppercase tracking-[0.2em] text-muted"
+          >
+            Altar OS &middot; Morning Altar &amp; Evening Examen
+          </h2>
+          <AltarOS
+            scriptureFocus={
+              reflection
+                ? {
+                    title: reflection.title,
+                    reference: reflection.scripture_reference,
+                    excerpt: reflection.reflection_text.slice(0, 240),
+                  }
+                : null
+            }
+          />
         </section>
 
         <section

@@ -58,6 +58,7 @@ body {
   /* Scoped to direct children of <main> so the Pulpit Kit's own <header> still prints. */
   main > header,
   main > footer,
+  #altar-os-section,
   #daily-reflection-section,
   #gathering-map-section,
   .no-print {

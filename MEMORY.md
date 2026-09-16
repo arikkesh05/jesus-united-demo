@@ -345,4 +345,50 @@
 - Note for next tasks: no test runner is installed (tdd-workflow skill) — `tsc` type-determinism plus
   the three gates are the verification layer, consistent with Phases 2-5.
 
+## PHASE 1 - Task 2: Altar OS v1 (Morning Altar & Evening Examen with Habit Logging) (2026-09-16)
+- **Data layer** (`src/lib/altar.ts`, client-safe): `AltarDayState` (morningCompleted/eveningCompleted/
+  eveningJournal + `HabitMinutes` prayer|scripture|worship|service), `HABIT_STEP=5`/`HABIT_MAX=600` with
+  `clampHabitMinutes`. Cloud mode: parallel `.maybeSingle()` reads from `altar_completions` + `habits`
+  filtered by (user_id, date), and `upsert(..., { onConflict: 'user_id,date' })` on both tables on save
+  (snake_case payloads mapped from the strict camel interfaces). Guest mode: localStorage
+  `jesusunited:altar-os:v1` keyed by local `YYYY-MM-DD`, all storage access try/catch-guarded (private
+  mode / quota / corrupt JSON never throw). Auth via `supabaseBrowser.createClient().auth.getUser()`;
+  a cloud read failure keeps mode 'cloud' (saves still attempted) while a failed cloud SAVE always
+  leaves a localStorage backup behind (`persistAltarDay` returns `{ok, mode}`).
+- **Component** (`src/app/components/AltarOS.tsx`, 'use client'): ivory Altar OS card per brand spec —
+  outer container `bg-canvas rounded-3xl border-sand shadow-soft` with white inner panels. Rounded-full
+  tab rail (Morning Altar / Evening Examen / Habit Logger) with gold active tab + ArrowLeft/Right
+  keyboard navigation (full tablist/tab/tabpanel ARIA). Morning: scripture focus card (pill-ink
+  reference pill, title, excerpt; falls back to Lamentations 3:22-23 when no daily reflection exists),
+  3 guided reflection prompts with gold number circles, "Mark morning complete" toggle (outline → gold,
+  `aria-pressed`). Evening: 3 examen prompt cards (Gratitude / Awareness / Grace), journal textarea
+  with debounced 800ms autosave + `aria-live` save notice (Saving… / Saved to your account / Saved on
+  this device / Save failed — kept on device), evening complete toggle. Habits: 4 counters (±5 min
+  rounded-full buttons, `tabular-nums` extrabold totals, disabled at bounds, labelled per-control).
+  Header shows an Altar OS pill, the live date pill, and a mode badge (pill = signed-in syncing, gold =
+  guest on-device).
+- **Hydration safety**: the date is computed ONLY after mount (`todayLocalDate()` inside useEffect) and
+  the server render is a `role="status"` skeleton ("Preparing your altar…") — the prerendered HTML and
+  first client render match exactly, so timezone-dependent UI never causes a hydration mismatch.
+- **Ref lint fix**: the new `react-hooks/refs` rule forbids `stateRef.current = state` during render;
+  fixed with a single `updateState()` mutation path (ref + `setState` together), so debounced journal
+  writes and rapid counter taps always persist the latest state.
+- **Page integration** (`src/app/page.tsx`): Altar OS section mounted between Module 1 and Module 2
+  (`#altar-os-section`, eyebrow "Altar OS · Morning Altar & Evening Examen", mt-16 + scroll-mt-8), fed
+  live scripture focus from `getDailyReflection()` (title/reference/first 240 chars, null-safe); a new
+  "Altar OS" pill was added first in the hero module-shortcut nav. `globals.css` print isolation now
+  also hides `#altar-os-section` so Print/Export still yields only the Pulpit Kit.
+- Test results - Tier 1: `npx tsc --noEmit` exit 0. Tier 2: `npm run lint` exit 0 (after the
+  react-hooks/refs fix). Tier 3: `npm run build` exit 0, zero warnings, 4/4 pages prerendered, proxy
+  still registered.
+- Test results - Tier 4 (`next start` + curl): `/` HTTP 200; prerendered HTML contains the
+  `altar-os-section`, the "Altar OS" nav pill, and the SSR skeleton (`Preparing your altar`) exactly
+  once; server log clean.
+- Files touched: new `src/lib/altar.ts`, new `src/app/components/AltarOS.tsx`; edited
+  `src/app/page.tsx`, `src/app/globals.css`. No changes to `src/lib/types.ts` (Task 1 schemas reused
+  as-is) or the Supabase clients.
+- Schema dependency to verify with the DBA/MCP before enabling cloud mode in prod: UNIQUE constraints
+  on `altar_completions(user_id, date)` and `habits(user_id, date)` are required for the upsert
+  conflict targets; RLS must restrict all four write columns to `auth.uid() = user_id`.
+
 
