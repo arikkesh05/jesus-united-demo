@@ -391,4 +391,94 @@
   on `altar_completions(user_id, date)` and `habits(user_id, date)` are required for the upsert
   conflict targets; RLS must restrict all four write columns to `auth.uid() = user_id`.
 
+### Task 2 addendum - AltarOS.tsx "JSX syntax error" diagnostics triage (2026-09-16)
+- IDE diagnostics claimed unmatched braces/unclosed JSX at lines 168/207/255/301. Full-file audit found
+  the on-disk file is VALID: the reported lines point at `void persist(...)`, the `saveNotice` ternary,
+  `isActive`, and `state.morningCompleted` — none are syntax errors. The diagnostics matched the
+  INTERMEDIATE states while the component was authored in sequential editor chunks (Part A-D), i.e.
+  stale editor state, not real defects.
+- Evidence: `npx tsc --noEmit` exit 0; `npm run lint` exit 0; `npm run build` exit 0 (zero errors,
+  4/4 prerendered); a quote/string-aware balance audit returned 0/0/0 for braces/parens/brackets; all
+  three tab panels (`morning`/`evening`/`habits` conditionals, 36 closing JSX tags) present; runtime
+  `next start` smoke: `/` HTTP 200, SSR skeleton present once, and "Evening Examen"/"Habit Logger"/
+  "Mark morning complete" all compiled into client chunk `2vq-wy11b_j3q.js`; server log clean.
+- Gotcha for future smoke tests: run `next start` only AFTER `next build` fully completes — starting
+  mid-build yields "Could not find a production build ... build-id" and curl HTTP 000 (first attempt
+  raced the build; retry with a longer wait succeeded). No code changes were required for this task.
+
+
+
+## PHASE 1 - Task 3: Gathering Submissions & Community Attendance Tracking (2026-09-16)
+- **Data layer** (`src/lib/gatheringsSubmissions.ts`, client-safe on `supabaseBrowser.createClient()`):
+  `submitGathering(Omit<GatheringSubmission, 'id' | 'status' | 'created_at'>)` inserts into
+  `gathering_submissions` with hard-coded `status: 'pending'` (promotion to `gatherings` is an
+  editor-only flow, never client-side) and returns `{ ok, error }` instead of throwing.
+  `recordAttendance(gatheringId)` resolves the user via `getCurrentUserId()` (reused from
+  `src/lib/altar.ts`) and inserts `{ gathering_id, user_id }` into `gathering_attendances`; guests and
+  failed cloud writes degrade to localStorage `jesusunited:gathering-attendance:v1`
+  (`LocalAttendanceRecord[]`, every storage read/write try/catch-guarded like Altar OS).
+  `getAttendanceCount(gatheringId)` uses the `head: true, count: 'exact'` PostgREST count and folds in
+  +1 for the viewer's own on-device record ONLY when unauthenticated (a signed-in believer's row is
+  already inside the cloud count — avoids double-counting); count-query failure falls back to the
+  on-device count. `hasLocalAttendance(gatheringId)` exposes the attended flag for UI state.
+  Auth resolution is cached in a module-level `cachedUserId` so N cards trigger one auth round-trip.
+- **Modal** (`src/app/components/GatheringSubmissionModal.tsx`, 'use client'): accessible dialog
+  (`role="dialog"`, `aria-modal`, labelled/described by ids) with full focus trap (Tab/Shift+Tab
+  cycling over a `FOCUSABLE_SELECTOR` query), Esc-to-close, backdrop-click close, body scroll lock,
+  focus-into-first-field on open and focus restore to the trigger on close. Nine validated inputs:
+  Gathering Name, City, Country, Denomination/Type (optional), Meeting Times, Street Address,
+  Coordinates (optional, parsed `lat, lng` with range checks), Submitter Name, Submitter Email
+  (regex + required) — inline `role="alert"` errors with `aria-invalid`/`aria-describedby`, warm
+  linen canvas surface (`bg-canvas rounded-3xl border-sand shadow-lift`), gold/pill accents, gold
+  submit with submitting state, gold-check success panel, and form reset after a completed close.
+  Payload mapping: `leader_name`=submitter name, `contact_email`=submitter email, denomination folded
+  into `description`, address = "street, city, country", optional lat/lng into `gathering_data`.
+- **Card integration** (`src/app/components/GatheringCard.tsx` → now 'use client'): new "I attended"
+  counter button above the WhatsApp CTA — optimistic count+state, `aria-pressed`, `motion-safe:animate-ping`
+  gold pulse ring (re-keyed `pulseKey` so repeat pulses restart; timer cleaned up on unmount),
+  `tabular-nums` count badge showing "—" until the client count resolves (hydration-safe: prerendered
+  HTML matches first client render), `role="status"` notice line ("You are counted — see you there!" /
+  "Counted on this device." / rollback+error message on failure), disabled once attended. New icons
+  in `icons.tsx`: `PlusIcon`, `UsersIcon`, `CloseIcon`.
+- **Map integration** (`src/app/components/GatheringMap.tsx`): gold rounded-full "Submit a Gathering"
+  pill button in the toolbar (flex-wrap added for mobile) mounting `GatheringSubmissionModal`
+  (`submissionOpen` state, render-gated so nothing modal-ish ships in prerendered HTML).
+- Authoring gotcha (same class as Task 2's addendum): chunked editor inserts left one missing `};`
+  (after `requestClose`), one duplicated closing brace (EOF of `gatheringsSubmissions.ts`), and a
+  stranded `fieldError` line inside JSX — all caught immediately by Gate 1 (`tsc`) and fixed; the
+  final tree is fully verified.
+- Test results - Tier 1: `npx tsc --noEmit` exit 0. Tier 2: `npm run lint` exit 0 (zero warnings).
+  Tier 3: `npm run build` exit 0 — compiled successfully, zero warnings, 4/4 pages prerendered,
+  `ƒ Proxy (Middleware)` still registered. Tier 4 (`next start` + curl): `/` HTTP 200; prerendered
+  HTML contains 3× "I attended" (one per seeded card), 1× "Submit a Gathering", and 0× modal markup
+  (render-gated as designed); server log clean.
+- Schema dependency to verify with the DBA/MCP before prod: `gathering_attendances` needs RLS
+  restricting inserts to `auth.uid() = user_id`; `gathering_submissions` needs an anon-writable
+  insert policy with `status` defaulting/forced to `'pending'`. No `src/lib/types.ts` changes were
+  required (Task 1 schemas reused as-is).
+
+
+### Task 3 addendum - "syntax/structural errors" diagnostics triage (2026-09-16)
+- IDE diagnostics reported: `GatheringCard.tsx:15` ('from' expected), `GatheringSubmissionModal.tsx:277-278`
+  (unescaped `>`/`}` in JSX, unclosed `div`/`form`), a dangling brace near line 462, and
+  `gatheringsSubmissions.ts:206` (extra trailing brace). Full-file audit found ALL on-disk files VALID —
+  zero code changes were required. The reported line numbers correspond exactly to the INTERMEDIATE
+  authoring states that Gate 1 (`tsc`) already caught and fixed during the original task (missing `};`
+  after `requestClose`, duplicated EOF brace, stranded `fieldError` inside JSX) — i.e. stale editor
+  diagnostics, the same class as the Task 2 addendum.
+- Evidence (all on the final tree, cold cache): `rm -f tsconfig.tsbuildinfo && npx tsc --noEmit` exit 0;
+  `npm run lint` exit 0 (zero warnings); `npm run build` captured with explicit `echo BUILD_EXIT=$?` →
+  **0** with zero error/warning strings in the full log; `GatheringCard.tsx:15` is `getAttendanceCount,`
+  inside a well-formed multi-line import closed at line 18; modal line 277-278 are
+  `<form noValidate ...>` + `<div className="grid gap-4">` (no raw `>`/`}` outside expression braces);
+  the file ends at 461/462 with the single closing brace of `SubmissionField` (no `};`);
+  `gatheringsSubmissions.ts` ends at 205 with one closing brace.
+- Structural audit (parser-independent): braces/parens/brackets balance 0/0/0 in all three files; zero
+  control characters; modal `<div>` audit 11-open vs 10-close explained — line 213's
+  `<div aria-hidden onClick={requestClose} />` is self-closing (backdrop), so pairing is exact; `form`
+  pairs 1/1. Runtime smoke from the original task stands: `/` HTTP 200 with 3× "I attended" and 1×
+  "Submit a Gathering" in the prerendered HTML.
+- Guidance: treat stale-diagnostics reports for files whose `tsc`/`lint`/`build` gates exit 0 as
+  editor-state artifacts — verify against the on-disk file + gates before editing; never "fix" valid
+  code (e.g. replacing a structural `>` with `&gt;`) to silence a phantom diagnostic.
 

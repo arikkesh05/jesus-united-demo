@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import GatheringCard from '@/app/components/GatheringCard';
-import { MapPinIcon } from '@/app/components/icons';
+import GatheringSubmissionModal from '@/app/components/GatheringSubmissionModal';
+import { MapPinIcon, PlusIcon } from '@/app/components/icons';
 import type { Gathering } from '@/lib/types';
 
 interface GatheringMapProps {
@@ -26,6 +27,7 @@ function buildSearchIndex(gathering: Gathering): string {
 
 export default function GatheringMap({ gatherings }: GatheringMapProps) {
   const [query, setQuery] = useState('');
+  const [submissionOpen, setSubmissionOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -53,7 +55,7 @@ export default function GatheringMap({ gatherings }: GatheringMapProps) {
           />
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-pill px-3 py-1 text-xs font-bold text-pill-ink">
             <MapPinIcon className="h-3.5 w-3.5" />
             {METRO_LABEL}
@@ -61,6 +63,14 @@ export default function GatheringMap({ gatherings }: GatheringMapProps) {
           <span className="text-xs font-medium text-muted">
             {filtered.length} of {gatherings.length} gatherings
           </span>
+          <button
+            type="button"
+            onClick={() => setSubmissionOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full bg-gold px-4 py-2 text-xs font-bold text-espresso transition hover:bg-gold-deep hover:shadow-md"
+          >
+            <PlusIcon className="h-3.5 w-3.5" />
+            Submit a Gathering
+          </button>
         </div>
       </div>
 
@@ -96,6 +106,11 @@ export default function GatheringMap({ gatherings }: GatheringMapProps) {
           ))}
         </ul>
       )}
+
+      <GatheringSubmissionModal
+        open={submissionOpen}
+        onClose={() => setSubmissionOpen(false)}
+      />
     </div>
   );
 }
