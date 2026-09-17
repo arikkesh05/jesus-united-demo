@@ -635,3 +635,54 @@
   available, so the allowlist seeding, live approve/reject against real rows, and RPC application
   must be executed by an administrator (apply the migration, insert the moderator's
   `community_moderators` row, then retry this deck against the live project).
+
+## Phase 2 Task 3.1 — 3D Globe Math Foundation & Privacy-Preserving Gathering Centroid Layer (2026-09-17)
+- **Shipped — `src/lib/globe.ts`** (new, pure/dependency-free, no `window`/`THREE` at module scope so
+  it is RSC-, browser- and `node:test`-safe):
+  - `latLngToVector3(lat, lng, radius = 100)` — right-handed Y-up convention: **+Y = North Pole,
+    Equator in the X/Z plane, Prime Meridian (0°,0°) on +Z, eastward longitude (90°E → +X, 180° → −Z)**.
+    Documented gotcha: a textured `THREE.SphereGeometry` must be rotated −90° about Y (or its
+    equirectangular 0° column laid on +Z) to line up with these markers.
+  - `calculateGreatCircleSpline(p1, p2, altitude = 1.25, pointsCount = 30)` — slerp control points
+    along the shortest great circle, lifted by a **sine arch** (exactly radius 100 at both endpoints,
+    peak `100 × altitude` at the midpoint) for intercession beams; coincident pairs reuse the start
+    direction and **antipodal pairs use a Rodrigues rotation** about an orthogonal axis so no NaN
+    geometry is ever produced.
+  - `sanitizeToCentroidWithJitter(lat, lng, seedString)` — **FNV-1a 32-bit hash of the row id**
+    split into two 16-bit halves mapped to ±`MAX_CENTROID_JITTER_DEGREES` (0.015°) per axis, rounded
+    to 6dp; deterministic across renders/processes and always within ~2.4km of the true point.
+    Exports `GLOBE_BASE_RADIUS = 100` and `MAX_CENTROID_JITTER_DEGREES = 0.015`.
+- **Schema** — `GlobeMarker { id, city, first_name, member_count, lat, lng }` added to
+  `src/lib/types.ts` under a Phase 2 header (the payload is deliberately minimal).
+- **Data layer — `getPublicGatheringMarkers()` in `src/lib/gatherings.ts`** (existing private EWKB/
+  GeoJSON/WKT/named-column parser reused via `extractCoordinates`, so PostGIS geography and fallback
+  `latitude`/`longitude` columns both work):
+  - Read is **bounded** (`limit 500`) and newest-first; a `status = 'approved'` filter is attempted
+    first, then **falls back to an unfiltered read** because the deployed `gatherings` table has no
+    `status` column (a hard `.eq('status', …)` would break PostgREST with 42703). Rows that do carry
+    a non-`approved` status are still dropped client-side.
+  - Privacy stripping: only `id`, `city`, `first_name`, `member_count` and jittered `lat`/`lng` leave
+    the function. `first_name` strips honorifics/surnames from `leader_name`; `city` prefers an
+    explicit `city` column and otherwise only takes comma-separated segments **after** the street line,
+    rejecting any candidate that still contains digits (so `1234 Secret Street` or a no-comma address
+    can never leak); `member_count` falls back to 1. Street address, description, email, meeting time
+    and full name are never included.
+  - Contract: `{ ok: true, data: GlobeMarker[] }` or `{ ok: false, data: [], error }` — never throws
+    (missing config, read errors and unparseable rows are all contained).
+- **TDD (`tests/globe.test.mjs`, node:test + `ts.transpileModule` + `vm` sandbox, no new deps)**:
+  RED first (13 failures: file/module absent, then `getPublicGatheringMarkers is not a function`),
+  then GREEN **18/18**. Covers equator/pole/prime-meridian/antimeridian Vector3 projection (exact
+  `30°N → y = 50, z = 86.6025…`), radius default, out-of-range/NaN input, arc altitude scaling
+  (peak exactly 125 / 150 with a midpoint sample), equatorial arc staying in-plane, custom point
+  count, coincident + antipodal safety, jitter determinism/bounds/`< 3km` haversine across 6 global
+  sites, marker key whitelist, zero-address/full-name leak, EWKB + fallback columns + GeoJSON + WKT
+  resolution, status/`member_count` gating, bounded query contract, status-column fallback, and both
+  failure paths. **Realm gotcha**: `assert/strict` `deepEqual` fails on values created inside a
+  `vm` context ("same structure but not reference-equal") — compare via a `plain()`
+  `JSON.parse(JSON.stringify(...))` copy or primitives/`.length`.
+- Quality gates: `node tests/globe.test.mjs` **18/18 exit 0**; `npx tsc --noEmit` exit 0;
+  `npm run lint` exit 0 (zero warnings); `npm run build` exit 0 (compiled, 5/5 pages prerendered,
+  `ƒ Proxy (Middleware)` registered).
+- Files touched: new `src/lib/globe.ts`, new `tests/globe.test.mjs`; edited `src/lib/types.ts`,
+  `src/lib/gatherings.ts`. No component/UI wiring yet (the WebGL globe component is a later task);
+  `getPublicGatheringMarkers()` is currently unused by any route.

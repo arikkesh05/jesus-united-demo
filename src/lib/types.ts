@@ -167,3 +167,23 @@ export interface PrayerVisibilityUpdate {
   is_public: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// Phase 2 — 3D globe schemas (deterministic, strict).
+// ---------------------------------------------------------------------------
+
+/**
+ * Privacy-preserving marker payload rendered on the public 3D globe.
+ *
+ * Deliberately minimal: it carries no street address, meeting schedule, email
+ * or full leader identity, and `lat`/`lng` are deterministic jittered centroids
+ * (see `sanitizeToCentroidWithJitter`), never the exact location.
+ */
+export interface GlobeMarker {
+  id: string;
+  city: string;
+  first_name: string;
+  member_count: number;
+  lat: number;
+  lng: number;
+}
+

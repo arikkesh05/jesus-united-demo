@@ -1,5 +1,6 @@
+import { sanitizeToCentroidWithJitter } from '@/lib/globe';
 import { supabase } from '@/lib/supabase';
-import type { Gathering } from '@/lib/types';
+import type { Gathering, GlobeMarker } from '@/lib/types';
 
 /**
  * A row as returned by PostgREST before it is normalised into a `Gathering`.
@@ -248,4 +249,208 @@ export async function getGatherings(): Promise<Gathering[]> {
   }
 
   return gatherings;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2 — Task 3.1: privacy-preserving public globe markers.
+// ---------------------------------------------------------------------------
+
+/**
+ * Result of `getPublicGatheringMarkers`. Failures are reported as data (never
+ * thrown) so the globe can render an error state instead of crashing.
+ */
+export type PublicGatheringMarkersResult =
+  | { ok: true; data: GlobeMarker[] }
+  | { ok: false; data: []; error: string };
+
+/** Upper bound on the public marker payload (keeps the WebGL scene bounded). */
+const PUBLIC_MARKER_LIMIT = 500;
+
+/** Titles stripped from `leader_name` so only a first name is published. */
+const NAME_HONORIFICS = new Set([
+  'apostle',
+  'bishop',
+  'bro',
+  'brother',
+  'deacon',
+  'dr',
+  'elder',
+  'evangelist',
+  'father',
+  'fr',
+  'minister',
+  'miss',
+  'mr',
+  'mrs',
+  'ms',
+  'pastor',
+  'prophet',
+  'ps',
+  'rev',
+  'reverend',
+  'saint',
+  'sis',
+  'sister',
+  'st',
+]);
+
+const POSTAL_CODE_PATTERN = /\b\d{4,}(?:-\d{4})?\b/g;
+
+/**
+ * Resolves a low-precision public city label.
+ *
+ * City-level data is inherently non-identifying, so an explicit `city` column is
+ * always preferred. When only a street address is available the label is taken
+ * from the segments that follow the first comma (never the street line itself)
+ * and rejected outright if any digits remain — so a house number, postal code
+ * or single-line street address can never leak into the payload.
+ */
+function derivePublicCity(raw: RawRow): string {
+  const explicit =
+    toNullableString(raw.city) ?? toNullableString(raw.town) ?? toNullableString(raw.locality);
+  if (explicit !== null && explicit.trim() !== '') return explicit.trim();
+
+  const address = toStringValue(raw.address);
+  if (address === '') return '';
+
+  const segments = address
+    .split(',')
+    .map((segment) => segment.trim())
+    .filter((segment) => segment !== '');
+
+  for (let index = 1; index < segments.length; index += 1) {
+    const candidate = segments[index].replace(POSTAL_CODE_PATTERN, '').replace(/\s+/g, ' ').trim();
+    if (candidate !== '' && !/\d/.test(candidate)) return candidate;
+  }
+
+  return '';
+}
+
+/** Publishes only the leader's first name (honorifics and surnames removed). */
+function parsePublicFirstName(leaderName: string): string {
+  const tokens = leaderName
+    .replace(/[.,;:()]/g, ' ')
+    .split(/\s+/)
+    .filter((token) => token !== '');
+  if (tokens.length === 0) return '';
+  if (tokens.length === 1 && NAME_HONORIFICS.has(tokens[0].toLowerCase())) return '';
+
+  let index = 0;
+  while (index < tokens.length - 1 && NAME_HONORIFICS.has(tokens[index].toLowerCase())) {
+    index += 1;
+  }
+
+  return (tokens[index] ?? '').replace(/[^A-Za-z'’-]/g, '');
+}
+
+/** Community size for the marker, falling back to a single believer. */
+function parseMemberCount(raw: RawRow): number {
+  const value = firstFinite(
+    raw.member_count,
+    raw.members_count,
+    raw.attendance_count,
+    raw.check_in_count,
+  );
+  if (value === undefined) return 1;
+  const count = Math.floor(value);
+  return count >= 1 ? count : 1;
+}
+
+/**
+ * Maps one `gatherings` row to a public marker. Returns `null` for rows that are
+ * unusable (no id, no resolvable coordinates, or a non-approved status).
+ */
+function parsePublicMarkerRow(raw: unknown): GlobeMarker | null {
+  if (!isPlainObject(raw)) return null;
+
+  const id = toStringValue(raw.id);
+  if (id === '') return null;
+
+  // `gatherings` only ever receives moderator-approved rows today; this gate
+  // protects a future schema where a status column exists.
+  const status = toNullableString(raw.status);
+  if (status !== null && status.trim().toLowerCase() !== 'approved') return null;
+
+  const { latitude, longitude } = extractCoordinates(raw);
+  if (latitude === undefined || longitude === undefined) return null;
+
+  const centroid = sanitizeToCentroidWithJitter(latitude, longitude, id);
+
+  return {
+    id,
+    city: derivePublicCity(raw),
+    first_name: parsePublicFirstName(toStringValue(raw.leader_name)),
+    member_count: parseMemberCount(raw),
+    lat: centroid.lat,
+    lng: centroid.lng,
+  };
+}
+
+interface PublicRowsResult {
+  rows: unknown[];
+  error: string | null;
+}
+
+/**
+ * Reads published gatherings, newest first and bounded.
+ *
+ * The status filter is attempted first so a future status column is honoured;
+ * the deployed schema has no such column, so a rejected filter falls back to an
+ * unfiltered read of the same approved-only table.
+ */
+async function fetchPublishedRows(): Promise<PublicRowsResult> {
+  const selectGatherings = () => supabase.from('gatherings').select('*');
+
+  const primary = await selectGatherings()
+    .eq('status', 'approved')
+    .order('created_at', { ascending: false })
+    .limit(PUBLIC_MARKER_LIMIT);
+  if (!primary.error) {
+    return { rows: Array.isArray(primary.data) ? primary.data : [], error: null };
+  }
+
+  console.warn(
+    'Status-filtered gathering read failed, retrying without the filter:',
+    primary.error.message,
+  );
+
+  const fallback = await selectGatherings()
+    .order('created_at', { ascending: false })
+    .limit(PUBLIC_MARKER_LIMIT);
+  if (fallback.error) return { rows: [], error: fallback.error.message };
+  return { rows: Array.isArray(fallback.data) ? fallback.data : [], error: null };
+}
+
+/**
+ * Public, privacy-preserving marker feed for the 3D globe.
+ *
+ * Returns only what the globe needs to render (`id`, `city`, `first_name`,
+ * `member_count`) plus deterministic jittered centroids. Street addresses,
+ * meeting schedules, emails and full leader identities never leave this
+ * function. Failures resolve to `{ ok: false, data: [], error }`, never throw.
+ */
+export async function getPublicGatheringMarkers(): Promise<PublicGatheringMarkersResult> {
+  try {
+    const { rows, error } = await fetchPublishedRows();
+    if (error !== null) {
+      console.error('Error fetching public gathering markers:', error);
+      return { ok: false, data: [], error };
+    }
+
+    const markers: GlobeMarker[] = [];
+    for (const row of rows) {
+      try {
+        const marker = parsePublicMarkerRow(row);
+        if (marker) markers.push(marker);
+      } catch (parseError) {
+        console.error('Skipping unparseable public marker row:', parseError);
+      }
+    }
+
+    return { ok: true, data: markers };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'The gathering feed is unavailable.';
+    console.error('Public gathering marker read failed:', message);
+    return { ok: false, data: [], error: message };
+  }
 }
