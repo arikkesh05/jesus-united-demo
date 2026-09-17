@@ -11,6 +11,7 @@ import {
   type PrayerFilter,
 } from '@/lib/prayers';
 import type { PrayerRequest } from '@/lib/types';
+import { usePrayerRealtime } from '@/lib/usePrayerRealtime';
 
 const FILTER_PILL_CLASS =
   'inline-flex items-center rounded-full border px-3.5 py-1.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50';
@@ -35,6 +36,8 @@ export default function PrayerWall() {
   const [optimisticCounts, setOptimisticCounts] = useState<Record<string, number>>({});
   const [intercededIds, setIntercededIds] = useState<string[]>([]);
   const [pulseId, setPulseId] = useState<string | null>(null);
+  /** Card whose counter badge is pulsing from a *remote* believer's "I Prayed". */
+  const [remotePulseId, setRemotePulseId] = useState<string | null>(null);
 
   const applyResult = useCallback((result: LoadResult) => {
     setPrayers(result.prayers);
@@ -59,6 +62,37 @@ export default function PrayerWall() {
       active = false;
     };
   }, [fetchWall, applyResult]);
+
+  /**
+   * Realtime layer: bridges `postgres_changes` events into the wall state.
+   * Updates are ignored while the initial fetch is still in flight (the fetch
+   * result replaces the list wholesale anyway).
+   */
+  const updatePrayerList = useCallback(
+    (update: (prev: PrayerRequest[]) => PrayerRequest[]) => {
+      setPrayers((current) => (current === null ? current : update(current)));
+    },
+    []
+  );
+
+  const handleRemoteActivity = useCallback((requestId: string) => {
+    // A remote believer's bump also covers this visitor's own optimistic +1
+    // once it reaches the server — drop the override so the counter shows the
+    // server truth (and future remote bumps) instead of a stale snapshot.
+    setOptimisticCounts((currentCounts) => {
+      if (!(requestId in currentCounts)) return currentCounts;
+      const next = { ...currentCounts };
+      delete next[requestId];
+      return next;
+    });
+    setRemotePulseId(requestId);
+  }, []);
+
+  const realtimeStatus = usePrayerRealtime({
+    prayers: prayers ?? [],
+    setPrayers: updatePrayerList,
+    onRemoteActivity: handleRemoteActivity,
+  });
 
   const handleIntercede = async (prayer: PrayerRequest) => {
     if (intercededIds.includes(prayer.id)) return;
@@ -149,13 +183,21 @@ export default function PrayerWall() {
         </button>
       </div>
 
-      <p aria-live="polite" className="mt-4 text-xs font-medium text-muted">
-        {prayers === null
-          ? 'Gathering the prayer wall…'
-          : `${prayers.length} ${prayers.length === 1 ? 'prayer' : 'prayers'}${
-              topic ? ` in ${topic}` : ''
-            }${answeredOnly ? ' · answered only' : ''}`}
-      </p>
+      <div className="mt-4 flex flex-wrap items-center gap-2.5">
+        <p aria-live="polite" className="text-xs font-medium text-muted">
+          {prayers === null
+            ? 'Gathering the prayer wall…'
+            : `${prayers.length} ${prayers.length === 1 ? 'prayer' : 'prayers'}${
+                topic ? ` in ${topic}` : ''
+              }${answeredOnly ? ' · answered only' : ''}`}
+        </p>
+        {realtimeStatus === 'live' ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-pill px-2.5 py-0.5 text-[11px] font-bold text-pill-ink">
+            <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-gold" />
+            Live
+          </span>
+        ) : null}
+      </div>
 
       {prayers === null ? (
         <div role="status" aria-busy="true" className="mt-2 grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -232,7 +274,13 @@ export default function PrayerWall() {
                 <div className="mt-4 flex items-center justify-between border-t border-sand pt-4">
                   <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted">
                     <UsersIcon className="h-3.5 w-3.5" />
-                    <span aria-live="polite" className="font-bold tabular-nums text-espresso">
+                    <span
+                      aria-live="polite"
+                      onAnimationEnd={() => setRemotePulseId(null)}
+                      className={`font-bold tabular-nums text-espresso ${
+                        remotePulseId === prayer.id ? 'prayer-pulse' : ''
+                      }`}
+                    >
                       {count}
                     </span>
                     praying

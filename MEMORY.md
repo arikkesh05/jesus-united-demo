@@ -566,3 +566,47 @@
   `auth.uid() = user_id`; a security-definer RPC for the atomic `intercession_count + 1` bump would
   replace the read-then-update once available.
 
+## PHASE 2 - Task 1: Realtime Prayer Wall & Intercession Streams (2026-09-17)
+- **Subscription layer** (`src/lib/usePrayerRealtime.ts`, new, 'use client'): one-shot
+  `useEffect` subscribing to `postgres_changes` (`event: '*'`, `schema: 'public'`,
+  `table: 'prayer_requests'`) via `supabaseBrowser.createClient()`, channel name
+  `prayer-wall:public:prayer_requests`. Channel logic hoisted into `setupChannel()` so the hook
+  body stays lean; handlers read fresh values through refs (`prayersRef`, `activityRef`) because the
+  subscription never re-mounts.
+- Event handling (all rows go through the shared `parsePrayerRow` — now **exported** from
+  `prayers.ts` so fetch and realtime normalise identically):
+  - INSERT → prepend only `is_public` prayers; **duplicate guard** both against the current list
+    (ref read) AND inside the functional updater (StrictMode-safe); non-public rows are dropped.
+  - UPDATE → patch `intercession_count` / `is_answered` / `answered_note` in place on the matching
+    card; a row turning non-public is removed; a private→public row that isn't on the wall is
+    prepended. When the counter actually changed, `onRemoteActivity(requestId)` fires.
+  - DELETE → removed by `payload.old.id` (empty id = no-op).
+- **Teardown / leak safety**: cleanup returns `client.removeChannel(channel)` (unsubscribe +
+  server-side teardown), covering unmount and React StrictMode double-mount.
+- **Guest/offline resilience**: `createClient()` wrapped in try/catch — missing/malformed Supabase
+  env vars degrade to status `unavailable` (never throws); `SUBSCRIBED` → `live`,
+  `CHANNEL_ERROR`/`TIMED_OUT`/`CLOSED` → `unavailable`. Return type
+  `PrayerRealtimeStatus = 'connecting' | 'live' | 'unavailable'`. GOTCHA: the new
+  `react-hooks/set-state-in-effect` rule flagged a synchronous `setStatus` inside the effect's
+  catch — deferred with `queueMicrotask(() => setStatus('unavailable'))` to satisfy it.
+- **Component wiring** (`src/app/components/PrayerWall.tsx`): hook receives
+  `prayers ?? []`, a `updatePrayerList` wrapper (no-ops while the list is `null` — initial fetch
+  replaces the list wholesale anyway), and `handleRemoteActivity` which (a) sets `remotePulseId` to
+  run the existing 700ms gold `prayer-pulse` on the card's **counter badge** (the `aria-live`
+  tabular-nums span, cleared on `onAnimationEnd` — the local "I Prayed" button pulse is untouched)
+  and (b) **clears that card's `optimisticCounts` override** so the counter shows server truth once
+  any realtime bump (including the visitor's own, which arrives as its own UPDATE) lands. UI: a
+  "Live" gold-dot pill (`bg-pill`/`border-gold/40`, `animate-pulse` dot) appears next to the count
+  line only while the channel is `live`; connecting/unavailable renders nothing extra (silent
+  degradation, wall still works off the last fetch).
+- Test results - Tier 1: `npx tsc --noEmit` exit 0. Tier 2: `npm run lint` exit 0 (after the
+  queueMicrotask fix). Tier 3: `npm run build` exit 0, compiled successfully, zero
+  warnings/errors, 4/4 pages prerendered, `ƒ Proxy (Middleware)` registered.
+- Runtime note: live verification against a real second client was not possible in this
+  environment — the Supabase project must have realtime enabled for `prayer_requests`
+  (Dashboard → Database → Replication → add to `supabase_realtime` publication) and the Task-4 RLS
+  (anon SELECT on `is_public = true`) applies to realtime frames too; until both are confirmed the
+  hook degrades to `unavailable` and the wall keeps rendering from `getPrayerRequests`.
+- Files touched: new `src/lib/usePrayerRealtime.ts`; edited `src/lib/prayers.ts` (exported
+  `parsePrayerRow` + header doc), `src/app/components/PrayerWall.tsx`. No schema or type changes.
+

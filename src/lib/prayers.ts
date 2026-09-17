@@ -15,6 +15,9 @@ import type { PrayerRequest } from '@/lib/types';
  *   `intercession_count`. Guests (or any failed cloud write) degrade
  *   gracefully to localStorage (`jesusunited:prayer-intercessions:v1`) so the
  *   "I Prayed" interaction never errors out.
+ * - `parsePrayerRow` is exported for `src/lib/usePrayerRealtime.ts` (Phase 2
+ *   — Task 1) so realtime INSERT/UPDATE payloads go through the exact same
+ *   strict normalisation as the initial fetch.
  */
 
 export type PrayerRequestInsert = Omit<
@@ -144,10 +147,12 @@ function filterDemoPrayers(filter: PrayerFilter): PrayerRequest[] {
 }
 
 /**
- * Normalises a raw PostgREST row into a `PrayerRequest`. Returns `null` for
- * rows that cannot be used (not an object / missing id) instead of throwing.
+ * Normalises a raw PostgREST row (or a realtime payload record) into a
+ * `PrayerRequest`. Returns `null` for rows that cannot be used (not an object
+ * / missing id) instead of throwing. Shared by the initial wall fetch and the
+ * realtime subscription so both paths parse identically.
  */
-function parsePrayerRow(raw: unknown): PrayerRequest | null {
+export function parsePrayerRow(raw: unknown): PrayerRequest | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
   const record = raw as Record<string, unknown>;
 
