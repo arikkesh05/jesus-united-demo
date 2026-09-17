@@ -482,3 +482,87 @@
   editor-state artifacts — verify against the on-disk file + gates before editing; never "fix" valid
   code (e.g. replacing a structural `>` with `&gt;`) to silence a phantom diagnostic.
 
+## PHASE 1 - Task 4: Prayer Network v1 (Prayer Wall, Submission Modal & Intercession Pulse) (2026-09-17)
+- **Data layer** (`src/lib/prayers.ts`, client-safe on `supabaseBrowser.createClient()` +
+  `getCurrentUserId()` from `altar.ts`):
+  - `getPrayerRequests(filter?: { topic?: string; answeredOnly?: boolean })` fetches
+    `prayer_requests` where `is_public = true` ordered `created_at desc` (server-side
+    `.contains('topics', [topic])` / `.eq('is_answered', true)` filters). Empty table or ANY cloud
+    read failure degrades to the bundled `DEMO_PRAYERS` fallback (5 Scripture-grounded entries with
+    deterministic UUIDs, incl. one answered with `answered_note`) filtered client-side by the same
+    filter — the wall is never blank. Rows are normalized defensively via `parsePrayerRow` (never
+    throws; skips unparseable rows).
+  - `submitPrayerRequest(Omit<PrayerRequest, 'id' | 'created_at' | 'intercession_count'>)` inserts
+    into `prayer_requests` and returns `{ ok, error }` (never throws). The signed-in user id is
+    resolved inside the data layer: guests/anonymous submit with `user_id: null` (payload typed
+    `Omit<…, 'user_id'> & { user_id: string | null }` — a plain `& { user_id: string | null }`
+    intersection collapses to `string` and fails tsc; use `Omit` first). A blank `user_id` on the
+    incoming payload is treated as guest.
+  - `recordIntercession(requestId)` inserts into `prayer_intercessions` then bumps
+    `intercession_count` (read-then-`update(+1)` via `bumpIntercessionCount` — PostgREST has no
+    `count = count + 1` without an RPC; the bump is best-effort, the intercession row is the source
+    of truth). Postgres `23505` unique violation (same believer already prayed today) is treated as
+    success WITHOUT a second bump. Signed-in failures and guests persist to localStorage
+    `jesusunited:prayer-intercessions:v1` (`{ records: [{ request_id, prayed_at }] }`,
+    deduplicated per LOCAL day to mirror the DB unique-per-day rule; all storage access
+    try/catch-guarded). Exports `hasLocalIntercession` / `getLocalIntercessionIds` (same local-day
+    semantics) so the wall can pre-disable "I Prayed" for on-device guests.
+- **Wall component** (`src/app/components/PrayerWall.tsx`, 'use client'): white rounded-3xl
+  border-sand shadow-soft container on the ivory canvas. Toolbar: "All prayers" + six topic filter
+  pills + "Answered" toggle (all `aria-pressed`, gold/pill active states, one shared
+  `role="group"` labelled "Filter prayers by topic") + gold rounded-full "Share a Prayer" trigger.
+  `aria-live="polite"` result count line ("5 prayers in Healing · answered only"). Skeleton is a
+  `role="status"` pulsing grid while `prayers === null` (prerendered HTML and first client render
+  match — hydration-safe; data loads client-side exactly like AltarOS/GatheringCard). Cards
+  (`bg-canvas` inner): gold/pill initial avatar, author ("Anonymous" when `author_name` is blank),
+  formatted date, "Answered" gold badge, title, body, topic pills, italic `answered_note` callout,
+  intercession footer — `<UsersIcon> N praying` (count in `aria-live="polite"` tabular-nums span)
+  plus the "I Prayed" button: optimistic +1 via `optimisticCounts` override map, disabled after
+  intercession ("You prayed"), gold pulse via the `prayer-pulse` CSS class applied while
+  `pulseId === prayer.id` and cleared on `onAnimationEnd`; failed cloud writes roll back both the
+  count and the interceded flag. Empty state: dashed card inviting the first submission.
+- **Lint gotcha (new react-hooks rules)**: `react-hooks/set-state-in-effect` flags BOTH a
+  synchronous `setState` in an effect body AND `void load()` when `load` is a useCallback whose
+  body setState's (even after `await`). Approved pattern (mirrors `GatheringCard.tsx:72`): the
+  effect calls a PURE async fetcher and applies state inside `.then()` behind an `active` cleanup
+  flag — `useEffect(() => { let active = true; void fetchWall().then((r) => { if (active)
+  applyResult(r); }); return () => { active = false; }; }, [fetchWall, applyResult])`. Also:
+  `icons.tsx` `IconProps` has no `strokeWidth` — never pass it to an existing icon.
+- **Submission modal** (`src/app/components/PrayerSubmissionModal.tsx`, 'use client'): full
+  accessibility clone of GatheringSubmissionModal — `role="dialog"` + `aria-modal` +
+  labelled/described by header ids, focus moved to first field on open, Tab/Shift+Tab trap via
+  `FOCUSABLE_SELECTOR`, Escape closes, body scroll locked, focus restored to trigger on unmount,
+  backdrop click closes, X button with `aria-label`. Fields: Author name (disabled when anonymous)
+  + "Remain Anonymous" toggle (custom `aria-pressed` gold check circle; clears the name
+  requirement), Title (maxLength 120), Prayer request textarea (10–1000 chars), Topic multi-select
+  pills (`role="group"`, `aria-pressed`, ≥1 required). Validation clears per-field on edit; errors
+  are `role="alert"` + `aria-invalid`/`aria-describedby` wired. A crisis-escalation note
+  (pastor/local church/emergency services — per the .clinerules theological-safety rail) sits above
+  the footer. Success state: gold check circle + James 5:16 quote panel; calls the new
+  `onSubmitted?` prop (PrayerWall refetches through `fetchWall().then(applyResult)`) and resets on
+  close. New icons: `HeartIcon`, `HandHeartIcon`.
+- **Page integration** (`src/app/page.tsx`): `#prayer-wall-section` mounted between Gatherings Map
+  and Pulpit Kit (eyebrow "Intercession Pulse · Community Prayer Wall", mt-16 + scroll-mt-8);
+  "Prayer Wall" pill added to the hero module-shortcut nav after "Gatherings Map"; hero blurb
+  updated to four modules. `globals.css`: `@keyframes prayer-pulse` + `.prayer-pulse` (700ms gold
+  ring, `prefers-reduced-motion: reduce` disables it) and `#prayer-wall-section` added to the
+  print-isolation hidden list.
+- Test results - Tier 1: `npx tsc --noEmit` exit 0. Tier 2: `npm run lint` exit 0 (zero
+  warnings — after the set-state-in-effect restructure). Tier 3: `npm run build` exit 0, compiled
+  successfully, zero errors, 4/4 pages prerendered, `ƒ Proxy (Middleware)` still registered.
+- Test results - Tier 4 (`next start` + curl): `/` HTTP 200; prerendered HTML contains
+  `prayer-wall-section` (1×), the "Prayer Wall" nav pill (1×), "Share a Prayer" (1×), 0×
+  `role="dialog"` markup (render-gated as designed); server log clean. (Start-after-build gotcha
+  from Task 2 recurred: launching `next start` while `next build` was still running yielded
+  "Could not find a production build" — rerun sequentially.)
+- Files touched: new `src/lib/prayers.ts`, `src/app/components/PrayerWall.tsx`,
+  `src/app/components/PrayerSubmissionModal.tsx`; edited `src/app/components/icons.tsx`,
+  `src/app/page.tsx`, `src/app/globals.css`. No `src/lib/types.ts` changes (Task 1
+  `PrayerRequest`/`PrayerIntercession` reused as-is).
+- Schema dependency to verify with the DBA/MCP before prod: `prayer_requests` needs RLS allowing
+  anon INSERT with `user_id` nullable (guest/anonymous submissions); anon SELECT must be restricted
+  to `is_public = true`; `prayer_intercessions` needs the UNIQUE (request_id, user_id, per-day)
+  constraint (the 23505 path depends on it) plus RLS restricting inserts to
+  `auth.uid() = user_id`; a security-definer RPC for the atomic `intercession_count + 1` bump would
+  replace the read-then-update once available.
+

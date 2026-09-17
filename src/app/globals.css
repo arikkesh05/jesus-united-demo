@@ -48,6 +48,32 @@ body {
     "Segoe UI", sans-serif;
 }
 
+/* Phase 1 Task 4: intercession pulse (reduced-motion aware). */
+@keyframes prayer-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(212, 163, 89, 0.45);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(212, 163, 89, 0);
+    transform: scale(1.06);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(212, 163, 89, 0);
+    transform: scale(1);
+  }
+}
+
+.prayer-pulse {
+  animation: prayer-pulse 700ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prayer-pulse {
+    animation: none;
+  }
+}
+
 /* Phase 5: print isolation - exporting prints only the Pulpit Kit. */
 @media print {
   body {
@@ -61,6 +87,7 @@ body {
   #altar-os-section,
   #daily-reflection-section,
   #gathering-map-section,
+  #prayer-wall-section,
   .no-print {
     display: none !important;
   }

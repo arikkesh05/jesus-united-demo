@@ -2,6 +2,7 @@ import AltarOS from '@/app/components/AltarOS';
 import DailyReflection from '@/app/components/DailyReflection';
 import GatheringMap from '@/app/components/GatheringMap';
 import PulpitKit from '@/app/components/PulpitKit';
+import PrayerWall from '@/app/components/PrayerWall';
 import { getGatherings } from '@/lib/gatherings';
 import { getLatestPulpitKit } from '@/lib/pulpitKits';
 import { getDailyReflection } from '@/lib/reflections';
@@ -22,8 +23,8 @@ export default async function Home() {
             JesusUnited
           </h1>
           <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-muted">
-            A guest-first ministry toolkit with three modules: a daily audio reflection, a church
-            gathering map, and automated Sunday pulpit kits.
+            A guest-first ministry toolkit: a daily audio reflection, a church gathering map, a
+            community prayer wall, and automated Sunday pulpit kits.
           </p>
           <nav
             aria-label="Module shortcuts"
@@ -46,6 +47,12 @@ export default async function Home() {
               className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-white px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
             >
               Gatherings Map
+            </a>
+            <a
+              href="#prayer-wall-section"
+              className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-white px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
+            >
+              Prayer Wall
             </a>
             <a
               href="#pulpit-kit-section"
@@ -108,6 +115,20 @@ export default async function Home() {
             Module 2 &middot; Church Gathering Map
           </h2>
           <GatheringMap gatherings={gatherings} />
+        </section>
+
+        <section
+          id="prayer-wall-section"
+          aria-labelledby="prayer-wall-heading"
+          className="mt-16 scroll-mt-8"
+        >
+          <h2
+            id="prayer-wall-heading"
+            className="mb-4 text-center text-xs font-bold uppercase tracking-[0.2em] text-muted"
+          >
+            Intercession Pulse &middot; Community Prayer Wall
+          </h2>
+          <PrayerWall />
         </section>
 
         <section

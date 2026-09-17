@@ -178,3 +178,22 @@ export function CloseIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+export function HeartIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <path d="M12 20.5S3.5 15.4 3.5 9.6A4.6 4.6 0 0 1 12 6.9a4.6 4.6 0 0 1 8.5 2.7c0 5.8-8.5 10.9-8.5 10.9Z" />
+    </svg>
+  );
+}
+
+export function HandHeartIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <path d="M12 8.5s-4-2.5-4-5.1a2.3 2.3 0 0 1 4-1.3 2.3 2.3 0 0 1 4 1.3c0 2.6-4 5.1-4 5.1Z" />
+      <path d="M12 10.5v3.2a2.3 2.3 0 0 1-2.3 2.3H8" />
+      <path d="M4 16.5l4.2-2.6a2.5 2.5 0 0 1 2.8.1l2.6 1.8a2 2 0 0 1-2.3 3.3l-2.6-1.6" />
+      <path d="M11.5 20.8a2.6 2.6 0 0 0 2.9.2l4.3-2.6" />
+    </svg>
+  );
+}
