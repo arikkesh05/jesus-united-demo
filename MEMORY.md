@@ -610,3 +610,28 @@
 - Files touched: new `src/lib/usePrayerRealtime.ts`; edited `src/lib/prayers.ts` (exported
   `parsePrayerRow` + header doc), `src/app/components/PrayerWall.tsx`. No schema or type changes.
 
+
+
+## Phase 2 Task 2 — Admin Moderation Deck (2026-09-17)
+- Shipped: `src/lib/moderation.ts` (moderator-gated data layer: `getModerationAccess`,
+  `getPendingGatherings`, atomic `moderateGathering` RPC, `getModeratedPrayers`,
+  `setPrayerVisibility`, `deletePrayerRequest`), `src/app/admin/page.tsx` (Moderation Deck:
+  access-gated shell, accessible tabs, gathering review cards, prayer oversight panel with
+  hide/publish + confirm-guarded spam removal), `/admin` entry pill on the homepage nav, and
+  `supabase/migrations/202609170001_admin_moderation.sql` (community_moderators allowlist table,
+  `can_moderate()` security-definer check, restrictive submission-read policies, prayer oversight
+  policies, partial queue index, transactional `moderate_gathering(uuid, text)` RPC that validates
+  payload completeness + lat/lng ranges and publishes a PostGIS point in one transaction).
+- Design: Warm Linen Ivory canvas, white cards on Sand borders, `#C5A880` gold approve action with
+  `#B49770` hover, subtle destructive reject/remove styling; reduced-risk href-free focus rings.
+- TDD (tests/moderation.test.mjs, node:test + ts.transpileModule + vm sandbox — no new deps):
+  10 tests covering denied-access table isolation, missing-config fail-closed, queue filter/order,
+  failure-vs-empty separation, one-atomic-RPC moderation contract, invalid-action and stale-RPC
+  rejection, oversight including hidden prayers with 50-row bound, and zero-row mutation detection
+  (visibility + delete). RED first (4 failures), then GREEN 10/10.
+- Quality gates: `npx tsc --noEmit` exit 0; `npm run lint` exit 0; `npm run build` exit 0; smoke
+  test: production server returns 200 for `/` (admin pill present) and `/admin` (access-check shell).
+- Blocked on live data: no moderator allowlist exists and no DB-management connection is
+  available, so the allowlist seeding, live approve/reject against real rows, and RPC application
+  must be executed by an administrator (apply the migration, insert the moderator's
+  `community_moderators` row, then retry this deck against the live project).

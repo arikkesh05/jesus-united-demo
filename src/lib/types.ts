@@ -156,3 +156,14 @@ export interface PrayerIntercession {
   prayed_at: DatabaseTimestamp;
 }
 
+
+/** Parameters for the transactional, moderator-only database function. */
+export interface ModerateGatheringArgs {
+  p_submission_id: string;
+  p_action: 'approve' | 'reject';
+}
+
+export interface PrayerVisibilityUpdate {
+  is_public: boolean;
+}
+

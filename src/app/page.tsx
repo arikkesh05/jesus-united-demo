@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 import AltarOS from '@/app/components/AltarOS';
 import DailyReflection from '@/app/components/DailyReflection';
 import GatheringMap from '@/app/components/GatheringMap';
@@ -60,6 +62,13 @@ export default async function Home() {
             >
               Pulpit Kit
             </a>
+            <Link
+              href="/admin"
+              prefetch={false}
+              className="inline-flex items-center rounded-full border border-sand bg-white px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            >
+              Admin · Restricted
+            </Link>
           </nav>
         </header>
 
