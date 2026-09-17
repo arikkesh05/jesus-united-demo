@@ -686,3 +686,85 @@
 - Files touched: new `src/lib/globe.ts`, new `tests/globe.test.mjs`; edited `src/lib/types.ts`,
   `src/lib/gatherings.ts`. No component/UI wiring yet (the WebGL globe component is a later task);
   `getPublicGatheringMarkers()` is currently unused by any route.
+
+## Phase 2 Task 3.2 — Interactive 3D WebGL Globe Canvas & Billboard Avatar Marker Pipeline (2026-09-17)
+- **Shipped**: `public/assets/avatars/*.svg` (6 storybook colourways), `src/lib/globeCamera.ts` (pure
+  orbit/zoom/marker maths), `src/lib/globeAvatars.ts` (pure avatar catalog),
+  `src/app/components/globe/globeScene.ts` (three.js engine),
+  `src/app/components/globe/MissionGlobe.tsx` (React boundary + accessible roster), `GlobeIcon` in
+  `src/app/components/icons.tsx`, `tests/globeScene.test.mjs`, plus homepage wiring
+  (`#mission-globe-section` + "Mission Globe" nav pill + hero blurb + print isolation in
+  `globals.css`).
+- **SSR isolation (critical Next 16 finding)**: `ssr: false` is **not allowed** with `next/dynamic` in a
+  Server Component (see `node_modules/next/dist/docs/01-app/02-guides/lazy-loading.md`), so the engine is
+  loaded with `await import('./globeScene')` **inside a client `useEffect`**. Verified: `.next/server`
+  contains **no** `WEBGLRenderer`, while the scene lands in a lazy client chunk
+  (`.next/static/chunks/*.js` holding `vViewDirection` / `webglcontextlost` / `gl_FragColor`). The
+  server-prerendered HTML is the ivory card + `role="status"` skeleton + the storybook roster.
+- **DPR clamp** at mount **and** on every resize (`Math.min(window.devicePixelRatio || 1, 2)`).
+- **Teardown** (`dispose()`): cancels the RAF, disconnects the `ResizeObserver`, removes all six canvas
+  listeners, disposes every registered geometry/material/texture (Set registries **plus** a
+  `scene.traverse` sweep and `TEXTURE_MAP_KEYS` map introspection as belt-and-braces), clears the caches,
+  `scene.clear()`, `renderer.dispose()`, `forceContextLoss()`, and removes the canvas from the DOM.
+  `dispose()` is idempotent. Deferred async work (SVG avatar decode, `document.fonts.ready` label
+  repaint) checks the `disposed` flag before touching GPU state.
+- **Earth**: radius 100, `MeshStandardMaterial` (roughness 0.94) over a **procedurally painted 2048×1024
+  equirectangular parchment canvas** (warm-linen base, pole→equator banding, 15° graticule, gold equator
+  and prime meridian, stylised softened landmasses — decorative, not cartographic). Lighting = ambient +
+  hemisphere + warm key + gold rim light. **Texture orientation derived from three's source**:
+  `SphereGeometry` sets `uvs.push(u + uOffset, 1 - v)` with `vertex.x = -ringRadius * cos(phi)`, so a
+  standard equirectangular canvas needs `earth.rotation.y = -Math.PI / 2` for 0° longitude to land on +Z
+  (matching `latLngToVector3`) — the exact counterpart of the note in `src/lib/globe.ts`.
+- **Atmosphere**: a separate shell at `radius × 1.05` with a custom `ShaderMaterial` Fresnel rim
+  (`pow(1 - |dot(normalView, viewDir)|, 2.6)`), gold, `AdditiveBlending`, `depthWrite: false`. GLSL1
+  (`varying` / `gl_FragColor`) is fine on WebGL2 because three patches the shader preamble.
+- **Billboard avatars**: `THREE.Sprite` + `SpriteMaterial({ sizeAttenuation: true, depthWrite: false,
+  toneMapped: false })`, positioned along the **surface normal** at `radius + 4.2`; sprites face the
+  camera by construction (that *is* the billboard). Plus a tangent shadow pedestal (`RingGeometry` +
+  quaternion from +Z→normal), a gold stem (`CylinderGeometry`, +Y→normal) and a first-name pill sprite
+  whose canvas aspect exactly matches its world scale. One texture per avatar style, shared by every
+  gathering wearing it; per-marker sprite materials carry the horizon fade (`markerHorizonOpacity`, floor
+  0.25). `markerScaleForDistance` compensates camera distance (0.88 at zoom 130 → 1.0 at 260 → 1.55 at
+  400) on top of natural perspective attenuation. A single shared additive ring pulses on the selected
+  marker (disabled under `prefers-reduced-motion`).
+- **Controls**: damped orbit drag (`applyOrbitDrag`, pitch clamped 0.22…π−0.22 so the camera can never
+  flip), pinch via a pointer-map span ratio, wheel zoom with a ±600 delta bound, **zoom bounded to
+  130–400**, arrow keys / `+` / `−` / `Escape` via React → handle, a "Reset view" button, and a slow idle
+  drift that resumes 2.6s after the last interaction (disabled under `prefers-reduced-motion`).
+- **Raycasting**: `Raycaster` + `setFromCamera` against the sprite hit targets; `pointerup` only selects
+  when total travel ≤ `CLICK_SLOP_PX` (6px), so a drag never selects. Hover changes the cursor and
+  emphasises the label. `onSelectMarker(marker | null)` fires from taps only; the accessible roster and
+  buttons drive `handle.selectMarker()` **without** re-notifying, so there is no feedback loop.
+- **Avatars / zero broken images**: each sprite texture starts as a **procedural canvas badge** and is
+  only replaced if the SVG decodes, so a 404/blocked/corrupt asset can never render as a broken image.
+  Every catalogued SVG is self-contained (no `<image>`, no `xlink:href`, no remote refs, fixed
+  width/height) and is asserted on disk by the test suite. **No `<img>` tags** in the component — the
+  roster uses CSS `background-image` swatches, which also dodges the `@next/next/no-img-element` lint
+  warning (`next/image` would have needed `dangerouslyAllowSVG`).
+- **TDD (`tests/globeScene.test.mjs`, node:test + `ts.transpileModule` + `vm`, no new deps)**: RED first
+  (15 failures, modules + assets absent), then GREEN **15/15** — zoom bounds (130/400/NaN→260), pitch
+  clamp, damping (monotonic, no overshoot, dt=0 no-op), `stepOrbit` bounds, drag signs and no-flip,
+  `orbitToPosition` axis agreement, opening-view framing (Austin cluster theta ≈ −97.74° in radians,
+  empty → documented fallback), marker scale 0.88/1.0/1.55, horizon fade floor, wheel/pinch clamps, tap
+  vs drag slop, label-width bounds, ≥4 unique avatar styles with valid hex colourways, on-disk SVG
+  validation, deterministic + well-distributed assignment over 240 seeds, and name normalisation. One
+  assertion was corrected during GREEN: λ=9 over 1s settles to 99.88%, so "almost settled" is 0.002.
+- **Quality gates**: `npx tsc --noEmit` exit 0; `npm run lint` exit 0 (**zero warnings**);
+  `npm run build` exit 0 (zero warnings/errors, 5/5 pages prerendered, `ƒ Proxy (Middleware)`);
+  `node tests/globeScene.test.mjs` **15/15**; `node tests/globe.test.mjs` **18/18** (no regression).
+- **Runtime smoke test** (`npx next start -p 3123` + curl): `/` HTTP 200, both spot-checked avatar SVGs
+  HTTP 200, HTML carries `#mission-globe-section` (4×), the "Preparing the mission globe…" skeleton (1×),
+  the "Gatherings on the globe" roster (1×) and **3 live `/assets/avatars/` swatches**, server log clean.
+- **Live-schema confirmation**: the build log printed `Status-filtered gathering read failed, retrying
+  without the filter: column gatherings.status does not exist`, proving the Task 3.1 two-tier read fires
+  against the real database and still yields the 3 seeded Austin markers.
+- Limitations: SVG→canvas rasterisation cannot be GPU-verified headlessly (the procedural badge is the
+  in-code fallback); landmasses are stylised, not cartographic; transparent-object sort order is
+  approximate (sprites vs the additive atmosphere); `prefers-reduced-motion` disables only the idle drift
+  and the selection pulse.
+- Files touched: new `public/assets/avatars/avatar-{grace-sage,micah-gold,naomi-terracotta,elias-slate,
+  zuri-plum,samuel-olive}.svg`, `src/lib/globeCamera.ts`, `src/lib/globeAvatars.ts`,
+  `src/app/components/globe/globeScene.ts`, `src/app/components/globe/MissionGlobe.tsx`,
+  `tests/globeScene.test.mjs`; edited `src/lib/globe.ts` (exported `stableHashSeed` for the deterministic
+  avatar picker), `src/app/components/icons.tsx` (+`GlobeIcon`), `src/app/page.tsx`, `src/app/globals.css`.
+  No `src/lib/types.ts` changes (`GlobeMarker` from Task 3.1 was reused as-is).

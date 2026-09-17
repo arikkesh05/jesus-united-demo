@@ -5,13 +5,16 @@ import DailyReflection from '@/app/components/DailyReflection';
 import GatheringMap from '@/app/components/GatheringMap';
 import PulpitKit from '@/app/components/PulpitKit';
 import PrayerWall from '@/app/components/PrayerWall';
-import { getGatherings } from '@/lib/gatherings';
+import MissionGlobe from '@/app/components/globe/MissionGlobe';
+import { getGatherings, getPublicGatheringMarkers } from '@/lib/gatherings';
 import { getLatestPulpitKit } from '@/lib/pulpitKits';
 import { getDailyReflection } from '@/lib/reflections';
 
 export default async function Home() {
   const reflection = await getDailyReflection();
   const gatherings = await getGatherings();
+  const markerResult = await getPublicGatheringMarkers();
+  const markers = markerResult.ok ? markerResult.data : [];
   const pulpitKit = await getLatestPulpitKit();
 
   return (
@@ -25,8 +28,9 @@ export default async function Home() {
             JesusUnited
           </h1>
           <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-muted">
-            A guest-first ministry toolkit: a daily audio reflection, a church gathering map, a
-            community prayer wall, and automated Sunday pulpit kits.
+            A guest-first ministry toolkit: a daily audio reflection, a church gathering map, an
+            interactive 3D mission globe, a community prayer wall, and automated Sunday pulpit
+            kits.
           </p>
           <nav
             aria-label="Module shortcuts"
@@ -49,6 +53,12 @@ export default async function Home() {
               className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-white px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
             >
               Gatherings Map
+            </a>
+            <a
+              href="#mission-globe-section"
+              className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-white px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
+            >
+              Mission Globe
             </a>
             <a
               href="#prayer-wall-section"
@@ -124,6 +134,20 @@ export default async function Home() {
             Module 2 &middot; Church Gathering Map
           </h2>
           <GatheringMap gatherings={gatherings} />
+        </section>
+
+        <section
+          id="mission-globe-section"
+          aria-labelledby="mission-globe-heading"
+          className="mt-16 scroll-mt-8"
+        >
+          <h2
+            id="mission-globe-heading"
+            className="mb-4 text-center text-xs font-bold uppercase tracking-[0.2em] text-muted"
+          >
+            Mission Globe &middot; Storybook Gathering Atlas
+          </h2>
+          <MissionGlobe markers={markers} />
         </section>
 
         <section

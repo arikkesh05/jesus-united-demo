@@ -173,7 +173,7 @@ export function calculateGreatCircleSpline(
 }
 
 /** FNV-1a 32-bit hash: stable across renders, sessions and processes. */
-function hashSeed(seed: string): number {
+export function stableHashSeed(seed: string): number {
   let hash = 0x811c9dc5;
   for (let index = 0; index < seed.length; index += 1) {
     hash ^= seed.charCodeAt(index);
@@ -203,7 +203,7 @@ export function sanitizeToCentroidWithJitter(
   const latitude = clamp(toFiniteNumber(lat), -90, 90);
   const longitude = toFiniteNumber(lng);
   const seed = typeof seedString === 'string' ? seedString : String(seedString ?? '');
-  const hash = hashSeed(seed);
+  const hash = stableHashSeed(seed);
 
   const latitudeOffset = signedUnit(hash & 0xffff) * MAX_CENTROID_JITTER_DEGREES;
   const longitudeOffset = signedUnit((hash >>> 16) & 0xffff) * MAX_CENTROID_JITTER_DEGREES;

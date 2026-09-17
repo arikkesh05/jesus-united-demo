@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Grace, a storybook character">
+  <title>Grace</title>
+  <defs>
+    <clipPath id="grace-clip">
+      <circle cx="64" cy="64" r="60" />
+    </clipPath>
+  </defs>
+  <circle cx="64" cy="64" r="60" fill="#EDF1E9" />
+  <g clip-path="url(#grace-clip)">
+    <path d="M20 128c0-22 20-32 44-32s44 10 44 32z" fill="#8FA88B" />
+    <path d="M20 128c0-22 20-32 44-32v32z" fill="#7C957A" />
+    <rect x="55" y="70" width="18" height="20" rx="9" fill="#E3BE9C" />
+    <circle cx="41" cy="58" r="5" fill="#F2D3B6" />
+    <circle cx="87" cy="58" r="5" fill="#F2D3B6" />
+    <circle cx="64" cy="54" r="25" fill="#F2D3B6" />
+    <circle cx="64" cy="24" r="11" fill="#4A3A2C" />
+    <path d="M38 54c0-17 11-28 26-28s26 11 26 28c-3-9-11-14-26-14s-23 5-26 14z" fill="#4A3A2C" />
+    <path d="M50 48c3-2 7-2 10 0M68 48c3-2 7-2 10 0" stroke="#4A3A2C" stroke-width="2.2" stroke-linecap="round" fill="none" />
+    <circle cx="55" cy="56" r="2.8" fill="#3A2C20" />
+    <circle cx="73" cy="56" r="2.8" fill="#3A2C20" />
+    <path d="M57 65c3 4.5 11 4.5 14 0" stroke="#3A2C20" stroke-width="2.4" stroke-linecap="round" fill="none" />
+    <ellipse cx="48" cy="63" rx="5" ry="3.2" fill="#E9A98F" opacity="0.6" />
+    <ellipse cx="80" cy="63" rx="5" ry="3.2" fill="#E9A98F" opacity="0.6" />
+  </g>
+  <circle cx="64" cy="64" r="60" fill="none" stroke="#8FA88B" stroke-width="4" />
+</svg>

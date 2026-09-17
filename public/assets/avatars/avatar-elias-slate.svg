@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Elias, a storybook character">
+  <title>Elias</title>
+  <defs>
+    <clipPath id="elias-clip">
+      <circle cx="64" cy="64" r="60" />
+    </clipPath>
+  </defs>
+  <circle cx="64" cy="64" r="60" fill="#E9EDF2" />
+  <g clip-path="url(#elias-clip)">
+    <path d="M20 128c0-22 20-32 44-32s44 10 44 32z" fill="#6E7C8C" />
+    <path d="M64 96c6 0 10 3 10 8v24H54V104c0-5 4-8 10-8z" fill="#5F6D7C" />
+    <rect x="55" y="70" width="18" height="20" rx="9" fill="#D3A57C" />
+    <circle cx="41" cy="58" r="5" fill="#E8BE9A" />
+    <circle cx="87" cy="58" r="5" fill="#E8BE9A" />
+    <circle cx="64" cy="54" r="25" fill="#E8BE9A" />
+    <path d="M39 52c0-16 11-26 25-26s25 10 25 26c-2-9-6-13-12-15-8 4-24 4-30 2-4 3-6 6-8 13z" fill="#5A4632" />
+    <circle cx="53" cy="57" r="8" fill="none" stroke="#3E4A57" stroke-width="2.4" />
+    <circle cx="75" cy="57" r="8" fill="none" stroke="#3E4A57" stroke-width="2.4" />
+    <path d="M61 57h6" stroke="#3E4A57" stroke-width="2.4" stroke-linecap="round" />
+    <circle cx="53" cy="57" r="2.6" fill="#3E4A57" />
+    <circle cx="75" cy="57" r="2.6" fill="#3E4A57" />
+    <path d="M57 68c3 4 11 4 14 0" stroke="#3A2C20" stroke-width="2.4" stroke-linecap="round" fill="none" />
+    <path d="M49 45c3-2 6-2 9-1M70 44c3-1 6-1 9 1" stroke="#5A4632" stroke-width="2.2" stroke-linecap="round" fill="none" />
+  </g>
+  <circle cx="64" cy="64" r="60" fill="none" stroke="#6E7C8C" stroke-width="4" />
+</svg>

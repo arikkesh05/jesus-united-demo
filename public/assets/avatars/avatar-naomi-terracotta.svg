@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Naomi, a storybook character">
+  <title>Naomi</title>
+  <defs>
+    <clipPath id="naomi-clip">
+      <circle cx="64" cy="64" r="60" />
+    </clipPath>
+  </defs>
+  <circle cx="64" cy="64" r="60" fill="#F7E7DF" />
+  <g clip-path="url(#naomi-clip)">
+    <path d="M20 128c0-22 20-32 44-32s44 10 44 32z" fill="#C97F5C" />
+    <path d="M64 96c7 0 11 3 11 8v24H53v-24c0-5 4-8 11-8z" fill="#B76F4E" />
+    <rect x="55" y="70" width="18" height="20" rx="9" fill="#8E5C3B" />
+    <circle cx="41" cy="58" r="5" fill="#A9714B" />
+    <circle cx="87" cy="58" r="5" fill="#A9714B" />
+    <circle cx="64" cy="54" r="25" fill="#A9714B" />
+    <path d="M36 58c-2-22 10-34 28-34s30 12 28 34c-4-6-6-14-8-19-8 5-32 5-40 0-2 5-4 13-8 19z" fill="#E4B47F" />
+    <path d="M36 58c2-4 5-6 8-7-1 6-1 10 1 14zM92 58c-2-4-5-6-8-7 1 6 1 10-1 14z" fill="#D3A26D" />
+    <circle cx="41" cy="70" r="3.2" fill="#D4A359" />
+    <circle cx="87" cy="70" r="3.2" fill="#D4A359" />
+    <path d="M50 48c3-2 7-2 10 0M68 48c3-2 7-2 10 0" stroke="#241A14" stroke-width="2.2" stroke-linecap="round" fill="none" />
+    <circle cx="55" cy="56" r="2.8" fill="#241A14" />
+    <circle cx="73" cy="56" r="2.8" fill="#241A14" />
+    <path d="M57 65c3 4.5 11 4.5 14 0" stroke="#241A14" stroke-width="2.4" stroke-linecap="round" fill="none" />
+    <ellipse cx="48" cy="63" rx="5" ry="3.2" fill="#C2705A" opacity="0.45" />
+    <ellipse cx="80" cy="63" rx="5" ry="3.2" fill="#C2705A" opacity="0.45" />
+  </g>
+  <circle cx="64" cy="64" r="60" fill="none" stroke="#C97F5C" stroke-width="4" />
+</svg>

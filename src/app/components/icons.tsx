@@ -179,6 +179,16 @@ export function CloseIcon({ className }: IconProps) {
   );
 }
 
+export function GlobeIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.5 12h17" />
+      <path d="M12 3.5c2.7 2.5 2.7 14.5 0 17M12 3.5c-2.7 2.5-2.7 14.5 0 17" />
+    </svg>
+  );
+}
+
 export function HeartIcon({ className }: IconProps) {
   return (
     <svg {...baseProps} className={className}>
