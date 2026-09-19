@@ -23,9 +23,9 @@ function compile(relativePath) {
   }).outputText;
 }
 
-function runModule(relativePath, requireImpl) {
+function runModule(relativePath, requireImpl, consoleImpl = console) {
   const exports = {};
-  vm.runInNewContext(compile(relativePath), { exports, require: requireImpl, console });
+  vm.runInNewContext(compile(relativePath), { exports, require: requireImpl, console: consoleImpl });
   return exports;
 }
 
@@ -72,7 +72,11 @@ function haversineMeters(a, b) {
  * queue: the status-filtered read consumes the first entry, the schema-fallback
  * read (if needed) consumes the next.
  */
-function setupGatherings({ responses = [{ data: [], error: null }], throws = false } = {}) {
+function setupGatherings({
+  responses = [{ data: [], error: null }],
+  throws = false,
+  consoleImpl = console,
+} = {}) {
   const calls = [];
   let responseIndex = 0;
   const client = {
@@ -99,7 +103,7 @@ function setupGatherings({ responses = [{ data: [], error: null }], throws = fal
     if (name === '@/lib/supabase') return { supabase: client };
     if (name === '@/lib/globe') return globe();
     throw new Error(`Unexpected import in gatherings.ts: ${name}`);
-  });
+  }, consoleImpl);
   return { api, calls };
 }
 
@@ -498,4 +502,74 @@ test('missing configuration fails closed without throwing', async () => {
   assert.equal(result.data.length, 0);
   assert.equal(typeof result.error, 'string');
   assert.ok(result.error.length > 0);
+});
+
+/**
+ * Regression: the homepage calls this during static prerender, so an
+ * unconditional warning about the (expected) absent `status` column printed on
+ * every build. The absent column is a schema difference, not a failure.
+ */
+test('an absent status column is probed once, silently, and never warns', async () => {
+  const warnings = [];
+  const consoleImpl = { ...console, warn: (...args) => warnings.push(args.join(' ')) };
+  const { api, calls } = setupGatherings({
+    responses: [
+      { data: null, error: { message: 'column gatherings.status does not exist' } },
+      { data: [SECRET_ROW], error: null },
+    ],
+    consoleImpl,
+  });
+
+  const first = await api.getPublicGatheringMarkers();
+  assert.equal(first.ok, true);
+  assert.equal(first.data.length, 1);
+  assert.deepEqual(warnings, [], 'a missing status column must not warn');
+
+  // The capability is cached: a second read skips the probe entirely.
+  const fromCallsAfterFirst = calls.filter(([method]) => method === 'from').length;
+  const second = await api.getPublicGatheringMarkers();
+  assert.equal(second.ok, true);
+  assert.equal(second.data.length, 1);
+  assert.equal(
+    calls.filter(([method]) => method === 'from').length,
+    fromCallsAfterFirst + 1,
+    'a cached absent status column must issue one unfiltered read, not a probe plus a read',
+  );
+  assert.deepEqual(warnings, [], 'the cached absent state must stay silent');
+});
+
+test('SQLSTATE 42703 counts as an absent column regardless of message wording', async () => {
+  const warnings = [];
+  const consoleImpl = { ...console, warn: (...args) => warnings.push(args.join(' ')) };
+  const { api } = setupGatherings({
+    responses: [
+      { data: null, error: { code: '42703', message: 'undefined column' } },
+      { data: [SECRET_ROW], error: null },
+    ],
+    consoleImpl,
+  });
+
+  const result = await api.getPublicGatheringMarkers();
+  assert.equal(result.ok, true);
+  assert.deepEqual(warnings, []);
+});
+
+test('a genuine status-filtered read failure is still reported', async () => {
+  const warnings = [];
+  const consoleImpl = { ...console, warn: (...args) => warnings.push(args.join(' ')) };
+  const { api } = setupGatherings({
+    responses: [
+      {
+        data: null,
+        error: { code: '42501', message: 'permission denied for table gatherings' },
+      },
+      { data: [SECRET_ROW], error: null },
+    ],
+    consoleImpl,
+  });
+
+  const result = await api.getPublicGatheringMarkers();
+  assert.equal(result.ok, true);
+  assert.equal(warnings.length, 1, 'an unexpected read failure must remain visible');
+  assert.match(warnings[0], /permission denied/);
 });

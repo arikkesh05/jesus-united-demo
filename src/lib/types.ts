@@ -185,5 +185,12 @@ export interface GlobeMarker {
   member_count: number;
   lat: number;
   lng: number;
+  /**
+   * Optional public role/title (e.g. "Campus Pastor", "Youth Leader") used by
+   * the globe to pin an avatar sheet. Deliberately optional: the default
+   * privacy-stripped marker feed does not emit it, and the scene falls back to
+   * a stable id-hash assignment when it is absent.
+   */
+  role?: string | null;
 }
 

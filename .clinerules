@@ -2,6 +2,8 @@
 
 ## Active Skills Registry (.cline/skills/)
 - **Design System**: `antigravity-design-expert`, `accessibility-compliance-accessibility-audit`, `design-systems/airbnb`, `design-systems/linear.app`
+- **Code Review**: `.cline/skills/code-review/` — **MANDATORY 3-lens adversarial protocol (Privacy → React & WebGL Hygiene → Verification Evidence, from ECC `security-review` + `react-performance` + adversarial verification) that must run and pass before completing any sprint or code change**
+- **Interface Polish**: `.cline/skills/interface-polish/` — **REQUIRED for all user-facing work (tactile micro-interactions, WCAG 44px/ARIA/focus/keyboard invariants, `prefers-reduced-motion` compliance across CSS, HUD, and Three.js camera; from ECC `accessibility` + `make-interfaces-feel-better` + `motion-foundations`)**
 - **Core Runtime**: `nextjs-turbopack`, `supabase-automation`, `postgres-patterns`, `tdd-workflow`, `security-review`, `performance-optimizer`
 - **Intelligence & Safety**: `vercel-ai-sdk-expert`, `safety-guard`, `subagent-driven-development`
 - **Scale & Geospatial**: `geo-fundamentals`, `tanstack-query-expert`, `i18n-localization`, `analytics-tracking`
@@ -22,3 +24,11 @@
    - `npx tsc --noEmit` (0 type errors)
    - `npm run lint` (0 lint warnings)
    - `npm run build` (Clean production prerendering)
+
+# Skills Execution Standard
+Whenever implementing 3D WebGL scenes, UI components, or bug fixes, always read and adhere to:
+- `.cline/skills/threejs-webgl-patterns/`
+- `.cline/skills/ui-ux-pro-max/`
+- `.cline/skills/interface-polish/`
+- `.cline/skills/verification-before-completion/`
+- `.cline/skills/systematic-debugging/`

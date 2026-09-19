@@ -391,34 +391,73 @@ interface PublicRowsResult {
   error: string | null;
 }
 
+/** PostgREST/Postgres `undefined_column` SQLSTATE (42703). */
+const UNDEFINED_COLUMN_CODE = '42703';
+
+/** True when the error is Postgres reporting an unknown column (SQLSTATE 42703). */
+function isMissingColumnError(error: { code?: string | null; message?: string | null }): boolean {
+  if (error.code === UNDEFINED_COLUMN_CODE) return true;
+  const message = (error.message ?? '').toLowerCase();
+  return message.includes('column') && message.includes('does not exist');
+}
+
+/**
+ * Whether `gatherings` exposes a `status` column in this environment.
+ *
+ * Probed at most once per process. The absent case is an expected schema
+ * difference rather than a failure, so it is cached silently instead of warned
+ * about on every read: the homepage calls this during static prerender, so an
+ * unconditional warning printed on every build.
+ */
+type StatusColumnSupport = 'unknown' | 'supported' | 'absent';
+let statusColumnSupport: StatusColumnSupport = 'unknown';
+
 /**
  * Reads published gatherings, newest first and bounded.
  *
- * The status filter is attempted first so a future status column is honoured;
- * the deployed schema has no such column, so a rejected filter falls back to an
- * unfiltered read of the same approved-only table.
+ * `gatherings` is the published table — `moderate_gathering()` is its only
+ * writer and it inserts already-approved rows — so the deployed schema has no
+ * `status` column (that column lives on `gathering_submissions`). A status
+ * filter is still attempted while support is unknown, so a schema that does add
+ * one is honoured; an unknown-column rejection is remembered and the read falls
+ * back to an unfiltered query against the same approved-only table.
+ * `parsePublicMarkerRow` re-checks any `status` value that does come back, so
+ * the fallback can never publish a non-approved row.
  */
 async function fetchPublishedRows(): Promise<PublicRowsResult> {
   const selectGatherings = () => supabase.from('gatherings').select('*');
+
+  const readUnfiltered = async (): Promise<PublicRowsResult> => {
+    const result = await selectGatherings()
+      .order('created_at', { ascending: false })
+      .limit(PUBLIC_MARKER_LIMIT);
+    if (result.error) return { rows: [], error: result.error.message };
+    return { rows: Array.isArray(result.data) ? result.data : [], error: null };
+  };
+
+  // The capability is already known to be absent: skip the doomed probe.
+  if (statusColumnSupport === 'absent') return readUnfiltered();
 
   const primary = await selectGatherings()
     .eq('status', 'approved')
     .order('created_at', { ascending: false })
     .limit(PUBLIC_MARKER_LIMIT);
   if (!primary.error) {
+    statusColumnSupport = 'supported';
     return { rows: Array.isArray(primary.data) ? primary.data : [], error: null };
   }
 
-  console.warn(
-    'Status-filtered gathering read failed, retrying without the filter:',
-    primary.error.message,
-  );
+  if (isMissingColumnError(primary.error)) {
+    // Expected on the deployed schema: remember it and stay quiet.
+    statusColumnSupport = 'absent';
+  } else {
+    console.warn(
+      'Status-filtered gathering read failed, retrying without the filter:',
+      primary.error.message,
+    );
+  }
 
-  const fallback = await selectGatherings()
-    .order('created_at', { ascending: false })
-    .limit(PUBLIC_MARKER_LIMIT);
-  if (fallback.error) return { rows: [], error: fallback.error.message };
-  return { rows: Array.isArray(fallback.data) ? fallback.data : [], error: null };
+  return readUnfiltered();
 }
 
 /**
