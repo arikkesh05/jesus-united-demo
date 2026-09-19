@@ -168,6 +168,31 @@ export interface PrayerVisibilityUpdate {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 5 — Production Expansion: live host connect inquiries.
+// ---------------------------------------------------------------------------
+
+/**
+ * A visitor's connect inquiry for one gathering. Carries **visitor-supplied
+ * data only** — the host's private email/phone is resolved server-side (or not
+ * at all) and must never be included in, or echoed back through, this payload.
+ */
+export interface GatheringInquiryPayload {
+  /** Public gathering id (the opaque marker id). */
+  gathering_id: string;
+  /** Visitor's name, as they want the host to address them. */
+  visitor_name: string;
+  /** Visitor's reply-to channel: an email address or a WhatsApp phone number. */
+  contact: string;
+  /** Optional note for the host; empty string means "no message". */
+  message: string;
+}
+
+/** Result of an inquiry submission; failures carry a message, never throw. */
+export type GatheringInquiryResult =
+  | { ok: true; delivered: 'remote' | 'simulated' }
+  | { ok: false; error: string };
+
+// ---------------------------------------------------------------------------
 // Phase 2 — 3D globe schemas (deterministic, strict).
 // ---------------------------------------------------------------------------
 

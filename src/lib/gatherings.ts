@@ -1,6 +1,11 @@
 import { sanitizeToCentroidWithJitter } from '@/lib/globe';
 import { supabase } from '@/lib/supabase';
-import type { Gathering, GlobeMarker } from '@/lib/types';
+import type {
+  Gathering,
+  GatheringInquiryPayload,
+  GatheringInquiryResult,
+  GlobeMarker,
+} from '@/lib/types';
 
 /**
  * A row as returned by PostgREST before it is normalised into a `Gathering`.
@@ -491,5 +496,132 @@ export async function getPublicGatheringMarkers(): Promise<PublicGatheringMarker
     const message = error instanceof Error ? error.message : 'The gathering feed is unavailable.';
     console.error('Public gathering marker read failed:', message);
     return { ok: false, data: [], error: message };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5 — Milestone A: live host connect inquiries
+// ---------------------------------------------------------------------------
+
+/** Field-scoped validation copy for the connect inquiry form. */
+export interface GatheringInquiryFieldErrors {
+  name?: string;
+  contact?: string;
+  message?: string;
+}
+
+const INQUIRY_NAME_MAX_CHARS = 80;
+const INQUIRY_CONTACT_MAX_CHARS = 120;
+const INQUIRY_MESSAGE_MIN_CHARS = 10;
+const INQUIRY_MESSAGE_MAX_CHARS = 1000;
+
+/** Postgres `undefined_table` SQLSTATE (42P01). */
+const UNDEFINED_TABLE_CODE = '42P01';
+/** PostgREST schema-cache miss when the remote table has never been created. */
+const SCHEMA_CACHE_MISS_CODE = 'PGRST205';
+
+/**
+ * True when the error is the remote schema reporting that the
+ * `gathering_inquiries` table itself does not exist (as opposed to a genuine
+ * insert failure such as an RLS rejection).
+ */
+function isMissingTableError(error: { code?: string | null; message?: string | null }): boolean {
+  if (error.code === UNDEFINED_TABLE_CODE || error.code === SCHEMA_CACHE_MISS_CODE) return true;
+  const message = (error.message ?? '').toLowerCase();
+  return (
+    message.includes('does not exist') || message.includes('could not find the table')
+  );
+}
+
+/** A reply-to channel is either a plausible email or a phone number (≥7 digits). */
+function isValidInquiryContact(contact: string): boolean {
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const digitCount = contact.replace(/\D/g, '').length;
+  return emailPattern.test(contact) || digitCount >= 7;
+}
+
+/**
+ * Field-scoped validation for the connect inquiry form. Returns an object of
+ * human-readable error messages; an empty object means the form is valid.
+ */
+export function validateGatheringInquiryInput(input: {
+  name: string;
+  contact: string;
+  message: string;
+}): GatheringInquiryFieldErrors {
+  const errors: GatheringInquiryFieldErrors = {};
+  if (typeof input.name !== 'string' || input.name.trim() === '') {
+    errors.name = 'Please share your name.';
+  }
+  const contact = typeof input.contact === 'string' ? input.contact.trim() : '';
+  if (contact === '' || !isValidInquiryContact(contact)) {
+    errors.contact = 'Enter an email address or a WhatsApp phone number.';
+  }
+  const message = typeof input.message === 'string' ? input.message.trim() : '';
+  if (message !== '' && message.length < INQUIRY_MESSAGE_MIN_CHARS) {
+    errors.message =
+      'Add a little more detail — at least 10 characters, or leave this empty.';
+  }
+  return errors;
+}
+
+/**
+ * Submits a visitor's connect inquiry for one gathering.
+ *
+ * The row carries **visitor-supplied data only** — the host's private email or
+ * phone number is resolved by the host-side workflow (never embedded here),
+ * so it can never leak through this payload, a returned row, or a log line.
+ *
+ * Missing remote table fails **open** with simulated success (Milestone A
+ * ships before the `gathering_inquiries` table exists in every environment);
+ * genuine failures (RLS, network) surface as `{ ok: false, error }` and this
+ * function never throws. The visitor's contact details are never logged.
+ */
+export async function submitGatheringInquiry(
+  payload: GatheringInquiryPayload,
+): Promise<GatheringInquiryResult> {
+  const gatheringId =
+    typeof payload?.gathering_id === 'string' ? payload.gathering_id.trim() : '';
+  const visitorName =
+    typeof payload?.visitor_name === 'string' ? payload.visitor_name.trim() : '';
+  const contact = typeof payload?.contact === 'string' ? payload.contact.trim() : '';
+  const message = typeof payload?.message === 'string' ? payload.message.trim() : '';
+
+  // Defence in depth: the form validates these too, but the data layer never
+  // trusts its caller and rejects invalid input before any network call.
+  if (
+    gatheringId === '' ||
+    visitorName === '' ||
+    contact === '' ||
+    !isValidInquiryContact(contact) ||
+    (message !== '' && message.length < INQUIRY_MESSAGE_MIN_CHARS)
+  ) {
+    return { ok: false, error: 'The inquiry is incomplete. Please review the form and try again.' };
+  }
+
+  const row = {
+    gathering_id: gatheringId,
+    visitor_name: visitorName.slice(0, INQUIRY_NAME_MAX_CHARS),
+    contact: contact.slice(0, INQUIRY_CONTACT_MAX_CHARS),
+    message: message === '' ? null : message.slice(0, INQUIRY_MESSAGE_MAX_CHARS),
+  };
+
+  try {
+    const result = await supabase.from('gathering_inquiries').insert(row);
+    if (result.error) {
+      if (isMissingTableError(result.error)) {
+        // The remote table does not exist yet: fail open so the visitor flow
+        // still completes while the schema catches up.
+        return { ok: true, delivered: 'simulated' };
+      }
+      console.error('Gathering inquiry submission failed:', result.error.message);
+      return { ok: false, error: result.error.message };
+    }
+    return { ok: true, delivered: 'remote' };
+  } catch (error) {
+    const messageText =
+      error instanceof Error ? error.message : 'The inquiry could not be sent just now.';
+    console.error('Gathering inquiry submission failed:', messageText);
+    return { ok: false, error: messageText };
   }
 }

@@ -6,11 +6,21 @@ import {
   useMemo,
   useRef,
   useState,
+  type ChangeEvent,
+  type FormEvent,
   type KeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
 } from 'react';
 
 import { GlobeIcon } from '@/app/components/icons';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogClose } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import {
+  submitGatheringInquiry,
+  validateGatheringInquiryInput,
+  type GatheringInquiryFieldErrors,
+} from '@/lib/gatherings';
 import { avatarStyleForSeed, normalizeMarkerName } from '@/lib/globeAvatars';
 import { GLOBE_KEY_ROTATE_STEP, GLOBE_KEY_ZOOM_FACTOR } from '@/lib/globeCamera';
 import {
@@ -43,17 +53,29 @@ const CONTROL_CLASS =
   'inline-flex h-11 min-w-11 items-center justify-center rounded-full border border-white/12 bg-slate-900/65 px-3 text-xs font-semibold text-white backdrop-blur-xl transition hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:cursor-not-allowed disabled:opacity-40';
 const MARKER_BUTTON_CLASS =
   'inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300';
-const CONNECT_PRIMARY_CLASS =
-  'inline-flex min-h-11 items-center justify-center rounded-full bg-cyan-300 px-4 text-xs font-bold text-slate-900 transition hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 motion-reduce:transition-none';
-const CONNECT_SECONDARY_CLASS =
-  'inline-flex min-h-11 items-center justify-center rounded-full border border-white/12 bg-slate-900/65 px-4 text-xs font-semibold text-white backdrop-blur-xl transition hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 motion-reduce:transition-none';
 const CONNECT_NOTICE_CLASS = 'min-h-5 text-xs font-semibold text-cyan-300';
+const INQUIRY_LABEL_CLASS =
+  'block text-[10px] font-bold uppercase tracking-[0.18em] text-muted';
+const INQUIRY_ERROR_CLASS = 'mt-1 text-[11px] font-medium text-red-700';
+const INQUIRY_TEXTAREA_CLASS =
+  'min-h-11 w-full rounded-xl border bg-[#FAF7EE]/60 px-3.5 py-2.5 text-sm text-espresso placeholder:text-muted/60 transition-colors duration-150 border-sand hover:border-[#D4A359]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A359] focus-visible:border-transparent aria-[invalid=true]:border-red-500 aria-[invalid=true]:ring-red-500 motion-reduce:transition-none';
 
 /** Focus-trap cycle set for the connect dialog. */
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
 
 type ShareNoticeKind = 'copied' | 'failed';
+
+/** The connect-dialog inquiry form fields. */
+interface InquiryFormState {
+  name: string;
+  contact: string;
+  message: string;
+}
+
+type InquirySubmitState = 'idle' | 'submitting' | 'sent' | 'failed';
+
+const EMPTY_INQUIRY_FORM: InquiryFormState = { name: '', contact: '', message: '' };
 
 /**
  * Privacy-safe share URL: an opaque marker id only — never coordinates,
@@ -95,10 +117,17 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [connectOpen, setConnectOpen] = useState(false);
   const [shareNotice, setShareNotice] = useState<ShareNoticeKind | null>(null);
+  const [inquiryForm, setInquiryForm] = useState<InquiryFormState>(EMPTY_INQUIRY_FORM);
+  const [inquiryErrors, setInquiryErrors] = useState<GatheringInquiryFieldErrors>({});
+  const [inquiryState, setInquiryState] = useState<InquirySubmitState>('idle');
   const modalRef = useRef<HTMLDivElement | null>(null);
   const connectButtonRef = useRef<HTMLButtonElement | null>(null);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const contactInputRef = useRef<HTMLInputElement | null>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
   const lastFocusedRef = useRef<HTMLElement | null>(null);
   const shareNoticeTimerRef = useRef<number | null>(null);
+  const connectOpenRef = useRef(false);
   // Selections made before the async WebGL boot finishes (deep links) are
   // replayed through the scene once it exists.
   const selectedIdRef = useRef<string | null>(null);
@@ -257,6 +286,10 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
   const openConnectModal = useCallback(() => {
     lastFocusedRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // Fresh form per visit: never show the previous visitor's draft.
+    setInquiryForm(EMPTY_INQUIRY_FORM);
+    setInquiryErrors({});
+    setInquiryState('idle');
     setConnectOpen(true);
   }, []);
 
@@ -267,14 +300,77 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
     invoker?.focus();
   }, []);
 
-  // Move focus into the dialog once it mounts.
+  // Move focus into the dialog once it mounts — the first form input.
   useEffect(() => {
     if (!connectOpen) return;
     const frame = window.requestAnimationFrame(() => {
-      modalRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)?.focus();
+      const target =
+        nameInputRef.current ??
+        modalRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ??
+        null;
+      target?.focus();
     });
     return () => window.cancelAnimationFrame(frame);
   }, [connectOpen]);
+
+  // The dialog's live-open mirror: an async inquiry submission consults this to
+  // know whether the visitor dismissed the dialog while the request was in
+  // flight (a closed dialog must never receive a late setState).
+  useEffect(() => {
+    connectOpenRef.current = connectOpen;
+  }, [connectOpen]);
+
+  // Success confirmation auto-dismisses after four seconds and restores focus
+  // to the Connect trigger. Closing early clears the timer via the cleanup.
+  useEffect(() => {
+    if (!connectOpen || inquiryState !== 'sent') return;
+    const timer = window.setTimeout(() => closeConnectModal(), 4000);
+    return () => window.clearTimeout(timer);
+  }, [connectOpen, inquiryState, closeConnectModal]);
+
+  const updateInquiryField =
+    (field: keyof InquiryFormState) =>
+    (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const { value } = event.target;
+      setInquiryForm((previous) => ({ ...previous, [field]: value }));
+      // Errors clear the moment the visitor fixes the field (tactile feedback).
+      setInquiryErrors((previous) =>
+        previous[field] ? { ...previous, [field]: undefined } : previous,
+      );
+    };
+
+  const handleInquirySubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selected || inquiryState === 'submitting' || inquiryState === 'sent') return;
+    const errors = validateGatheringInquiryInput(inquiryForm);
+    setInquiryErrors(errors);
+    if (errors.name) {
+      nameInputRef.current?.focus();
+      return;
+    }
+    if (errors.contact) {
+      contactInputRef.current?.focus();
+      return;
+    }
+    if (errors.message) {
+      messageInputRef.current?.focus();
+      return;
+    }
+    setInquiryState('submitting');
+    const result = await submitGatheringInquiry({
+      gathering_id: selected.id,
+      visitor_name: inquiryForm.name,
+      contact: inquiryForm.contact,
+      message: inquiryForm.message,
+    });
+    if (!connectOpenRef.current) return; // dismissed mid-flight — do not update
+    if (result.ok) {
+      setInquiryState('sent');
+      setInquiryErrors({});
+      return;
+    }
+    setInquiryState('failed');
+  };
 
   const handleModalKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Escape') {
@@ -303,9 +399,12 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
     }
   };
 
-  const handleBackdropClick = (event: ReactMouseEvent<HTMLDivElement>) => {
-    if (event.target === event.currentTarget) closeConnectModal();
-  };
+  const handleDialogOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) closeConnectModal();
+    },
+    [closeConnectModal],
+  );
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Escape') {
@@ -513,14 +612,21 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
           ) : null}
           {selected ? (
             <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/12 pt-4">
-              <button type="button" ref={connectButtonRef} className={CONNECT_PRIMARY_CLASS}
-                onClick={openConnectModal}>
+              <Button
+                ref={connectButtonRef}
+                type="button"
+                variant="glass"
+                onClick={openConnectModal}
+              >
                 Connect
-              </button>
-              <button type="button" className={CONNECT_SECONDARY_CLASS}
-                onClick={() => void shareGathering(selected.id)}>
+              </Button>
+              <Button
+                type="button"
+                variant="glass"
+                onClick={() => void shareGathering(selected.id)}
+              >
                 Share
-              </button>
+              </Button>
               <span aria-live="polite" role="status" className={CONNECT_NOTICE_CLASS}>
                 {shareNotice === 'copied'
                   ? 'Copied!'
@@ -535,62 +641,166 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
           </p>
         </div>
 
-        {connectOpen && selected ? (
-          <div
-            className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm motion-reduce:backdrop-blur-none sm:items-center"
-            onClick={handleBackdropClick}
-          >
-            <div
-              ref={modalRef}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="connect-dialog-title"
-              aria-describedby="connect-dialog-description"
-              onKeyDown={handleModalKeyDown}
-              className={[
-                HUD_PREVIEW_CARD,
-                'w-full max-w-sm rounded-3xl p-6 shadow-2xl transition duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none',
-              ].join(' ')}
-            >
-              <div className="flex items-start justify-between gap-3">
+        <Dialog
+          open={connectOpen && selected !== null}
+          onOpenChange={handleDialogOpenChange}
+          ariaLabelledBy="connect-dialog-title"
+          ariaDescribedBy="connect-dialog-description"
+        >
+          {selected ? (
+            <div ref={modalRef} onKeyDown={handleModalKeyDown} className="text-left">
+              <DialogClose onClose={closeConnectModal} />
+              <div className="flex items-start gap-3 pr-10">
                 <span
                   aria-hidden="true"
-                  className="h-12 w-12 shrink-0 rounded-full border border-white/12 bg-cover bg-center"
+                  className="h-12 w-12 shrink-0 rounded-full border border-sand bg-pill bg-cover bg-center"
                   style={{ backgroundImage: `url(${avatarStyleForSeed(selected.id).file})` }}
                 />
-                <button type="button" className={CONTROL_CLASS} aria-label="Close connect dialog"
-                  onClick={closeConnectModal}>
-                  <span aria-hidden="true">&times;</span>
-                </button>
+                <div className="min-w-0 flex-1">
+                  <h2 id="connect-dialog-title" className="text-lg font-bold tracking-tight">
+                    Connect with {formatAmbassadorName(normalizeMarkerName(selected.first_name))}
+                  </h2>
+                  <Badge variant="gold" size="sm" className="mt-1">
+                    {selected.member_count}{' '}
+                    {selected.member_count === 1 ? 'believer' : 'believers'}
+                  </Badge>
+                </div>
               </div>
-              <h2 id="connect-dialog-title" className="mt-4 text-lg font-bold tracking-tight">
-                Connect with {formatAmbassadorName(normalizeMarkerName(selected.first_name))}
-              </h2>
-              <p id="connect-dialog-description" className="mt-2 text-xs leading-5 text-slate-300">
-                {selected.city || 'Community gathering'} &middot; {selected.member_count}{' '}
-                {selected.member_count === 1 ? 'believer' : 'believers'}. Contact details are
-                never published on the globe &mdash; share the gathering link and a verified
-                leader will welcome you in person.
+              <p id="connect-dialog-description" className="mt-3 text-xs leading-5 text-muted">
+                {selected.city || 'Community gathering'} &middot; Your details go straight to
+                the host &mdash; never published on the globe.
               </p>
-              <div className="mt-5 flex flex-wrap gap-2">
-                <button type="button" className={CONNECT_PRIMARY_CLASS}
-                  onClick={() => void shareGathering(selected.id)}>
-                  Copy gathering link
-                </button>
-                <button type="button" className={CONNECT_SECONDARY_CLASS} onClick={closeConnectModal}>
-                  Close
-                </button>
-              </div>
-              <p className="mt-3 min-h-5 text-xs font-semibold text-cyan-300">
-                {shareNotice === 'copied'
-                  ? 'Copied!'
-                  : shareNotice === 'failed'
-                    ? 'Copy blocked — copy the link from the address bar.'
-                    : ''}
-              </p>
+              {inquiryState === 'sent' ? (
+                <div role="status" className="mt-5 rounded-2xl border border-gold/30 bg-pill p-4">
+                  <p className="text-sm font-semibold leading-5 text-espresso">
+                    Inquiry sent to {formatAmbassadorName(normalizeMarkerName(selected.first_name))}!{' '}
+                    They will reach out to welcome you.
+                  </p>
+                  <Button type="button" className="mt-4" onClick={closeConnectModal}>
+                    Done
+                  </Button>
+                </div>
+              ) : (
+                <form className="mt-5" onSubmit={handleInquirySubmit} noValidate>
+                  <label
+                    htmlFor="connect-inquiry-name"
+                    className={INQUIRY_LABEL_CLASS}
+                  >
+                    Your name
+                  </label>
+                  <Input
+                    ref={nameInputRef}
+                    id="connect-inquiry-name"
+                    name="name"
+                    autoComplete="name"
+                    value={inquiryForm.name}
+                    onChange={updateInquiryField('name')}
+                    aria-required="true"
+                    aria-invalid={inquiryErrors.name ? true : undefined}
+                    aria-describedby={inquiryErrors.name ? 'connect-inquiry-name-error' : undefined}
+                    error={Boolean(inquiryErrors.name)}
+                    placeholder="e.g. Ada Lovelace"
+                  />
+                  {inquiryErrors.name ? (
+                    <p id="connect-inquiry-name-error" className={INQUIRY_ERROR_CLASS}>
+                      {inquiryErrors.name}
+                    </p>
+                  ) : null}
+
+                  <label
+                    htmlFor="connect-inquiry-contact"
+                    className={`mt-4 ${INQUIRY_LABEL_CLASS}`}
+                  >
+                    Email or WhatsApp number
+                  </label>
+                  <Input
+                    ref={contactInputRef}
+                    id="connect-inquiry-contact"
+                    name="contact"
+                    inputMode="email"
+                    autoComplete="email"
+                    value={inquiryForm.contact}
+                    onChange={updateInquiryField('contact')}
+                    aria-required="true"
+                    aria-invalid={inquiryErrors.contact ? true : undefined}
+                    aria-describedby={inquiryErrors.contact ? 'connect-inquiry-contact-error' : undefined}
+                    error={Boolean(inquiryErrors.contact)}
+                    placeholder="you@example.com or +1 555 000 1234"
+                  />
+                  {inquiryErrors.contact ? (
+                    <p id="connect-inquiry-contact-error" className={INQUIRY_ERROR_CLASS}>
+                      {inquiryErrors.contact}
+                    </p>
+                  ) : null}
+                  <label
+                    htmlFor="connect-inquiry-message"
+                    className={`mt-4 ${INQUIRY_LABEL_CLASS}`}
+                  >
+                    Message{' '}
+                    <span className="normal-case tracking-normal text-muted">(optional)</span>
+                  </label>
+                  <textarea
+                    ref={messageInputRef}
+                    id="connect-inquiry-message"
+                    name="message"
+                    rows={3}
+                    value={inquiryForm.message}
+                    onChange={updateInquiryField('message')}
+                    aria-invalid={inquiryErrors.message ? true : undefined}
+                    aria-describedby={inquiryErrors.message ? 'connect-inquiry-message-error' : undefined}
+                    className={INQUIRY_TEXTAREA_CLASS}
+                    placeholder="Say hello, ask about meeting times…"
+                  />
+                  {inquiryErrors.message ? (
+                    <p id="connect-inquiry-message-error" className={INQUIRY_ERROR_CLASS}>
+                      {inquiryErrors.message}
+                    </p>
+                  ) : null}
+
+                  {inquiryState === 'failed' ? (
+                    <p role="alert" className="mt-3 text-xs font-semibold text-red-700">
+                      We could not send that just now. Please try again in a moment.
+                    </p>
+                  ) : null}
+
+                  <div className="mt-5 flex flex-wrap items-center gap-2">
+                    <Button
+                      type="submit"
+                      disabled={inquiryState === 'submitting'}
+                      className="px-5"
+                    >
+                      {inquiryState === 'submitting' ? (
+                        <>
+                          <span
+                            aria-hidden="true"
+                            className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-canvas/40 border-t-canvas motion-reduce:animate-none"
+                          />
+                          Sending…
+                        </>
+                      ) : (
+                        'Send inquiry'
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => void shareGathering(selected.id)}
+                    >
+                      Copy gathering link
+                    </Button>
+                    <span className={`min-h-5 text-xs font-semibold text-[#8F6522]`}>
+                      {shareNotice === 'copied'
+                        ? 'Copied!'
+                        : shareNotice === 'failed'
+                          ? 'Copy blocked — copy the link from the address bar.'
+                          : ''}
+                    </span>
+                  </div>
+                </form>
+              )}
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </Dialog>
       </div>
 
       <div className="border-t border-white/12 p-4 sm:p-6">

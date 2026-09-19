@@ -84,7 +84,7 @@ function setupGatherings({
       calls.push(['from', table]);
       if (throws) throw new Error('Missing Supabase configuration');
       const query = {};
-      for (const method of ['select', 'eq', 'order', 'limit']) {
+      for (const method of ['select', 'eq', 'order', 'limit', 'insert']) {
         query[method] = (...args) => {
           calls.push([method, ...args]);
           return query;
@@ -572,4 +572,163 @@ test('a genuine status-filtered read failure is still reported', async () => {
   assert.equal(result.ok, true);
   assert.equal(warnings.length, 1, 'an unexpected read failure must remain visible');
   assert.match(warnings[0], /permission denied/);
+});
+
+// ---------------------------------------------------------------------------
+// Phase 5 — Milestone A: live host connect inquiries
+// ---------------------------------------------------------------------------
+
+const VALID_INQUIRY = {
+  gathering_id: 'gathering-1',
+  visitor_name: 'Ada Lovelace',
+  contact: 'ada@example.com',
+  message: 'I would love to visit this Sunday.',
+};
+
+test('inquiries insert a strict, privacy-safe payload into gathering_inquiries', async () => {
+  const { api, calls } = setupGatherings({
+    responses: [{ data: [{ id: 'inq-1' }], error: null }],
+  });
+  const result = await api.submitGatheringInquiry({
+    ...VALID_INQUIRY,
+    visitor_name: '  Ada Lovelace  ',
+    message: `  ${VALID_INQUIRY.message}  `,
+  });
+
+  assert.deepEqual(plain(result), { ok: true, delivered: 'remote' });
+  assert.ok(
+    calls.some(([method, table]) => method === 'from' && table === 'gathering_inquiries'),
+  );
+  const insert = calls.find(([method]) => method === 'insert');
+  assert.deepEqual(plain(insert[1]), {
+    gathering_id: 'gathering-1',
+    visitor_name: 'Ada Lovelace',
+    contact: 'ada@example.com',
+    message: 'I would love to visit this Sunday.',
+  });
+});
+
+test('a missing gathering_inquiries table fails open with simulated success', async () => {
+  const { api } = setupGatherings({
+    responses: [{
+      data: null,
+      error: { code: '42P01', message: 'relation "public.gathering_inquiries" does not exist' },
+    }],
+  });
+  const result = await api.submitGatheringInquiry({
+    ...VALID_INQUIRY,
+    contact: '+1 555 123 4567',
+    message: null,
+  });
+  assert.deepEqual(plain(result), { ok: true, delivered: 'simulated' });
+});
+
+test('a PGRST205 schema-cache miss also fails open with simulated success', async () => {
+  const { api } = setupGatherings({
+    responses: [{
+      data: null,
+      error: {
+        code: 'PGRST205',
+        message: "Could not find the table 'public.gathering_inquiries' in the schema cache",
+      },
+    }],
+  });
+  const result = await api.submitGatheringInquiry(VALID_INQUIRY);
+  assert.deepEqual(plain(result), { ok: true, delivered: 'simulated' });
+});
+
+test('invalid inquiries are rejected locally without touching the network', async () => {
+  const { api, calls } = setupGatherings();
+  const cases = [
+    { ...VALID_INQUIRY, gathering_id: '' },
+    { ...VALID_INQUIRY, visitor_name: '   ' },
+    { ...VALID_INQUIRY, contact: '' },
+    { ...VALID_INQUIRY, contact: 'not-a-contact' },
+    { ...VALID_INQUIRY, message: 'too short' },
+  ];
+  for (const payload of cases) {
+    const result = await api.submitGatheringInquiry(payload);
+    assert.equal(result.ok, false, `expected rejection for ${JSON.stringify(payload)}`);
+  }
+  assert.equal(
+    calls.filter(([method]) => method === 'from').length,
+    0,
+    'invalid payloads must never reach the database',
+  );
+});
+
+test('an empty message is normalised to null and stored text is bounded', async () => {
+  const { api, calls } = setupGatherings({
+    responses: [{ data: [{ id: 'inq-2' }], error: null }],
+  });
+  const whitespaceOnly = await api.submitGatheringInquiry({
+    ...VALID_INQUIRY,
+    message: '     ',
+  });
+  assert.equal(whitespaceOnly.ok, true);
+  const nullInsert = calls.find(([method]) => method === 'insert');
+  assert.equal(nullInsert[1].message, null);
+
+  const long = 'x'.repeat(2000);
+  const bounded = await api.submitGatheringInquiry({
+    ...VALID_INQUIRY,
+    message: `  ${long}  `,
+  });
+  assert.equal(bounded.ok, true);
+  const boundInsert = calls.filter(([method]) => method === 'insert')[1];
+  assert.equal(boundInsert[1].message.length, 1000);
+  assert.equal(boundInsert[1].visitor_name, 'Ada Lovelace');
+});
+
+test('genuine insert failures surface an error, never throw, and never log visitor contact', async () => {
+  const logs = [];
+  const consoleImpl = {
+    error: (...args) => logs.push(args.join(' ')),
+    warn: (...args) => logs.push(args.join(' ')),
+    log: (...args) => logs.push(args.join(' ')),
+  };
+  const { api } = setupGatherings({
+    responses: [{
+      data: null,
+      error: { message: 'new row violates row-level security policy' },
+    }],
+    consoleImpl,
+  });
+  const result = await api.submitGatheringInquiry({
+    ...VALID_INQUIRY,
+    contact: 'ada+private@example.com',
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(typeof result.error === 'string' && result.error.length > 0);
+  assert.ok(!JSON.stringify(logs).includes('ada+private@example.com'),
+    'visitor contact details must never appear in logs');
+});
+
+test('validateGatheringInquiryInput returns field-scoped error copy', () => {
+  const { api } = setupGatherings();
+
+  assert.deepEqual(
+    plain(api.validateGatheringInquiryInput({ name: '   ', contact: '', message: '' })),
+    {
+      name: 'Please share your name.',
+      contact: 'Enter an email address or a WhatsApp phone number.',
+    },
+  );
+  assert.deepEqual(
+    plain(api.validateGatheringInquiryInput({ name: 'Ada', contact: 'not-a-contact', message: 'hi' })),
+    {
+      contact: 'Enter an email address or a WhatsApp phone number.',
+      message: 'Add a little more detail — at least 10 characters, or leave this empty.',
+    },
+  );
+  assert.deepEqual(
+    plain(api.validateGatheringInquiryInput({
+      name: 'Ada',
+      contact: '+1 555 123 4567',
+      message: 'I would love to visit this Sunday.',
+    })),
+    {},
+    'a valid form yields no errors',
+  );
 });
