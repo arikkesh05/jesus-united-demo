@@ -4,7 +4,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
 import type { Reflection } from '@/lib/types';
 import AudioPlayer from '@/app/components/AudioPlayer';
-import { CheckIcon, ChevronDownIcon, CopyIcon } from '@/app/components/icons';
+import PrayerWatchModal from '@/app/components/PrayerWatchModal';
+import {
+  BellIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  CopyIcon,
+  HeartIcon,
+} from '@/app/components/icons';
 
 interface DailyReflectionProps {
   reflection: Reflection | null;
@@ -24,6 +31,75 @@ interface ExamenEntry {
 }
 
 const EXAMEN_STORAGE_KEY = 'jesusunited:daily-reflection-examen:v1';
+
+/** Guest-first, per-day Amen lock so one heart offers one amen per day. */
+interface AmenPulseEntry {
+  date: string;
+  hasAmen: boolean;
+}
+
+const AMEN_STORAGE_KEY = 'jesusunited:amen-pulse:v1';
+
+/** Local calendar date (YYYY-MM-DD) so the Amen lock rolls over at local midnight. */
+function todayKey(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+/**
+ * Deterministic communal presence baseline derived from the local date, so the
+ * server-rendered HTML and the first client render agree (no hydration shift).
+ */
+function regionBaselineFor(dateKey: string): number {
+  let hash = 0;
+  for (const character of dateKey) {
+    hash = (hash * 31 + character.charCodeAt(0)) % 997;
+  }
+  return 12 + (hash % 9);
+}
+
+/** Reads today's Amen lock; corrupt or blocked storage degrades to not-offered. */
+function readAmenPulse(dateKey: string): boolean {
+  if (!dateKey || typeof window === 'undefined') return false;
+
+  try {
+    const raw = window.localStorage.getItem(AMEN_STORAGE_KEY);
+    if (!raw) return false;
+
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return false;
+
+    const entry = parsed as Partial<AmenPulseEntry>;
+    return entry.date === dateKey && entry.hasAmen === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Persists the Amen lock; quota or privacy failures stay non-fatal. */
+function writeAmenPulse(dateKey: string): void {
+  if (!dateKey || typeof window === 'undefined') return;
+
+  const entry: AmenPulseEntry = { date: dateKey, hasAmen: true };
+  try {
+    window.localStorage.setItem(AMEN_STORAGE_KEY, JSON.stringify(entry));
+  } catch {
+    // Private-browsing quota errors are non-fatal; state stays in memory.
+  }
+}
+
+/**
+ * Condenses a scripture reference to its passage anchor for communal copy:
+ * "Ephesians 2:8-10" reads as "Ephesians 2"; "Psalm 46:10" as "Psalm 46".
+ */
+function scriptureAnchor(reference: string): string {
+  const trimmed = reference.trim();
+  if (!trimmed) return 'the Word';
+  const passage = trimmed.split(':')[0]?.trim() ?? '';
+  return passage || trimmed;
+}
 
 /**
  * Builds the three contemplation prompts for the Examen section, anchored to
@@ -141,6 +217,16 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Synchronous Amen Resonance + Prayer Rhythms state.
+  const [isWatchModalOpen, setIsWatchModalOpen] = useState(false);
+  const [hasAmenToday, setHasAmenToday] = useState(false);
+  const [amenDrift, setAmenDrift] = useState(0);
+  const [amenRings, setAmenRings] = useState<number[]>([]);
+  const amenBase = useMemo(
+    () => regionBaselineFor(reflectionDate || 'daily'),
+    [reflectionDate],
+  );
+
   /**
    * Mount-gated load: the server HTML renders the same empty maps as the first
    * client render (no hydration mismatch), then stored Examen state fills in.
@@ -164,6 +250,47 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
       if (copyTimer.current) clearTimeout(copyTimer.current);
     };
   }, []);
+
+  /**
+   * Mount-gated Amen lock read: the server HTML renders the same not-offered
+   * state as the first client render (no hydration mismatch), then the stored
+   * per-day lock fills in.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const stored = readAmenPulse(todayKey());
+      if (cancelled) return;
+      setHasAmenToday(stored);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** Gentle ambient drift on the communal count so the bar breathes while open. */
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAmenDrift((current) => {
+        const step = Math.floor(Math.random() * 3) - 1; // -1 | 0 | 1
+        return Math.min(4, Math.max(0, current + step));
+      });
+    }, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
+  /** Offers the Amen: optimistic count bump, per-day localStorage lock, pulse ring. */
+  const sayAmen = () => {
+    if (hasAmenToday) return;
+    setHasAmenToday(true);
+    writeAmenPulse(todayKey());
+    setAmenRings((current) => [...current, Date.now()]);
+  };
+
+  /** Removes a finished radial gold pulse ring from the Animate-free ring stack. */
+  const dismissAmenRing = (id: number) => {
+    setAmenRings((current) => current.filter((ring) => ring !== id));
+  };
 
   const toggleCompleted = (id: string) => {
     const nextCompleted = { ...completed, [id]: !completed[id] };
@@ -252,6 +379,7 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
   }
 
   const completedCount = prompts.filter((prompt) => completed[prompt.id]).length;
+  const amenCount = amenBase + amenDrift + (hasAmenToday ? 1 : 0);
 
   return (
     <MotionConfig reducedMotion="user">
@@ -289,6 +417,19 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
               >
                 {formatReflectionDate(reflection.reflection_date)}
               </time>
+              <motion.button
+                type="button"
+                onClick={() => setIsWatchModalOpen(true)}
+                whileTap={{ scale: 0.96 }}
+                whileHover={{ y: -1 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                aria-haspopup="dialog"
+                aria-expanded={isWatchModalOpen}
+                className="ml-auto inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-sand bg-white px-3 text-xs font-bold text-espresso shadow-soft transition-colors duration-200 hover:border-gold hover:text-pill-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 sm:px-4"
+              >
+                <BellIcon className="h-4 w-4 text-gold-deep" />
+                Prayer Rhythms
+              </motion.button>
             </div>
 
             <h2 className="mt-5 font-serif text-2xl font-bold leading-tight tracking-tight text-espresso sm:text-3xl">
@@ -312,6 +453,66 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
                 </figcaption>
               </div>
             </figure>
+
+            {/* Synchronous Amen Resonance — communal presence + tactile Amen */}
+            <div className="mt-3 rounded-2xl border border-sand/80 bg-white/85 p-4">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span className="relative flex h-2.5 w-2.5 shrink-0" aria-hidden="true">
+                  <span className="amen-breath absolute inline-flex h-full w-full rounded-full bg-gold opacity-60" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-gold" />
+                </span>
+                <p
+                  aria-live="polite"
+                  className="min-w-0 flex-1 text-sm leading-6 text-espresso/85"
+                >
+                  <span className="font-bold tabular-nums">{amenCount}</span>{' '}
+                  {'believers in your region are consecrating their morning with'}{' '}
+                  <span className="font-bold">{scriptureAnchor(reflection.scripture_reference)}</span>{' '}
+                  right now.
+                </p>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <motion.button
+                  type="button"
+                  onClick={sayAmen}
+                  disabled={hasAmenToday}
+                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ y: -1 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                  aria-label={
+                    hasAmenToday
+                      ? 'Amen offered today'
+                      : 'Say Amen to this scripture anchor'
+                  }
+                  className={`relative inline-flex min-h-[44px] items-center gap-2 overflow-visible rounded-full px-5 text-sm font-bold shadow-soft transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 ${
+                    hasAmenToday
+                      ? 'bg-pill text-pill-ink'
+                      : 'bg-gold text-espresso hover:bg-gold-deep'
+                  }`}
+                >
+                  <HeartIcon
+                    className={`h-4 w-4 ${hasAmenToday ? 'fill-current' : ''}`}
+                  />
+                  {hasAmenToday ? 'Amen Offered' : 'Say Amen'}
+                </motion.button>
+                <span role="status" aria-live="polite" className="sr-only">
+                  {hasAmenToday ? 'Your amen has been offered today.' : ''}
+                </span>
+                {/* Expanding radial gold pulse rings */}
+                <div className="relative" aria-hidden="true">
+                  {amenRings.map((id) => (
+                    <motion.span
+                      key={id}
+                      initial={{ opacity: 0.55, scale: 0.35 }}
+                      animate={{ opacity: 0, scale: 2.4 }}
+                      transition={{ duration: 1.1, ease: 'easeOut' }}
+                      onAnimationComplete={() => dismissAmenRing(id)}
+                      className="pointer-events-none absolute -top-11 right-0 block h-24 w-24 rounded-full border-2 border-gold"
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
 
             <p className="mt-5 whitespace-pre-line text-base leading-7 text-espresso/80">
               {reflection.reflection_text}
@@ -392,6 +593,10 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
           </div>
         </article>
       </div>
+      <PrayerWatchModal
+        open={isWatchModalOpen}
+        onClose={() => setIsWatchModalOpen(false)}
+      />
     </MotionConfig>
   );
 }

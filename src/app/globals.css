@@ -74,6 +74,29 @@ body {
   }
 }
 
+/* Milestone 1.3: synchronous Amen resonance live dot (reduced-motion aware). */
+@keyframes amen-breath {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.2;
+    transform: scale(1.7);
+  }
+}
+
+.amen-breath {
+  animation: amen-breath 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .amen-breath {
+    animation: none;
+  }
+}
+
 /* Phase 5: print isolation - exporting prints only the Pulpit Kit. */
 @media print {
   body {

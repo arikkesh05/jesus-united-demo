@@ -231,3 +231,12 @@ export function HandHeartIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+export function BellIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <path d="M18 9a6 6 0 1 0-12 0c0 5.5-2.5 7-2.5 7h17S18 14.5 18 9Z" />
+      <path d="M10.3 20a2 2 0 0 0 3.4 0" />
+    </svg>
+  );
+}
