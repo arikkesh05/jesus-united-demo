@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
+import { motion, MotionConfig } from 'framer-motion';
 import { PauseIcon, PlayIcon, VolumeIcon, VolumeOffIcon } from '@/app/components/icons';
 import { FALLBACK_REFLECTION_AUDIO_URL } from '@/lib/reflectionFallback';
 
@@ -10,6 +11,22 @@ interface AudioPlayerProps {
 }
 
 const SPEEDS = [1, 1.25, 1.5];
+
+/**
+ * Deterministic waveform bar profile: the heights are pure functions of the bar
+ * index (never `Math.random()`), so the server-rendered markup and the first
+ * client render are identical - no hydration mismatch. Values are normalised to
+ * `[0.22, 1]` scale factors of the track height.
+ */
+const WAVEFORM_BAR_COUNT = 32;
+const WAVEFORM_BAR_HEIGHTS = Array.from({ length: WAVEFORM_BAR_COUNT }, (_, index) => {
+  const wave =
+    Math.abs(Math.sin(index * 0.83 + 1.7)) * 0.72 + Math.abs(Math.cos(index * 0.31)) * 0.28;
+  return 0.22 + 0.78 * Math.min(1, wave);
+});
+
+/** Keyboard scrub step (seconds) for Left/Right arrows on the player group. */
+const SCRUB_STEP_SECONDS = 5;
 
 /**
  * Tier 2 of the playback architecture: a bundled, locally synthesised track
@@ -107,6 +124,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [usingFallback, setUsingFallback] = useState(false);
+  const [isScrubTrackHovered, setIsScrubTrackHovered] = useState(false);
 
   const primarySrc = resolveAudioSrc(src);
   const primaryType = resolveAudioType(primarySrc);
@@ -285,11 +303,11 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
     if (audio && hasDuration) audio.currentTime = Math.min(Math.max(next, 0), duration);
   };
 
-  const cycleSpeed = () => {
+  /** Applies a speed preset and mirrors it onto the live media element. */
+  const setSpeed = (index: number) => {
     const audio = audioRef.current;
-    const nextIndex = (speedIndex + 1) % SPEEDS.length;
-    setSpeedIndex(nextIndex);
-    if (audio) audio.playbackRate = SPEEDS[nextIndex];
+    setSpeedIndex(index);
+    if (audio) audio.playbackRate = SPEEDS[index];
   };
 
   const toggleMute = () => {
@@ -299,100 +317,203 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
     if (audio) audio.muted = next;
   };
 
+  /**
+   * Group-level keyboard support (fires only when the player shell itself is
+   * focused, so buttons and the scrub slider keep their native behaviour):
+   * - Space toggles play/pause.
+   * - Left/Right arrows scrub ±5 seconds.
+   */
+  const handlePlayerKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return;
+
+    if (event.key === ' ') {
+      event.preventDefault();
+      void togglePlay();
+      return;
+    }
+
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      const audio = audioRef.current;
+      const mediaDuration = audio?.duration ?? 0;
+      if (!audio || !Number.isFinite(mediaDuration) || mediaDuration <= 0) return;
+
+      event.preventDefault();
+      const offset = event.key === 'ArrowLeft' ? -SCRUB_STEP_SECONDS : SCRUB_STEP_SECONDS;
+      const next = Math.min(Math.max(audio.currentTime + offset, 0), mediaDuration);
+      audio.currentTime = next;
+      setCurrentTime(next);
+    }
+  };
+
   return (
-    <div className="rounded-2xl border border-sand bg-pill/40 p-4">
-      {/*
-        No `src` attribute on the media element on purpose: a `src` on <audio>
-        takes precedence over <source> children and would defeat the multi-tier
-        fallback. The guaranteed same-origin MP3 is always the last candidate.
-      */}
-      <audio
-        key={primarySrc}
-        ref={attachAudioElement}
-        preload="metadata"
-        className="hidden"
-        onLoadedMetadata={handleLoadedMetadata}
-        onCanPlay={handleLoadedMetadata}
-        onDurationChange={handleDurationChange}
-        onTimeUpdate={handleTimeUpdate}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
-        onEnded={handleEnded}
-        onError={handleAudioError}
+    <MotionConfig reducedMotion="user">
+      <div
+        tabIndex={0}
+        onKeyDown={handlePlayerKeyDown}
+        aria-label={
+          hasError
+            ? 'Reflection audio player unavailable'
+            : `Reflection audio player. Space to ${showPlaying ? 'pause' : 'play'}, left and right arrows to scrub`
+        }
+        className="group rounded-2xl border border-white/80 bg-white/70 p-4 shadow-md outline-none backdrop-blur-xl transition-shadow duration-300 focus-visible:ring-2 focus-visible:ring-gold/70 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas hover:shadow-lg"
       >
-        {/* Tier 1: the reflection's own URL (hosted, root-relative, blob: or data:). */}
-        <source src={primarySrc} type={primaryType} />
-        {/* Tier 2: guaranteed local MP3 - works offline, on WebKit, and everywhere else. */}
-        <source src={FALLBACK_SRC} type="audio/mpeg" />
-      </audio>
-
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={togglePlay}
-          disabled={hasError}
-          aria-label={showPlaying ? 'Pause the reflection' : 'Play the reflection'}
-          aria-pressed={showPlaying}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold text-espresso transition-all duration-200 hover:bg-gold-deep hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-gold disabled:hover:shadow-none"
+        {/*
+          No `src` attribute on the media element on purpose: a `src` on <audio>
+          takes precedence over <source> children and would defeat the multi-tier
+          fallback. The guaranteed same-origin MP3 is always the last candidate.
+        */}
+        <audio
+          key={primarySrc}
+          ref={attachAudioElement}
+          preload="metadata"
+          className="hidden"
+          onLoadedMetadata={handleLoadedMetadata}
+          onCanPlay={handleLoadedMetadata}
+          onDurationChange={handleDurationChange}
+          onTimeUpdate={handleTimeUpdate}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          onEnded={handleEnded}
+          onError={handleAudioError}
         >
-          {showPlaying ? <PauseIcon className="h-5 w-5" /> : <PlayIcon className="h-5 w-5" />}
-        </button>
+          {/* Tier 1: the reflection's own URL (hosted, root-relative, blob: or data:). */}
+          <source src={primarySrc} type={primaryType} />
+          {/* Tier 2: guaranteed local MP3 - works offline, on WebKit, and everywhere else. */}
+          <source src={FALLBACK_SRC} type="audio/mpeg" />
+        </audio>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="truncate text-sm font-bold text-espresso">
-              {title ?? 'Reflection audio'}
-            </p>
-            <p className="shrink-0 text-xs font-medium tabular-nums text-muted">
-              {formatTime(currentTime)} / {formatTime(duration || 0)}
-            </p>
-          </div>
+        <div className="flex items-center gap-3.5">
+          {/* Spring play/pause transport with gold ring highlight */}
+          <motion.button
+            type="button"
+            onClick={togglePlay}
+            disabled={hasError}
+            whileTap={hasError ? undefined : { scale: 0.95 }}
+            aria-label={showPlaying ? 'Pause the reflection' : 'Play the reflection'}
+            aria-pressed={showPlaying}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gold text-espresso shadow-sm ring-2 ring-transparent transition-[background-color,box-shadow] duration-200 hover:bg-gold-deep hover:shadow-md focus-visible:ring-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-gold disabled:hover:shadow-none"
+          >
+            {showPlaying ? <PauseIcon className="h-5 w-5" /> : <PlayIcon className="ml-0.5 h-5 w-5" />}
+          </motion.button>
 
-          <div className="relative mt-2 h-2 w-full rounded-full bg-sand">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="truncate text-sm font-bold text-espresso">
+                {title ?? 'Reflection audio'}
+              </p>
+              <p className="shrink-0 text-xs font-medium tabular-nums text-muted">
+                {formatTime(currentTime)} / {formatTime(duration || 0)}
+              </p>
+            </div>
+
+            {/* Waveform visualizer — deterministic heights, springs settle when paused */}
             <div
-              className="absolute inset-y-0 left-0 rounded-full bg-gold"
-              style={{ width: `${progress}%` }}
-            />
-            <input
-              type="range"
-              min={0}
-              max={hasDuration ? duration : 0}
-              step={0.1}
-              value={hasDuration ? Math.min(currentTime, duration) : 0}
-              onChange={handleSeek}
-              disabled={!hasDuration}
-              aria-label="Seek through the reflection"
-              aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration || 0)}`}
-              className="absolute inset-0 h-2 w-full cursor-pointer appearance-none rounded-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-gold [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gold"
-            />
-          </div>
-
-          <div className="mt-3 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={cycleSpeed}
-              aria-label={`Playback speed ${SPEEDS[speedIndex]}x - activate to change`}
-              className="rounded-full border border-sand px-2.5 py-1 text-xs font-bold text-muted transition-all duration-200 hover:border-gold hover:text-espresso"
+              aria-hidden="true"
+              className="mt-2.5 flex h-9 items-center justify-between gap-[3px]"
             >
-              {SPEEDS[speedIndex]}x
-            </button>
+              {WAVEFORM_BAR_HEIGHTS.map((height, index) => {
+                const played = hasDuration ? index / WAVEFORM_BAR_COUNT <= progress / 100 : false;
+                return (
+                  <motion.span
+                    key={index}
+                    className={`w-full origin-center rounded-full transition-colors duration-300 ${
+                      played ? 'bg-gold' : 'bg-sand'
+                    }`}
+                    style={{ height: `${Math.round(height * 100)}%` }}
+                    animate={showPlaying ? { scaleY: [1, 0.45, 1] } : { scaleY: 1 }}
+                    transition={
+                      showPlaying
+                        ? {
+                            duration: 1.05 + (index % 5) * 0.14,
+                            repeat: Infinity,
+                            ease: 'easeInOut',
+                            delay: (index % 7) * 0.09,
+                          }
+                        : { type: 'spring', stiffness: 320, damping: 24 }
+                    }
+                  />
+                );
+              })}
+            </div>
 
-            <button
-              type="button"
-              onClick={toggleMute}
-              aria-label={isMuted ? 'Unmute the reflection' : 'Mute the reflection'}
-              aria-pressed={isMuted}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-sand text-muted transition-all duration-200 hover:border-gold hover:text-espresso"
-            >
-              {isMuted ? <VolumeOffIcon className="h-4 w-4" /> : <VolumeIcon className="h-4 w-4" />}
-            </button>
+            {/* Interactive scrub track with hover thumb indicator */}
+            <div className="relative mt-2 h-4">
+              <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-sand" />
+              <div
+                className="absolute top-1/2 left-0 h-2 -translate-y-1/2 rounded-full bg-gradient-to-r from-gold-deep to-gold"
+                style={{ width: `${progress}%` }}
+              />
+              <div
+                aria-hidden="true"
+                className={`pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-gold shadow transition-all duration-150 ease-out ${
+                  isScrubTrackHovered ? 'scale-110 opacity-100' : 'scale-75 opacity-0'
+                }`}
+                style={{ left: `${progress}%` }}
+              />
+              <input
+                type="range"
+                min={0}
+                max={hasDuration ? duration : 0}
+                step={0.1}
+                value={hasDuration ? Math.min(currentTime, duration) : 0}
+                onChange={handleSeek}
+                onMouseEnter={() => setIsScrubTrackHovered(true)}
+                onMouseLeave={() => setIsScrubTrackHovered(false)}
+                disabled={!hasDuration}
+                aria-label="Seek through the reflection"
+                aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration || 0)}`}
+                className="absolute inset-0 h-4 w-full cursor-pointer appearance-none rounded-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-gold [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gold"
+              />
+            </div>
 
-            <span className="text-xs text-muted">Playback speed and mute</span>
+            {/* Mute + playback-speed segmented control */}
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <motion.button
+                type="button"
+                onClick={toggleMute}
+                whileTap={{ scale: 0.92 }}
+                aria-label={isMuted ? 'Unmute the reflection' : 'Mute the reflection'}
+                aria-pressed={isMuted}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-sand bg-white/80 text-muted transition-colors duration-200 hover:border-gold hover:text-espresso"
+              >
+                {isMuted ? <VolumeOffIcon className="h-4 w-4" /> : <VolumeIcon className="h-4 w-4" />}
+              </motion.button>
+
+              <div
+                role="group"
+                aria-label="Playback speed"
+                className="flex items-center gap-0.5 rounded-full border border-sand bg-pill/70 p-0.5"
+              >
+                {SPEEDS.map((speed, index) => {
+                  const isActive = speedIndex === index;
+                  return (
+                    <button
+                      key={speed}
+                      type="button"
+                      onClick={() => setSpeed(index)}
+                      aria-pressed={isActive}
+                      aria-label={`Playback speed ${speed}x${isActive ? ' (active)' : ''}`}
+                      className={`relative rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums transition-colors duration-200 ${
+                        isActive ? 'text-espresso' : 'text-muted hover:text-espresso'
+                      }`}
+                    >
+                      {isActive && (
+                        <motion.span
+                          layoutId="audio-speed-pill"
+                          className="absolute inset-0 rounded-full bg-white shadow-sm ring-1 ring-black/[0.05]"
+                          transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                        />
+                      )}
+                      <span className="relative">{speed}x</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {hasError ? (
+        {hasError ? (
         <p
           role="status"
           aria-live="polite"
@@ -426,6 +547,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
           .
         </p>
       ) : null}
-    </div>
+      </div>
+    </MotionConfig>
   );
 }
