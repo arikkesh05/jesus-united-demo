@@ -43,8 +43,8 @@ const FOCUSABLE_SELECTOR =
 
 const LABEL_CLASS = 'text-xs font-bold uppercase tracking-[0.14em] text-muted';
 const FIELD_CLASS =
-  'mt-1.5 w-full rounded-full border border-sand bg-pill px-4 py-2.5 text-sm text-espresso outline-none transition placeholder:text-muted/60 focus:border-gold focus:ring-2 focus:ring-gold/25';
-const ERROR_TEXT_CLASS = 'mt-1 text-xs font-medium text-red-700';
+  'mt-1.5 min-h-[44px] w-full rounded-full border border-white/10 bg-canvas/60 px-4 py-2.5 text-sm text-espresso outline-none transition placeholder:text-muted/80 focus:border-gold focus:ring-2 focus:ring-gold/25';
+const ERROR_TEXT_CLASS = 'mt-1 text-xs font-medium text-red-300';
 
 /** Parses an optional "latitude, longitude" input; `null` when not usable. */
 function parseCoordinates(value: string): { latitude: number; longitude: number } | null {
@@ -212,7 +212,7 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
     <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
       <div
         aria-hidden
-        className="absolute inset-0 bg-canvas/40 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-canvas/70 backdrop-blur-sm"
         onClick={requestClose}
       />
 
@@ -222,11 +222,11 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
         aria-modal="true"
         aria-labelledby="gathering-submission-title"
         aria-describedby="gathering-submission-description"
-        className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-sand bg-canvas shadow-lift"
+        className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-white/10 bg-pill/95 shadow-2xl backdrop-blur-2xl"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-sand px-6 py-5">
+        <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
           <div>
-            <span className="inline-flex items-center rounded-full bg-pill px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-pill-ink">
+            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-200">
               Community Submission
             </span>
             <h2
@@ -247,7 +247,7 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
             type="button"
             onClick={requestClose}
             aria-label="Close dialog"
-            className="shrink-0 rounded-full border border-sand bg-pill p-2 text-muted transition hover:border-gold/50 hover:bg-pill hover:text-espresso"
+            className="shrink-0 rounded-full border border-white/10 bg-white/5 p-2 text-slate-300 outline-none transition hover:border-gold/50 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-gold/50"
           >
             <CloseIcon className="h-4 w-4" />
           </button>
@@ -373,7 +373,7 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
               {submitError ? (
                 <p
                   role="alert"
-                  className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                  className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300"
                 >
                   {submitError}
                 </p>
@@ -383,14 +383,14 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
                 <button
                   type="button"
                   onClick={requestClose}
-                  className="inline-flex items-center justify-center rounded-full border border-sand bg-pill px-4 py-2.5 text-sm font-bold text-espresso transition hover:border-gold hover:bg-pill"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-espresso outline-none transition hover:border-gold/50 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-gold/50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="inline-flex items-center justify-center rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-canvas transition hover:bg-gold-deep hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-canvas shadow-lg shadow-gold/20 outline-none transition hover:bg-gold-deep focus-visible:ring-2 focus-visible:ring-gold/50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {submitting ? 'Submitting…' : 'Submit for review'}
                 </button>
