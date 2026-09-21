@@ -117,6 +117,30 @@ export function PrinterIcon({ className }: IconProps) {
   );
 }
 
+export function ChevronLeftIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <path d="m14.5 5.5-6.5 6.5 6.5 6.5" />
+    </svg>
+  );
+}
+
+export function ChevronRightIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <path d="m9.5 5.5 6.5 6.5-6.5 6.5" />
+    </svg>
+  );
+}
+
+export function ChevronDownIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <path d="m5.5 9.5 6.5 6.5 6.5-6.5" />
+    </svg>
+  );
+}
+
 export function PlayIcon({ className }: IconProps) {
   return (
     <svg {...baseProps} className={className}>

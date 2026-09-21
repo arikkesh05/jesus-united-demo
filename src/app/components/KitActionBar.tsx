@@ -56,7 +56,11 @@ export default function KitActionBar({ kit }: KitActionBarProps) {
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex items-center justify-center gap-2 rounded-full bg-gold px-4 py-2.5 text-sm font-bold text-espresso transition hover:bg-gold-deep hover:shadow-md"
+          className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold text-espresso transition-all duration-200 active:scale-[0.98] ${
+            copyStatus === 'copied'
+              ? 'bg-espresso text-canvas shadow-lg'
+              : 'bg-gold hover:bg-gold-deep hover:shadow-md'
+          }`}
         >
           {copyStatus === 'copied' ? (
             <CheckIcon className="h-4 w-4" />
@@ -69,7 +73,7 @@ export default function KitActionBar({ kit }: KitActionBarProps) {
         <button
           type="button"
           onClick={handlePrint}
-          className="inline-flex items-center justify-center gap-2 rounded-full border border-sand bg-white px-4 py-2.5 text-sm font-bold text-espresso transition hover:border-gold/50 hover:bg-pill"
+          className="inline-flex items-center justify-center gap-2 rounded-full border border-sand bg-white px-4 py-2.5 text-sm font-bold text-espresso transition-all duration-200 hover:border-gold/50 hover:bg-pill active:scale-[0.98]"
         >
           <PrinterIcon className="h-4 w-4" />
           Print / Export View

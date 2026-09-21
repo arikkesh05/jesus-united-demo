@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type KeyboardEvent } from 'react';
+import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import KitActionBar from '@/app/components/KitActionBar';
 import KitHeader from '@/app/components/KitHeader';
 import KitOutlinePanel from '@/app/components/KitOutlinePanel';
@@ -15,10 +16,10 @@ interface PulpitKitProps {
 
 type TabId = 'architecture' | 'study' | 'deck';
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'architecture', label: 'Sermon Architecture' },
-  { id: 'study', label: 'Community Group Study' },
-  { id: 'deck', label: 'Presentation Deck' },
+const TABS: { id: TabId; label: string; icon: string }[] = [
+  { id: 'architecture', label: 'Sermon Architecture', icon: '🎙️' },
+  { id: 'study', label: 'Community Group Study', icon: '👥' },
+  { id: 'deck', label: 'Presentation Deck', icon: '📽️' },
 ];
 
 export default function PulpitKit({ kit }: PulpitKitProps) {
@@ -32,75 +33,132 @@ export default function PulpitKit({ kit }: PulpitKitProps) {
     setActiveTab(TABS[(index + offset + TABS.length) % TABS.length].id);
   };
 
-  // Printing reveals every panel so the exported view holds the whole kit.
-  const panelClass = (tab: TabId) =>
-    `${activeTab === tab ? 'block' : 'hidden'} print:block print-force-visible`;
-
   return (
-    <div className="rounded-3xl border border-sand bg-white p-5 shadow-soft sm:p-6 print:border-0 print:p-0 print:shadow-none sm:print:p-0">
-      <KitHeader kit={kit} />
-      <KitActionBar kit={kit} />
+    <MotionConfig reducedMotion="user">
+      <section className="relative mx-auto my-8 max-w-5xl px-2 sm:px-4">
+      {/* Layers-style Ambient Backlight Glow */}
+      <div 
+        aria-hidden="true"
+        className="pointer-events-none absolute -inset-4 -z-10 rounded-[3rem] opacity-70 blur-3xl transition-opacity duration-700"
+        style={{
+          background: 'radial-gradient(ellipse at 50% 0%, rgba(194, 155, 56, 0.18) 0%, rgba(246, 239, 226, 0.4) 45%, transparent 75%)'
+        }}
+      />
 
-      <div
-        role="tablist"
-        aria-label="Pulpit kit sections"
-        onKeyDown={handleTabKeyDown}
-        className="mt-5 flex flex-wrap gap-1 rounded-full border border-sand bg-pill p-1 print:hidden"
-      >
-        {TABS.map((tab) => {
-          const isActive = tab.id === activeTab;
-          return (
-            <button
-              key={tab.id}
-              id={`kit-tab-${tab.id}`}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              aria-controls={`kit-panel-${tab.id}`}
-              tabIndex={isActive ? 0 : -1}
-              onClick={() => setActiveTab(tab.id)}
-              className={
-                isActive
-                  ? 'flex-1 rounded-full bg-gold px-3 py-2 text-xs font-bold text-espresso shadow-sm transition-all duration-200 sm:text-sm'
-                  : 'flex-1 rounded-full px-3 py-2 text-xs font-bold text-muted transition-all duration-200 hover:bg-white/60 hover:text-espresso sm:text-sm'
-              }
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* Floating Glassmorphic Container */}
+      <div className="relative overflow-hidden rounded-[2.25rem] border border-white/80 bg-white/75 p-6 shadow-[0_20px_60px_-15px_rgba(42,37,33,0.07)] backdrop-blur-2xl transition-all duration-300 sm:p-8 md:p-10 print:border-0 print:bg-white print:p-0 print:shadow-none">
+        
+        {/* Subtle Inner Highlight Border */}
+        <div className="pointer-events-none absolute inset-0 rounded-[2.25rem] ring-1 ring-inset ring-black/[0.04]" />
 
-      <div
-        id="kit-panel-architecture"
-        role="tabpanel"
-        aria-labelledby="kit-tab-architecture"
-        className={`mt-5 ${panelClass('architecture')}`}
-      >
-        <KitOutlinePanel kit={kit} />
-      </div>
+        {/* Header & Meta Bar */}
+        <div className="relative">
+          <KitHeader kit={kit}/>
+        </div>
 
-      <div
-        id="kit-panel-study"
-        role="tabpanel"
-        aria-labelledby="kit-tab-study"
-        className={`mt-5 ${panelClass('study')}`}
-      >
-        <KitStudyPanel kit={kit} />
-      </div>
+        {/* Action Bar (Export, Print, Copy) */}
+        <div className="relative mt-6">
+          <KitActionBar kit={kit}/>
+        </div>
 
-      <div
-        id="kit-panel-deck"
-        role="tabpanel"
-        aria-labelledby="kit-tab-deck"
-        className={`mt-5 ${panelClass('deck')}`}
-      >
-        <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-pill-ink">
-          <ListIcon className="h-4 w-4" />
-          Slide Preview
-        </h4>
-        <KitSlideDeck kit={kit} />
+        {/* Layers-style Floating Segmented Control */}
+        <div
+          role="tablist"
+          aria-label="Pulpit kit sections"
+          onKeyDown={handleTabKeyDown}
+          className="relative mt-8 flex flex-wrap gap-1.5 rounded-2xl border border-sand/60 bg-pill/70 p-1.5 backdrop-blur-md shadow-inner sm:rounded-full print:hidden"
+        >
+          {TABS.map((tab) => {
+            const isActive = tab.id === activeTab;
+            return (
+              <button
+                key={tab.id}
+                id={`kit-tab-${tab.id}`}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                aria-controls={`kit-panel-${tab.id}`}
+                tabIndex={isActive ? 0 : -1}
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative z-10 flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-colors duration-200 sm:rounded-full sm:text-sm ${
+                  isActive ? 'text-espresso' : 'text-muted hover:text-espresso'
+                }`}
+              >
+                <span className="text-sm opacity-90">{tab.icon}</span>
+                <span className="tracking-tight">{tab.label}</span>
+
+                {/* Animated Floating Pill Track */}
+                {isActive && (
+                  <motion.div
+                    layoutId="activePulpitTab"
+                    className="absolute inset-0 -z-10 rounded-xl bg-white shadow-sm ring-1 ring-black/[0.06] sm:rounded-full"
+                    transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tab Content with Fluid Spring Crossfade */}
+        <div className="relative mt-8 min-h-[380px]">
+          <AnimatePresence mode="wait">
+            {activeTab === 'architecture' && (
+              <motion.div
+                key="architecture"
+                id="kit-panel-architecture"
+                role="tabpanel"
+                aria-labelledby="kit-tab-architecture"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+              >
+                <KitOutlinePanel kit={kit}/>
+              </motion.div>
+            )}
+
+            {activeTab === 'study' && (
+              <motion.div
+                key="study"
+                id="kit-panel-study"
+                role="tabpanel"
+                aria-labelledby="kit-tab-study"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+              >
+                <KitStudyPanel kit={kit}/>
+              </motion.div>
+            )}
+
+            {activeTab === 'deck' && (
+              <motion.div
+                key="deck"
+                id="kit-panel-deck"
+                role="tabpanel"
+                aria-labelledby="kit-tab-deck"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+              >
+                <div className="mb-4 flex items-center justify-between">
+                  <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-pill-ink">
+                    <ListIcon className="h-4 w-4 text-gold"/>
+                    Presentation Slides
+                  </h4>
+                  <span className="text-xs text-muted">16:9 Expository Visual Deck</span>
+                </div>
+                <KitSlideDeck kit={kit}/>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
       </div>
-    </div>
+    </section>
+    </MotionConfig>
   );
 }
