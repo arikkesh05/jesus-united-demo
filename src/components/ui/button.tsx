@@ -13,18 +13,18 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "primary", size = "md", children, ...props }, ref) => {
     const baseStyles =
       "inline-flex items-center justify-center font-medium transition-all duration-150 select-none " +
-      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A359] focus-visible:ring-offset-2 " +
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B] focus-visible:ring-offset-2 " +
       "disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98] motion-reduce:active:scale-100 motion-reduce:transition-none";
 
     const variantStyles = {
       primary:
-        "bg-[#2D261E] text-[#FAF7EE] hover:bg-[#3D342A] shadow-sm hover:shadow active:bg-[#201B15]",
+        "bg-[#F8FAFC] text-[#0A1118] hover:bg-[#1E2E42] shadow-sm hover:shadow active:bg-[#060B12]",
       secondary:
-        "bg-[#F6EFE2] text-[#2D261E] border border-[#EDE7D9] hover:bg-[#EFE7D8]",
+        "bg-[#101D2B] text-[#F8FAFC] border border-[#1E2E42] hover:bg-[#16263A]",
       ghost:
-        "bg-transparent text-[#2D261E] hover:bg-[#F6EFE2]/60",
+        "bg-transparent text-[#F8FAFC] hover:bg-[#101D2B]/60",
       glass:
-        "bg-[#FAF7EE]/80 backdrop-blur-md border border-[#EDE7D9] text-[#2D261E] hover:bg-[#FAF7EE] shadow-sm",
+        "bg-[#0A1118]/80 backdrop-blur-md border border-[#1E2E42] text-[#F8FAFC] hover:bg-[#0A1118] shadow-sm",
     };
 
     const sizeStyles = {

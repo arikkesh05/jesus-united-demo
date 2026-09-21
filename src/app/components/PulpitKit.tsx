@@ -41,15 +41,15 @@ export default function PulpitKit({ kit }: PulpitKitProps) {
         aria-hidden="true"
         className="pointer-events-none absolute -inset-4 -z-10 rounded-[3rem] opacity-70 blur-3xl transition-opacity duration-700"
         style={{
-          background: 'radial-gradient(ellipse at 50% 0%, rgba(194, 155, 56, 0.18) 0%, rgba(246, 239, 226, 0.4) 45%, transparent 75%)'
+          background: 'radial-gradient(ellipse at 50% 0%, rgba(245, 158, 11, 0.22) 0%, rgba(14, 31, 56, 0.5) 45%, transparent 75%)'
         }}
       />
 
       {/* Floating Glassmorphic Container */}
-      <div className="relative overflow-hidden rounded-[2.25rem] border border-white/80 bg-white/75 p-6 shadow-[0_20px_60px_-15px_rgba(42,37,33,0.07)] backdrop-blur-2xl transition-all duration-300 sm:p-8 md:p-10 print:border-0 print:bg-white print:p-0 print:shadow-none">
+      <div className="relative overflow-hidden rounded-[2.25rem] border border-white/10 bg-pill/75 p-6 shadow-[0_20px_60px_-15px_rgba(2,8,18,0.55)] backdrop-blur-2xl transition-all duration-300 sm:p-8 md:p-10 print:border-0 print:bg-white print:p-0 print:shadow-none">
         
         {/* Subtle Inner Highlight Border */}
-        <div className="pointer-events-none absolute inset-0 rounded-[2.25rem] ring-1 ring-inset ring-black/[0.04]" />
+        <div className="pointer-events-none absolute inset-0 rounded-[2.25rem] ring-1 ring-inset ring-white/10" />
 
         {/* Header & Meta Bar */}
         <div className="relative">
@@ -91,7 +91,7 @@ export default function PulpitKit({ kit }: PulpitKitProps) {
                 {isActive && (
                   <motion.div
                     layoutId="activePulpitTab"
-                    className="absolute inset-0 -z-10 rounded-xl bg-white shadow-sm ring-1 ring-black/[0.06] sm:rounded-full"
+                    className="absolute inset-0 -z-10 rounded-xl bg-pill shadow-sm ring-1 ring-white/10 sm:rounded-full"
                     transition={{ type: 'spring', stiffness: 450, damping: 35 }}
                   />
                 )}

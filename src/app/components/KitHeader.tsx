@@ -78,7 +78,7 @@ function lookupPassage(reference: string): PassageReader | null {
 }
 
 const pillClass =
-  'inline-flex items-center gap-1.5 rounded-full border border-sand bg-white px-2.5 py-1 text-xs font-semibold text-muted';
+  'inline-flex items-center gap-1.5 rounded-full border border-sand bg-pill px-2.5 py-1 text-xs font-semibold text-muted';
 
 export default function KitHeader({ kit }: KitHeaderProps) {
   const [openReference, setOpenReference] = useState<string | null>(null);
@@ -152,7 +152,7 @@ export default function KitHeader({ kit }: KitHeaderProps) {
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {kit.theme ? (
-          <span className="inline-flex items-center rounded-full bg-gold px-3 py-1 text-xs font-bold text-espresso">
+          <span className="inline-flex items-center rounded-full bg-gold px-3 py-1 text-xs font-bold text-canvas">
             {kit.theme}
           </span>
         ) : null}
@@ -184,7 +184,7 @@ export default function KitHeader({ kit }: KitHeaderProps) {
         {activePassage && (
           <motion.div
             role="presentation"
-            className="fixed inset-0 z-50 flex items-center justify-center bg-espresso/45 p-4 backdrop-blur-sm sm:p-6"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-canvas/45 p-4 backdrop-blur-sm sm:p-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -222,7 +222,7 @@ export default function KitHeader({ kit }: KitHeaderProps) {
                   type="button"
                   onClick={() => setOpenReference(null)}
                   aria-label="Close scripture reader"
-                  className="rounded-full border border-sand bg-white p-2 text-muted transition hover:border-gold/50 hover:text-espresso active:scale-95"
+                  className="rounded-full border border-sand bg-pill p-2 text-muted transition hover:border-gold/50 hover:text-espresso active:scale-95"
                 >
                   <CloseIcon className="h-4 w-4" />
                 </button>
@@ -230,7 +230,7 @@ export default function KitHeader({ kit }: KitHeaderProps) {
 
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-6 pt-4 sm:px-8">
                 {activePassage.verses.length > 0 ? (
-                  <div className="space-y-3 rounded-2xl border border-sand/70 bg-white/70 p-5 backdrop-blur-sm">
+                  <div className="space-y-3 rounded-2xl border border-sand/70 bg-pill/70 p-5 backdrop-blur-sm">
                     {activePassage.verses.map((verse, index) => (
                       <p key={index} className="font-serif text-[15px] leading-7 text-espresso/90">
                         <span className="mr-1.5 align-super text-[10px] font-bold text-gold">
@@ -264,7 +264,7 @@ export default function KitHeader({ kit }: KitHeaderProps) {
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="inline-flex items-center gap-2 rounded-full bg-gold px-4 py-2 text-sm font-bold text-espresso transition-all duration-200 hover:bg-gold-deep hover:shadow-md active:scale-[0.98]"
+                  className="inline-flex items-center gap-2 rounded-full bg-gold px-4 py-2 text-sm font-bold text-canvas transition-all duration-200 hover:bg-gold-deep hover:shadow-md active:scale-[0.98]"
                 >
                   {copyStatus === 'copied' ? (
                     <CheckIcon className="h-4 w-4" />
@@ -276,7 +276,7 @@ export default function KitHeader({ kit }: KitHeaderProps) {
                 <button
                   type="button"
                   onClick={() => setOpenReference(null)}
-                  className="inline-flex items-center gap-2 rounded-full border border-sand bg-white px-4 py-2 text-sm font-bold text-espresso transition-all duration-200 hover:border-gold/50 hover:bg-pill active:scale-[0.98]"
+                  className="inline-flex items-center gap-2 rounded-full border border-sand bg-pill px-4 py-2 text-sm font-bold text-espresso transition-all duration-200 hover:border-gold/50 hover:bg-pill active:scale-[0.98]"
                 >
                   Done
                 </button>

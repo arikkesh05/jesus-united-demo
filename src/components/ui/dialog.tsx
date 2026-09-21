@@ -43,7 +43,7 @@ export function Dialog({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="fixed inset-0 bg-espresso/40 backdrop-blur-sm"
+            className="fixed inset-0 bg-canvas/40 backdrop-blur-sm"
             onClick={() => onOpenChange(false)}
             aria-hidden="true"
           />

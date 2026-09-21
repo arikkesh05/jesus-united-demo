@@ -162,7 +162,7 @@ function WatchSwitch({
         aria-hidden="true"
         animate={{ x: checked ? 20 : 0 }}
         transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-        className="relative ml-0.5 block h-5 w-5 rounded-full bg-white shadow-md"
+        className="relative ml-0.5 block h-5 w-5 rounded-full bg-pill shadow-md"
       />
     </button>
   );
@@ -323,7 +323,7 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
-              className="absolute inset-0 cursor-default bg-espresso/30 backdrop-blur-sm"
+              className="absolute inset-0 cursor-default bg-canvas/30 backdrop-blur-sm"
             />
 
             {/* Frosted-glass slide-over panel */}
@@ -357,7 +357,7 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
                   type="button"
                   onClick={onClose}
                   aria-label="Close Prayer Rhythms"
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sand bg-white text-muted transition hover:border-gold hover:text-pill-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sand bg-pill text-muted transition hover:border-gold hover:text-pill-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50"
                 >
                   <CloseIcon className="h-4 w-4" />
                 </button>
@@ -366,7 +366,7 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
               {/* Scrollable body */}
               <div className="flex-1 overflow-y-auto px-6 py-6">
                 {/* Permission status badge */}
-                <div className="rounded-2xl border border-sand/80 bg-white/80 p-4">
+                <div className="rounded-2xl border border-sand/80 bg-pill/80 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm font-bold text-espresso">Reminder chimes</p>
                     {permission === 'granted' && (
@@ -390,7 +390,7 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
                         type="button"
                         onClick={() => void requestPermission()}
                         whileTap={{ scale: 0.96 }}
-                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-gold px-4 text-xs font-bold text-espresso shadow-sm transition hover:bg-gold-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50"
+                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-gold px-4 text-xs font-bold text-canvas shadow-sm transition hover:bg-gold-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50"
                       >
                         <BellIcon className="h-3.5 w-3.5" />
                         Enable Reminders
@@ -412,7 +412,7 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
                     onClick={sendTestChime}
                     disabled={permission !== 'granted'}
                     whileTap={{ scale: permission === 'granted' ? 0.96 : 1 }}
-                    className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-sand bg-white px-4 text-sm font-bold text-espresso transition hover:border-gold hover:text-pill-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-sand bg-pill px-4 text-sm font-bold text-espresso transition hover:border-gold hover:text-pill-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {chimeSent ? (
                       <CheckIcon className="h-4 w-4" />
@@ -434,7 +434,7 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
                     return (
                       <li
                         key={definition.id}
-                        className="rounded-2xl border border-sand bg-white p-4"
+                        className="rounded-2xl border border-sand bg-pill p-4"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -486,7 +486,7 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
                     type="button"
                     onClick={saveRhythms}
                     whileTap={{ scale: 0.96 }}
-                    className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-gold px-5 text-sm font-bold text-espresso shadow-sm transition hover:bg-gold-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50"
+                    className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-gold px-5 text-sm font-bold text-canvas shadow-sm transition hover:bg-gold-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50"
                   >
                     <CheckIcon className="h-4 w-4" />
                     Save Rhythms

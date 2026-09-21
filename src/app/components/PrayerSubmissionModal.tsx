@@ -38,10 +38,10 @@ const FOCUSABLE_SELECTOR =
 
 const LABEL_CLASS = 'text-xs font-bold uppercase tracking-[0.14em] text-muted';
 const FIELD_CLASS =
-  'mt-1.5 w-full rounded-3xl border border-sand bg-white px-4 py-2.5 text-sm text-espresso outline-none transition placeholder:text-muted/60 focus:border-gold focus:ring-2 focus:ring-gold/25 disabled:cursor-not-allowed disabled:bg-pill disabled:text-muted';
+  'mt-1.5 w-full rounded-3xl border border-sand bg-pill px-4 py-2.5 text-sm text-espresso outline-none transition placeholder:text-muted/60 focus:border-gold focus:ring-2 focus:ring-gold/25 disabled:cursor-not-allowed disabled:bg-pill disabled:text-muted';
 const ERROR_TEXT_CLASS = 'mt-1 text-xs font-medium text-red-700';
 const TOPIC_PILL_CLASS =
-  'inline-flex items-center rounded-full border px-3.5 py-1.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 aria-pressed:bg-pill aria-pressed:border-gold aria-pressed:text-pill-ink aria-[pressed=false]:border-sand aria-[pressed=false]:bg-white aria-[pressed=false]:text-muted hover:border-gold';
+  'inline-flex items-center rounded-full border px-3.5 py-1.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 aria-pressed:bg-pill aria-pressed:border-gold aria-pressed:text-pill-ink aria-[pressed=false]:border-sand aria-[pressed=false]:bg-pill aria-[pressed=false]:text-muted hover:border-gold';
 
 function validate(values: FormValues): FormErrors {
   const errors: FormErrors = {};
@@ -205,7 +205,7 @@ export default function PrayerSubmissionModal({
     <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
       <div
         aria-hidden
-        className="absolute inset-0 bg-espresso/40 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-canvas/40 backdrop-blur-[2px]"
         onClick={requestClose}
       />
 
@@ -240,7 +240,7 @@ export default function PrayerSubmissionModal({
             type="button"
             onClick={requestClose}
             aria-label="Close dialog"
-            className="rounded-full border border-sand bg-white p-2 text-muted transition hover:border-gold hover:bg-pill hover:text-espresso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50"
+            className="rounded-full border border-sand bg-pill p-2 text-muted transition hover:border-gold hover:bg-pill hover:text-espresso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50"
           >
             <CloseIcon className="h-4 w-4" />
           </button>
@@ -248,7 +248,7 @@ export default function PrayerSubmissionModal({
 
         {submitted ? (
           <div className="overflow-y-auto px-6 py-8 text-center">
-            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold text-espresso shadow-soft">
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold text-canvas shadow-soft">
               <CheckIcon className="h-7 w-7" />
             </span>
             <h3 className="mt-4 text-lg font-extrabold tracking-tight text-espresso">
@@ -262,7 +262,7 @@ export default function PrayerSubmissionModal({
               <button
                 type="button"
                 onClick={requestClose}
-                className="inline-flex items-center justify-center rounded-full border border-sand bg-white px-4 py-2.5 text-sm font-bold text-espresso transition hover:border-gold hover:bg-pill"
+                className="inline-flex items-center justify-center rounded-full border border-sand bg-pill px-4 py-2.5 text-sm font-bold text-espresso transition hover:border-gold hover:bg-pill"
               >
                 Back to the wall
               </button>
@@ -309,8 +309,8 @@ export default function PrayerSubmissionModal({
                     aria-hidden
                     className={`inline-flex h-4 w-4 items-center justify-center rounded-full border transition ${
                       values.anonymous
-                        ? 'border-gold bg-gold text-espresso'
-                        : 'border-sand bg-white text-transparent'
+                        ? 'border-gold bg-gold text-canvas'
+                        : 'border-sand bg-pill text-transparent'
                     }`}
                   >
                     <CheckIcon className="h-2.5 w-2.5" />
@@ -396,7 +396,7 @@ export default function PrayerSubmissionModal({
                         className={`${TOPIC_PILL_CLASS} ${
                           selected
                             ? 'border-gold bg-pill text-pill-ink'
-                            : 'border-sand bg-white text-muted'
+                            : 'border-sand bg-pill text-muted'
                         }`}
                       >
                         {topic}
@@ -430,14 +430,14 @@ export default function PrayerSubmissionModal({
                 <button
                   type="button"
                   onClick={requestClose}
-                  className="inline-flex items-center justify-center rounded-full border border-sand bg-white px-4 py-2.5 text-sm font-bold text-espresso transition hover:border-gold hover:bg-pill"
+                  className="inline-flex items-center justify-center rounded-full border border-sand bg-pill px-4 py-2.5 text-sm font-bold text-espresso transition hover:border-gold hover:bg-pill"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-espresso transition hover:bg-gold-deep hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-canvas transition hover:bg-gold-deep hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <HandHeartIcon className="h-4 w-4" />
                   {submitting ? 'Sharing…' : 'Share on the wall'}

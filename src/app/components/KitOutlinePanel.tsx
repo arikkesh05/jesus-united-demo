@@ -57,8 +57,8 @@ export default function KitOutlinePanel({ kit }: KitOutlinePanelProps) {
               transition={{ type: 'spring', stiffness: 400, damping: 32 }}
               className={`group overflow-hidden rounded-2xl border transition-all duration-300 ${
                 isOpen
-                  ? 'border-gold/50 bg-white/90 shadow-[0_12px_30px_-10px_rgba(194,155,56,0.15)] ring-1 ring-gold/25'
-                  : 'border-sand/70 bg-white/50 backdrop-blur-md hover:border-gold/40 hover:bg-white/80 hover:shadow-sm'
+                  ? 'border-gold/50 bg-pill/90 shadow-[0_12px_30px_-10px_rgba(245,158,11,0.2)] ring-1 ring-gold/25'
+                  : 'border-sand/70 bg-pill/50 backdrop-blur-md hover:border-gold/40 hover:bg-pill/80 hover:shadow-sm'
               }`}
             >
               <button
@@ -72,7 +72,7 @@ export default function KitOutlinePanel({ kit }: KitOutlinePanelProps) {
                   <span
                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl font-serif text-sm font-bold transition-all duration-200 ${
                       isOpen
-                        ? 'bg-gold text-espresso shadow-sm'
+                        ? 'bg-gold text-canvas shadow-sm'
                         : 'border border-sand/80 bg-pill/80 text-pill-ink group-hover:border-gold/40'
                     }`}
                   >
@@ -125,7 +125,7 @@ export default function KitOutlinePanel({ kit }: KitOutlinePanelProps) {
                   >
                     <div className="p-5 pt-4">
                       <div className="grid gap-3.5 sm:grid-cols-2">
-                        <div className="rounded-xl border border-sand/70 bg-white/80 p-4 shadow-sm backdrop-blur-sm">
+                        <div className="rounded-xl border border-sand/70 bg-pill/80 p-4 shadow-sm backdrop-blur-sm">
                           <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-gold">
                             <BookIcon className="h-3.5 w-3.5"/>
                             Anchor Scripture & Focus
@@ -138,7 +138,7 @@ export default function KitOutlinePanel({ kit }: KitOutlinePanelProps) {
                           </p>
                         </div>
 
-                        <div className="rounded-xl border border-sand/70 bg-white/80 p-4 shadow-sm backdrop-blur-sm">
+                        <div className="rounded-xl border border-sand/70 bg-pill/80 p-4 shadow-sm backdrop-blur-sm">
                           <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-pill-ink">
                             <span>🎙️</span>
                             Pastoral Delivery Cue

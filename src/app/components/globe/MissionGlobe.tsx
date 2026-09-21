@@ -58,7 +58,7 @@ const INQUIRY_LABEL_CLASS =
   'block text-[10px] font-bold uppercase tracking-[0.18em] text-muted';
 const INQUIRY_ERROR_CLASS = 'mt-1 text-[11px] font-medium text-red-700';
 const INQUIRY_TEXTAREA_CLASS =
-  'min-h-11 w-full rounded-xl border bg-[#FAF7EE]/60 px-3.5 py-2.5 text-sm text-espresso placeholder:text-muted/60 transition-colors duration-150 border-sand hover:border-[#D4A359]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A359] focus-visible:border-transparent aria-[invalid=true]:border-red-500 aria-[invalid=true]:ring-red-500 motion-reduce:transition-none';
+  'min-h-11 w-full rounded-xl border bg-[#0A1118]/60 px-3.5 py-2.5 text-sm text-espresso placeholder:text-muted/60 transition-colors duration-150 border-sand hover:border-[#F59E0B]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B] focus-visible:border-transparent aria-[invalid=true]:border-red-500 aria-[invalid=true]:ring-red-500 motion-reduce:transition-none';
 
 /** Focus-trap cycle set for the connect dialog. */
 const FOCUSABLE_SELECTOR =
@@ -458,16 +458,35 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
       <div className="relative isolate min-h-[85vh] overflow-hidden bg-black" onKeyDown={handleKeyDown}>
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-wrap items-start justify-between gap-3 p-4 sm:p-6">
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`${HUD_GLASS_PANEL} inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold`}>
+            <button
+              type="button"
+              onClick={() => sceneRef.current?.resetView()}
+              disabled={!ready}
+              title="Reset the Mission Globe camera view"
+              aria-label="Mission Globe — reset camera view"
+              className={`${HUD_GLASS_PANEL} pointer-events-auto inline-flex cursor-pointer items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition active:scale-95 hover:bg-white/15 motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60`}
+            >
               <GlobeIcon className="h-3.5 w-3.5 text-cyan-300" />
               Mission Globe
-            </span>
-            <span className={HUD_COUNTER_BADGE}>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const active = markers[0];
+                if (!active || !ready) return;
+                sceneRef.current?.selectMarker(active.id);
+                setSelectedId(active.id);
+              }}
+              disabled={!ready || markers.length === 0}
+              title={`Status: ${markers.length} active micro-gathering${markers.length === 1 ? '' : 's'} connected. Click to fly to the active gathering.`}
+              aria-label={`Status: ${markers.length} active micro-gathering${markers.length === 1 ? '' : 's'} connected — fly to the active gathering`}
+              className={`${HUD_COUNTER_BADGE} pointer-events-auto cursor-pointer transition active:scale-95 hover:bg-white/15 motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60`}
+            >
               <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-cyan-300" />
               {formatGatheringCounter(markers.length, cityCount)}
-            </span>
+            </button>
             {hovered ? (
-              <span aria-hidden="true" className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-900">
+              <span aria-hidden="true" className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-[0_8px_32px_0_rgba(0,0,0,0.45)]">
                 {normalizeMarkerName(hovered.first_name)}
               </span>
             ) : null}
@@ -788,7 +807,7 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
                     >
                       Copy gathering link
                     </Button>
-                    <span className={`min-h-5 text-xs font-semibold text-[#8F6522]`}>
+                    <span className={`min-h-5 text-xs font-semibold text-[#E2E8F0]`}>
                       {shareNotice === 'copied'
                         ? 'Copied!'
                         : shareNotice === 'failed'

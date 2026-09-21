@@ -103,13 +103,13 @@ export default function KitSlideDeck({ kit }: KitSlideDeckProps) {
             onClick={() => setActiveIndex(index)}
             aria-haspopup="dialog"
             aria-label={`Open presentation preview: ${slide.title}`}
-            className="group flex flex-col overflow-hidden rounded-2xl border border-sand/70 bg-white/60 text-left shadow-soft backdrop-blur-md transition-all duration-200 hover:-translate-y-1 hover:scale-[1.02] hover:border-gold/40 hover:bg-white/90 hover:shadow-lift focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.99]"
+            className="group flex flex-col overflow-hidden rounded-2xl border border-sand/70 bg-pill/60 text-left shadow-soft backdrop-blur-md transition-all duration-200 hover:-translate-y-1 hover:scale-[1.02] hover:border-gold/40 hover:bg-pill/90 hover:shadow-lift focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.99]"
           >
             <div className="flex items-center justify-between gap-2 border-b border-sand/60 bg-pill/60 px-4 py-2">
               <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-pill-ink">
                 {slide.label}
               </span>
-              <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-muted">
+              <span className="rounded-full bg-pill/80 px-2 py-0.5 text-[10px] font-bold text-muted">
                 16:9
               </span>
             </div>
@@ -133,7 +133,7 @@ export default function KitSlideDeck({ kit }: KitSlideDeckProps) {
         {activeSlide && (
           <motion.div
             role="presentation"
-            className="fixed inset-0 z-50 flex items-center justify-center bg-espresso/70 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-canvas/70 p-4 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -144,7 +144,7 @@ export default function KitSlideDeck({ kit }: KitSlideDeckProps) {
               role="dialog"
               aria-modal="true"
               aria-label={`Presentation preview: ${activeSlide.label}`}
-              className="relative w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-espresso/95 p-4 shadow-2xl backdrop-blur-2xl sm:p-6"
+              className="relative w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-canvas/95 p-4 shadow-2xl backdrop-blur-2xl sm:p-6"
               initial={{ opacity: 0, scale: 0.94, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 12 }}
@@ -152,18 +152,18 @@ export default function KitSlideDeck({ kit }: KitSlideDeckProps) {
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center justify-between gap-3">
-                <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-canvas">
+                <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white">
                   {activeSlide.label}
                 </span>
                 <div className="flex items-center gap-3">
-                  <span className="rounded-full border border-white/15 px-3 py-1 text-[11px] font-bold text-canvas/80">
+                  <span className="rounded-full border border-white/15 px-3 py-1 text-[11px] font-bold text-slate-300">
                     Slide {(activeIndex ?? 0) + 1} of {slides.length}
                   </span>
                   <button
                     type="button"
                     onClick={() => setActiveIndex(null)}
                     aria-label="Close presentation preview"
-                    className="rounded-full border border-white/15 p-2 text-canvas/80 transition hover:border-gold/50 hover:text-canvas active:scale-95"
+                    className="rounded-full border border-white/15 bg-white/10 p-2 text-white transition hover:border-gold/50 hover:bg-white/20 hover:text-gold active:scale-95"
                   >
                     <CloseIcon className="h-4 w-4" />
                   </button>
@@ -171,10 +171,10 @@ export default function KitSlideDeck({ kit }: KitSlideDeckProps) {
               </div>
 
               <div className="mt-4 flex aspect-video flex-col items-center justify-center gap-3 rounded-2xl bg-[#0b0906] p-6 text-center ring-1 ring-white/10 sm:p-10">
-                <p className="font-serif text-xl font-bold leading-snug text-canvas sm:text-3xl">
+                <p className="font-serif text-xl font-bold leading-snug text-white sm:text-3xl">
                   {activeSlide.title}
                 </p>
-                <p className="max-w-xl text-sm leading-6 text-canvas/75 sm:text-base">
+                <p className="max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
                   {activeSlide.body}
                 </p>
                 {activeSlide.footnote ? (
@@ -186,7 +186,7 @@ export default function KitSlideDeck({ kit }: KitSlideDeckProps) {
                 <p className="text-[11px] font-bold uppercase tracking-wider text-gold">
                   Presenter Notes
                 </p>
-                <p className="mt-1 text-xs leading-5 text-canvas/80">{activeSlide.notes}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-200">{activeSlide.notes}</p>
               </div>
 
               <div className="mt-4 flex items-center justify-between gap-3">
@@ -197,7 +197,7 @@ export default function KitSlideDeck({ kit }: KitSlideDeckProps) {
                       prev === null ? null : (prev - 1 + slides.length) % slides.length,
                     )
                   }
-                  className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-bold text-canvas transition-all duration-200 hover:border-gold/50 hover:bg-white/10 active:scale-[0.98]"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white transition-all duration-200 hover:border-gold/50 hover:bg-white/20 hover:text-gold active:scale-[0.98]"
                 >
                   <ChevronLeftIcon className="h-4 w-4" />
                   Prev
@@ -221,7 +221,7 @@ export default function KitSlideDeck({ kit }: KitSlideDeckProps) {
                   onClick={() =>
                     setActiveIndex((prev) => (prev === null ? null : (prev + 1) % slides.length))
                   }
-                  className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-bold text-canvas transition-all duration-200 hover:border-gold/50 hover:bg-white/10 active:scale-[0.98]"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white transition-all duration-200 hover:border-gold/50 hover:bg-white/20 hover:text-gold active:scale-[0.98]"
                 >
                   Next
                   <ChevronRightIcon className="h-4 w-4" />

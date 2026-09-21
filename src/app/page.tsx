@@ -38,44 +38,44 @@ export default async function Home() {
           >
             <a
               href="#altar-os-section"
-              className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-white px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
+              className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-pill px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
             >
               Altar OS
             </a>
             <a
               href="#daily-reflection-section"
-              className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-white px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
+              className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-pill px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
             >
               Daily Reflection
             </a>
             <a
               href="#gathering-map-section"
-              className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-white px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
+              className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-pill px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
             >
               Gatherings Map
             </a>
             <a
               href="#mission-globe-section"
-              className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-white px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
+              className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-pill px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
             >
               Mission Globe
             </a>
             <a
               href="#prayer-wall-section"
-              className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-white px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
+              className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-pill px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
             >
               Prayer Wall
             </a>
             <a
               href="#pulpit-kit-section"
-              className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-white px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
+              className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-pill px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill"
             >
               Pulpit Kit
             </a>
             <Link
               href="/admin"
               prefetch={false}
-              className="inline-flex items-center rounded-full border border-sand bg-white px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+              className="inline-flex items-center rounded-full border border-sand bg-pill px-4 py-2 text-xs font-bold text-espresso shadow-soft transition hover:border-gold hover:bg-pill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
             >
               Admin · Restricted
             </Link>
@@ -178,7 +178,7 @@ export default async function Home() {
           {pulpitKit ? (
             <PulpitKit kit={pulpitKit} />
           ) : (
-            <p className="rounded-3xl border border-dashed border-sand bg-white p-6 text-center text-sm leading-6 text-muted">
+            <p className="rounded-3xl border border-dashed border-sand bg-pill p-6 text-center text-sm leading-6 text-muted">
               This week&apos;s pulpit kit is being prepared &mdash; please check back soon.
             </p>
           )}

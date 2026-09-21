@@ -44,7 +44,7 @@ function buildEmailHref(gathering: Gathering): string | null {
 }
 
 const secondaryLinkClass =
-  'inline-flex items-center justify-center gap-1.5 rounded-full border border-sand bg-white px-3 py-2 text-xs font-bold text-espresso transition hover:border-gold/50 hover:bg-pill';
+  'inline-flex items-center justify-center gap-1.5 rounded-full border border-sand bg-pill px-3 py-2 text-xs font-bold text-espresso transition hover:border-gold/50 hover:bg-pill';
 
 /** Formats a PostGIS-computed `distance_meters` into a short imperial badge. */
 function formatDistance(meters: number): string {
@@ -119,7 +119,7 @@ export default function GatheringCard({ gathering }: GatheringCardProps) {
   const countLabel = attendanceCount ?? 0;
 
   return (
-    <article className="flex w-full flex-col rounded-3xl border border-sand bg-white p-5 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-lift">
+    <article className="flex w-full flex-col rounded-3xl border border-sand bg-pill p-5 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-lift">
       <h3 className="text-base font-bold leading-6 text-espresso">{gathering.name}</h3>
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -168,7 +168,7 @@ export default function GatheringCard({ gathering }: GatheringCardProps) {
           className={
             attended
               ? 'relative inline-flex w-full items-center justify-center gap-2 rounded-full border border-gold/60 bg-pill px-4 py-2.5 text-sm font-bold text-pill-ink transition disabled:cursor-not-allowed'
-              : 'relative inline-flex w-full items-center justify-center gap-2 rounded-full border border-sand bg-white px-4 py-2.5 text-sm font-bold text-espresso transition hover:border-gold/50 hover:bg-pill disabled:cursor-not-allowed disabled:opacity-70'
+              : 'relative inline-flex w-full items-center justify-center gap-2 rounded-full border border-sand bg-pill px-4 py-2.5 text-sm font-bold text-espresso transition hover:border-gold/50 hover:bg-pill disabled:cursor-not-allowed disabled:opacity-70'
           }
         >
           {pulsing ? (
@@ -195,7 +195,7 @@ export default function GatheringCard({ gathering }: GatheringCardProps) {
           href={buildWhatsAppHref(gathering)}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-2 rounded-full bg-gold px-4 py-2.5 text-sm font-bold text-espresso transition hover:bg-gold-deep hover:shadow-md"
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-gold px-4 py-2.5 text-sm font-bold text-canvas transition hover:bg-gold-deep hover:shadow-md"
         >
           <ChatIcon className="h-4 w-4" />
           Connect via WhatsApp

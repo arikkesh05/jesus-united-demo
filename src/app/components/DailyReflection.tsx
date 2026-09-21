@@ -358,10 +358,10 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
             className="pointer-events-none absolute -inset-6 -z-10 rounded-[3rem] blur-3xl"
             style={{
               background:
-                'radial-gradient(ellipse at 50% 0%, rgba(194, 155, 56, 0.12), transparent 70%)',
+                'radial-gradient(ellipse at 50% 0%, rgba(245, 158, 11, 0.14), transparent 70%)',
             }}
           />
-          <div className="relative rounded-[2.25rem] border border-white/80 bg-white/75 p-6 text-center shadow-[0_20px_60px_-15px_rgba(42,37,33,0.07)] backdrop-blur-2xl sm:p-8">
+          <div className="relative rounded-[2.25rem] border border-white/10 bg-pill/75 p-6 text-center shadow-[0_20px_60px_-15px_rgba(2,8,18,0.55)] backdrop-blur-2xl sm:p-8">
             <span className="inline-flex items-center rounded-full bg-pill px-3 py-1 text-xs font-bold uppercase tracking-wide text-pill-ink shadow-sm">
               Daily Bread
             </span>
@@ -390,16 +390,16 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
           className="pointer-events-none absolute -inset-6 -z-10 rounded-[3rem] blur-3xl"
           style={{
             background:
-              'radial-gradient(ellipse at 50% 0%, rgba(194, 155, 56, 0.12), transparent 70%)',
+              'radial-gradient(ellipse at 50% 0%, rgba(245, 158, 11, 0.14), transparent 70%)',
           }}
         />
 
         {/* Floating glassmorphic container */}
-        <article className="relative overflow-hidden rounded-[2.25rem] border border-white/80 bg-white/75 p-6 shadow-[0_20px_60px_-15px_rgba(42,37,33,0.07)] backdrop-blur-2xl transition-all duration-300 sm:p-8">
+        <article className="relative overflow-hidden rounded-[2.25rem] border border-white/10 bg-pill/75 p-6 shadow-[0_20px_60px_-15px_rgba(2,8,18,0.55)] backdrop-blur-2xl transition-all duration-300 sm:p-8">
           {/* Subtle inner highlight border */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 rounded-[2.25rem] ring-1 ring-inset ring-black/[0.04]"
+            className="pointer-events-none absolute inset-0 rounded-[2.25rem] ring-1 ring-inset ring-white/10"
           />
 
           <div className="relative">
@@ -425,7 +425,7 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
                 transition={{ type: 'spring', stiffness: 400, damping: 22 }}
                 aria-haspopup="dialog"
                 aria-expanded={isWatchModalOpen}
-                className="ml-auto inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-sand bg-white px-3 text-xs font-bold text-espresso shadow-soft transition-colors duration-200 hover:border-gold hover:text-pill-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 sm:px-4"
+                className="ml-auto inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-sand bg-pill px-3 text-xs font-bold text-espresso shadow-soft transition-colors duration-200 hover:border-gold hover:text-pill-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 sm:px-4"
               >
                 <BellIcon className="h-4 w-4 text-gold-deep" />
                 Prayer Rhythms
@@ -455,7 +455,7 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
             </figure>
 
             {/* Synchronous Amen Resonance — communal presence + tactile Amen */}
-            <div className="mt-3 rounded-2xl border border-sand/80 bg-white/85 p-4">
+            <div className="mt-3 rounded-2xl border border-sand/80 bg-pill/85 p-4">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <span className="relative flex h-2.5 w-2.5 shrink-0" aria-hidden="true">
                   <span className="amen-breath absolute inline-flex h-full w-full rounded-full bg-gold opacity-60" />
@@ -487,7 +487,7 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
                   className={`relative inline-flex min-h-[44px] items-center gap-2 overflow-visible rounded-full px-5 text-sm font-bold shadow-soft transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 ${
                     hasAmenToday
                       ? 'bg-pill text-pill-ink'
-                      : 'bg-gold text-espresso hover:bg-gold-deep'
+                      : 'bg-gold text-canvas hover:bg-gold-deep'
                   }`}
                 >
                   <HeartIcon
@@ -573,8 +573,8 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
                   transition={{ type: 'spring', stiffness: 400, damping: 22 }}
                   className={`inline-flex min-h-[44px] items-center gap-2 rounded-full px-4 text-sm font-bold shadow-soft transition-colors duration-200 ${
                     copied
-                      ? 'bg-gold text-espresso hover:bg-gold-deep'
-                      : 'border border-sand bg-white text-espresso hover:border-gold hover:text-pill-ink'
+                      ? 'bg-gold text-canvas hover:bg-gold-deep'
+                      : 'border border-sand bg-pill text-espresso hover:border-gold hover:text-pill-ink'
                   }`}
                 >
                   {copied ? (
@@ -639,7 +639,7 @@ function ExamenCard({
         className={`overflow-hidden rounded-2xl border transition-colors duration-200 ${
           isCompleted
             ? 'border-gold/50 bg-pill/60 shadow-sm'
-            : 'border-sand bg-white/80 hover:border-gold/40 hover:shadow-sm'
+            : 'border-sand bg-pill/80 hover:border-gold/40 hover:shadow-sm'
         }`}
       >
         <button
@@ -653,7 +653,7 @@ function ExamenCard({
           <span
             aria-hidden="true"
             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-              isCompleted ? 'bg-gold text-white' : 'bg-pill text-pill-ink'
+              isCompleted ? 'bg-gold text-canvas' : 'bg-pill text-pill-ink'
             }`}
           >
             {isCompleted ? <CheckIcon className="h-4 w-4" /> : index + 1}
@@ -713,8 +713,8 @@ function ExamenCard({
                   aria-pressed={isCompleted}
                   className={`mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-full px-4 text-sm font-bold transition-colors duration-200 ${
                     isCompleted
-                      ? 'bg-gold text-espresso shadow-sm hover:bg-gold-deep'
-                      : 'border border-sand bg-white text-espresso hover:border-gold hover:text-pill-ink'
+                      ? 'bg-gold text-canvas shadow-sm hover:bg-gold-deep'
+                      : 'border border-sand bg-pill text-espresso hover:border-gold hover:text-pill-ink'
                   }`}
                 >
                   <CheckIcon className="h-4 w-4" />

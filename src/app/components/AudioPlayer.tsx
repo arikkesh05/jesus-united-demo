@@ -355,7 +355,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
             ? 'Reflection audio player unavailable'
             : `Reflection audio player. Space to ${showPlaying ? 'pause' : 'play'}, left and right arrows to scrub`
         }
-        className="group rounded-2xl border border-white/80 bg-white/70 p-4 shadow-md outline-none backdrop-blur-xl transition-shadow duration-300 focus-visible:ring-2 focus-visible:ring-gold/70 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas hover:shadow-lg"
+        className="group rounded-2xl border border-white/10 bg-pill/70 p-4 shadow-md outline-none backdrop-blur-xl transition-shadow duration-300 focus-visible:ring-2 focus-visible:ring-gold/70 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas hover:shadow-lg"
       >
         {/*
           No `src` attribute on the media element on purpose: a `src` on <audio>
@@ -391,7 +391,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
             whileTap={hasError ? undefined : { scale: 0.95 }}
             aria-label={showPlaying ? 'Pause the reflection' : 'Play the reflection'}
             aria-pressed={showPlaying}
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gold text-espresso shadow-sm ring-2 ring-transparent transition-[background-color,box-shadow] duration-200 hover:bg-gold-deep hover:shadow-md focus-visible:ring-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-gold disabled:hover:shadow-none"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gold text-canvas shadow-sm ring-2 ring-transparent transition-[background-color,box-shadow] duration-200 hover:bg-gold-deep hover:shadow-md focus-visible:ring-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-gold disabled:hover:shadow-none"
           >
             {showPlaying ? <PauseIcon className="h-5 w-5" /> : <PlayIcon className="ml-0.5 h-5 w-5" />}
           </motion.button>
@@ -462,7 +462,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
                 disabled={!hasDuration}
                 aria-label="Seek through the reflection"
                 aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration || 0)}`}
-                className="absolute inset-0 h-4 w-full cursor-pointer appearance-none rounded-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-gold [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gold"
+                className="absolute inset-0 h-4 w-full cursor-pointer appearance-none rounded-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:cursor-not-allowed [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-gold [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gold"
               />
             </div>
 
@@ -474,7 +474,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
                 whileTap={{ scale: 0.92 }}
                 aria-label={isMuted ? 'Unmute the reflection' : 'Mute the reflection'}
                 aria-pressed={isMuted}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-sand bg-white/80 text-muted transition-colors duration-200 hover:border-gold hover:text-espresso"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-sand bg-pill/80 text-muted transition-colors duration-200 hover:border-gold hover:text-espresso"
               >
                 {isMuted ? <VolumeOffIcon className="h-4 w-4" /> : <VolumeIcon className="h-4 w-4" />}
               </motion.button>
@@ -500,7 +500,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
                       {isActive && (
                         <motion.span
                           layoutId="audio-speed-pill"
-                          className="absolute inset-0 rounded-full bg-white shadow-sm ring-1 ring-black/[0.05]"
+                          className="absolute inset-0 rounded-full bg-pill shadow-sm ring-1 ring-white/10"
                           transition={{ type: 'spring', stiffness: 450, damping: 35 }}
                         />
                       )}

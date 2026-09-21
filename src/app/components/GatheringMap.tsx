@@ -37,7 +37,7 @@ export default function GatheringMap({ gatherings }: GatheringMapProps) {
 
   return (
     <div>
-      <div className="flex flex-col gap-4 rounded-3xl border border-sand bg-white p-4 shadow-soft sm:flex-row sm:items-end sm:justify-between sm:p-5">
+      <div className="flex flex-col gap-4 rounded-3xl border border-sand bg-pill p-4 shadow-soft sm:flex-row sm:items-end sm:justify-between sm:p-5">
         <div className="w-full sm:max-w-xs">
           <label
             htmlFor="gathering-search"
@@ -66,7 +66,7 @@ export default function GatheringMap({ gatherings }: GatheringMapProps) {
           <button
             type="button"
             onClick={() => setSubmissionOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-gold px-4 py-2 text-xs font-bold text-espresso transition hover:bg-gold-deep hover:shadow-md"
+            className="inline-flex items-center gap-1.5 rounded-full bg-gold px-4 py-2 text-xs font-bold text-canvas transition hover:bg-gold-deep hover:shadow-md"
           >
             <PlusIcon className="h-3.5 w-3.5" />
             Submit a Gathering
@@ -75,14 +75,14 @@ export default function GatheringMap({ gatherings }: GatheringMapProps) {
       </div>
 
       {gatherings.length === 0 ? (
-        <div className="mt-6 rounded-3xl border border-dashed border-sand bg-white p-8 text-center shadow-soft">
+        <div className="mt-6 rounded-3xl border border-dashed border-sand bg-pill p-8 text-center shadow-soft">
           <p className="text-sm font-bold text-espresso">No gatherings published yet</p>
           <p className="mt-1 text-sm leading-6 text-muted">
             New fellowships will appear here as soon as they are added to the map.
           </p>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="mt-6 rounded-3xl border border-dashed border-sand bg-white p-8 text-center shadow-soft">
+        <div className="mt-6 rounded-3xl border border-dashed border-sand bg-pill p-8 text-center shadow-soft">
           <p className="text-sm font-bold text-espresso">
             No gatherings match &ldquo;{query.trim()}&rdquo;
           </p>
@@ -92,7 +92,7 @@ export default function GatheringMap({ gatherings }: GatheringMapProps) {
           <button
             type="button"
             onClick={() => setQuery('')}
-            className="mt-4 inline-flex items-center justify-center rounded-full border border-sand bg-white px-4 py-2 text-xs font-bold text-espresso transition hover:border-gold hover:bg-pill"
+            className="mt-4 inline-flex items-center justify-center rounded-full border border-sand bg-pill px-4 py-2 text-xs font-bold text-espresso transition hover:border-gold hover:bg-pill"
           >
             Clear search
           </button>

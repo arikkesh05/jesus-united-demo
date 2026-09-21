@@ -70,7 +70,7 @@ const HABIT_COUNTERS: { key: keyof HabitMinutes; label: string }[] = [
 ];
 
 const eyebrowClass = 'text-xs font-bold uppercase tracking-[0.18em] text-pill-ink';
-const whiteCardClass = 'rounded-2xl border border-sand bg-white shadow-soft';
+const whiteCardClass = 'rounded-2xl border border-sand bg-pill shadow-soft';
 
 function formatDisplayDate(isoDate: string): string {
   const date = new Date(`${isoDate}T00:00:00`);
@@ -196,7 +196,7 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
         Signed in &mdash; syncing to your account
       </span>
     ) : (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-gold px-3 py-1 text-xs font-bold text-espresso">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-gold px-3 py-1 text-xs font-bold text-canvas">
         Guest mode &mdash; saved on this device
       </span>
     );
@@ -218,7 +218,7 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
         <span className="inline-flex items-center rounded-full bg-pill px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-pill-ink">
           Altar OS
         </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-white px-3 py-1 text-xs font-semibold text-muted">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-pill px-3 py-1 text-xs font-semibold text-muted">
           <ClockIcon className="h-3.5 w-3.5" />
           {formatDisplayDate(today)}
         </span>
@@ -253,8 +253,8 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
               onClick={() => setActiveTab(tab.id)}
               className={
                 isActive
-                  ? 'flex-1 rounded-full bg-gold px-3 py-2 text-xs font-bold text-espresso shadow-sm transition-all duration-200 sm:text-sm'
-                  : 'flex-1 rounded-full px-3 py-2 text-xs font-bold text-muted transition-all duration-200 hover:bg-white/60 hover:text-espresso sm:text-sm'
+                  ? 'flex-1 rounded-full bg-gold px-3 py-2 text-xs font-bold text-canvas shadow-sm transition-all duration-200 sm:text-sm'
+                  : 'flex-1 rounded-full px-3 py-2 text-xs font-bold text-muted transition-all duration-200 hover:bg-pill/60 hover:text-espresso sm:text-sm'
               }
             >
               {tab.label}
@@ -285,7 +285,7 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
           <ol className="mt-3 space-y-3">
             {MORNING_PROMPTS.map((prompt, index) => (
               <li key={prompt} className={`${whiteCardClass} flex items-start gap-3 p-4`}>
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gold text-xs font-bold text-espresso">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gold text-xs font-bold text-canvas">
                   {index + 1}
                 </span>
                 <p className="text-sm leading-6 text-espresso/80">{prompt}</p>
@@ -299,8 +299,8 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
             aria-pressed={state.morningCompleted}
             className={
               state.morningCompleted
-                ? 'mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gold px-4 py-3 text-sm font-bold text-espresso transition hover:bg-gold-deep hover:shadow-md'
-                : 'mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-sand bg-white px-4 py-3 text-sm font-bold text-espresso transition hover:border-gold hover:bg-pill'
+                ? 'mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gold px-4 py-3 text-sm font-bold text-canvas transition hover:bg-gold-deep hover:shadow-md'
+                : 'mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-sand bg-pill px-4 py-3 text-sm font-bold text-espresso transition hover:border-gold hover:bg-pill'
             }
           >
             {state.morningCompleted ? <CheckIcon className="h-4 w-4" /> : null}
@@ -334,7 +334,7 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
             onChange={(event) => handleJournalChange(event.target.value)}
             rows={5}
             placeholder="Pour out the day — what you saw, felt, and learned…"
-            className="mt-2 w-full rounded-2xl border border-sand bg-white px-4 py-3 text-sm leading-6 text-espresso outline-none transition placeholder:text-muted/60 focus:border-gold focus:ring-2 focus:ring-gold/25"
+            className="mt-2 w-full rounded-2xl border border-sand bg-pill px-4 py-3 text-sm leading-6 text-espresso outline-none transition placeholder:text-muted/80 focus:border-gold focus:ring-2 focus:ring-gold/25"
           />
           <p
             role="status"
@@ -350,8 +350,8 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
             aria-pressed={state.eveningCompleted}
             className={
               state.eveningCompleted
-                ? 'mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gold px-4 py-3 text-sm font-bold text-espresso transition hover:bg-gold-deep hover:shadow-md'
-                : 'mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-sand bg-white px-4 py-3 text-sm font-bold text-espresso transition hover:border-gold hover:bg-pill'
+                ? 'mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gold px-4 py-3 text-sm font-bold text-canvas transition hover:bg-gold-deep hover:shadow-md'
+                : 'mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-sand bg-pill px-4 py-3 text-sm font-bold text-espresso transition hover:border-gold hover:bg-pill'
             }
           >
             {state.eveningCompleted ? <CheckIcon className="h-4 w-4" /> : null}
@@ -383,7 +383,7 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
                       onClick={() => adjustHabit(habit.key, -HABIT_STEP)}
                       disabled={minutes === 0}
                       aria-label={`Remove ${HABIT_STEP} minutes from ${habit.label.toLowerCase()}`}
-                      className="flex h-9 w-9 items-center justify-center rounded-full border border-sand bg-white text-lg font-bold text-espresso transition hover:border-gold hover:bg-pill disabled:cursor-not-allowed disabled:opacity-40"
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-sand bg-pill text-lg font-bold text-espresso transition hover:border-gold hover:bg-pill disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       &minus;
                     </button>
@@ -392,7 +392,7 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
                       onClick={() => adjustHabit(habit.key, HABIT_STEP)}
                       disabled={minutes >= HABIT_MAX}
                       aria-label={`Add ${HABIT_STEP} minutes to ${habit.label.toLowerCase()}`}
-                      className="flex h-9 w-9 items-center justify-center rounded-full border border-sand bg-white text-lg font-bold text-espresso transition hover:border-gold hover:bg-pill disabled:cursor-not-allowed disabled:opacity-40"
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-sand bg-pill text-lg font-bold text-espresso transition hover:border-gold hover:bg-pill disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       +
                     </button>

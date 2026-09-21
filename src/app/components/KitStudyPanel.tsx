@@ -82,7 +82,7 @@ export default function KitStudyPanel({ kit }: KitStudyPanelProps) {
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-white px-3 py-1.5 text-xs font-bold text-espresso transition-all duration-200 hover:border-gold/50 hover:bg-pill hover:shadow-sm active:scale-[0.98]"
+            className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-pill px-3 py-1.5 text-xs font-bold text-espresso transition-all duration-200 hover:border-gold/50 hover:bg-pill hover:shadow-sm active:scale-[0.98]"
           >
             {copyStatus === 'copied' ? (
               <CheckIcon className="h-3.5 w-3.5 text-gold" />
@@ -115,15 +115,15 @@ export default function KitStudyPanel({ kit }: KitStudyPanelProps) {
                     className={`flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition-all duration-200 active:scale-[0.99] ${
                       isChecked
                         ? 'border-gold/50 bg-gold/10 shadow-sm'
-                        : 'border-sand bg-canvas hover:border-gold/40 hover:bg-white'
+                        : 'border-sand bg-canvas hover:border-gold/40 hover:bg-pill'
                     }`}
                   >
                     <span
                       aria-hidden="true"
                       className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all duration-200 ${
                         isChecked
-                          ? 'border-gold bg-gold text-espresso'
-                          : 'border-sand bg-white text-transparent'
+                          ? 'border-gold bg-gold text-canvas'
+                          : 'border-sand bg-pill text-transparent'
                       }`}
                     >
                       <CheckIcon className="h-3.5 w-3.5" />
@@ -153,7 +153,7 @@ export default function KitStudyPanel({ kit }: KitStudyPanelProps) {
         </>
       )}
 
-      <div className="mt-4 rounded-2xl border border-sand/70 bg-white/60 backdrop-blur-md">
+      <div className="mt-4 rounded-2xl border border-sand/70 bg-pill/60 backdrop-blur-md">
         <button
           type="button"
           onClick={() => setTipsOpen((prev) => !prev)}

@@ -119,7 +119,7 @@ export default function PrayerWall() {
   };
 
   return (
-    <div className="rounded-3xl border border-sand bg-white p-4 shadow-soft sm:p-6">
+    <div className="rounded-3xl border border-sand bg-pill p-4 shadow-soft sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div
           role="group"
@@ -136,7 +136,7 @@ export default function PrayerWall() {
             className={`${FILTER_PILL_CLASS} ${
               topic === null && !answeredOnly
                 ? 'border-gold bg-pill text-pill-ink'
-                : 'border-sand bg-white text-muted hover:border-gold'
+                : 'border-sand bg-pill text-muted hover:border-gold'
             }`}
           >
             All prayers
@@ -152,7 +152,7 @@ export default function PrayerWall() {
                 className={`${FILTER_PILL_CLASS} ${
                   selected
                     ? 'border-gold bg-pill text-pill-ink'
-                    : 'border-sand bg-white text-muted hover:border-gold'
+                    : 'border-sand bg-pill text-muted hover:border-gold'
                 }`}
               >
                 {wallTopic}
@@ -166,7 +166,7 @@ export default function PrayerWall() {
             className={`${FILTER_PILL_CLASS} ${
               answeredOnly
                 ? 'border-gold bg-pill text-pill-ink'
-                : 'border-sand bg-white text-muted hover:border-gold'
+                : 'border-sand bg-pill text-muted hover:border-gold'
             }`}
           >
             Answered
@@ -176,7 +176,7 @@ export default function PrayerWall() {
         <button
           type="button"
           onClick={() => setModalOpen(true)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-gold px-4 py-2 text-xs font-bold text-espresso transition hover:bg-gold-deep hover:shadow-md"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-gold px-4 py-2 text-xs font-bold text-canvas transition hover:bg-gold-deep hover:shadow-md"
         >
           <PlusIcon className="h-3.5 w-3.5" />
           Share a Prayer
@@ -209,7 +209,7 @@ export default function PrayerWall() {
           ))}
         </div>
       ) : prayers.length === 0 ? (
-        <div className="mt-2 rounded-3xl border border-dashed border-sand bg-white p-8 text-center">
+        <div className="mt-2 rounded-3xl border border-dashed border-sand bg-pill p-8 text-center">
           <p className="text-sm font-bold text-espresso">No prayers in this view yet</p>
           <p className="mt-1 text-sm leading-6 text-muted">
             Try another topic &mdash; or be the first to share a prayer for this need.
@@ -296,7 +296,7 @@ export default function PrayerWall() {
                     } ${
                       interceded
                         ? 'border-gold bg-pill text-pill-ink'
-                        : 'border-sand bg-white text-espresso hover:border-gold hover:bg-pill'
+                        : 'border-sand bg-pill text-espresso hover:border-gold hover:bg-pill'
                     } disabled:cursor-not-allowed`}
                   >
                     <HeartIcon

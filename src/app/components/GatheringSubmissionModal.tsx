@@ -43,7 +43,7 @@ const FOCUSABLE_SELECTOR =
 
 const LABEL_CLASS = 'text-xs font-bold uppercase tracking-[0.14em] text-muted';
 const FIELD_CLASS =
-  'mt-1.5 w-full rounded-full border border-sand bg-white px-4 py-2.5 text-sm text-espresso outline-none transition placeholder:text-muted/60 focus:border-gold focus:ring-2 focus:ring-gold/25';
+  'mt-1.5 w-full rounded-full border border-sand bg-pill px-4 py-2.5 text-sm text-espresso outline-none transition placeholder:text-muted/60 focus:border-gold focus:ring-2 focus:ring-gold/25';
 const ERROR_TEXT_CLASS = 'mt-1 text-xs font-medium text-red-700';
 
 /** Parses an optional "latitude, longitude" input; `null` when not usable. */
@@ -212,7 +212,7 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
     <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
       <div
         aria-hidden
-        className="absolute inset-0 bg-espresso/40 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-canvas/40 backdrop-blur-[2px]"
         onClick={requestClose}
       />
 
@@ -247,7 +247,7 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
             type="button"
             onClick={requestClose}
             aria-label="Close dialog"
-            className="shrink-0 rounded-full border border-sand bg-white p-2 text-muted transition hover:border-gold/50 hover:bg-pill hover:text-espresso"
+            className="shrink-0 rounded-full border border-sand bg-pill p-2 text-muted transition hover:border-gold/50 hover:bg-pill hover:text-espresso"
           >
             <CloseIcon className="h-4 w-4" />
           </button>
@@ -255,7 +255,7 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
 
         {submitted ? (
           <div className="flex flex-col items-center px-6 py-10 text-center">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gold text-espresso shadow-soft">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gold text-canvas shadow-soft">
               <CheckIcon className="h-6 w-6" />
             </span>
             <h3 className="mt-4 text-lg font-extrabold text-espresso">Submission received</h3>
@@ -268,7 +268,7 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
             <button
               type="button"
               onClick={requestClose}
-              className="mt-6 inline-flex items-center justify-center rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-espresso transition hover:bg-gold-deep hover:shadow-md"
+              className="mt-6 inline-flex items-center justify-center rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-canvas transition hover:bg-gold-deep hover:shadow-md"
             >
               Done
             </button>
@@ -383,14 +383,14 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
                 <button
                   type="button"
                   onClick={requestClose}
-                  className="inline-flex items-center justify-center rounded-full border border-sand bg-white px-4 py-2.5 text-sm font-bold text-espresso transition hover:border-gold hover:bg-pill"
+                  className="inline-flex items-center justify-center rounded-full border border-sand bg-pill px-4 py-2.5 text-sm font-bold text-espresso transition hover:border-gold hover:bg-pill"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="inline-flex items-center justify-center rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-espresso transition hover:bg-gold-deep hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-canvas transition hover:bg-gold-deep hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {submitting ? 'Submitting…' : 'Submit for review'}
                 </button>
