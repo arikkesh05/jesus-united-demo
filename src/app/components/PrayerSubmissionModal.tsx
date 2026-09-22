@@ -4,11 +4,23 @@ import { useEffect, useRef, useState } from 'react';
 import { CheckIcon, CloseIcon, HandHeartIcon } from '@/app/components/icons';
 import { PRAYER_TOPICS, submitPrayerRequest, type PrayerRequestInsert } from '@/lib/prayers';
 
+/** Optional seed for the form, e.g. the Examen-to-intercession bridge. */
+export type PrayerSubmissionSeed = Partial<
+  Pick<FormValues, 'anonymous' | 'body' | 'title' | 'topics'>
+>;
+
 interface PrayerSubmissionModalProps {
   open: boolean;
   onClose: () => void;
-  /** Fired after a successful share so the wall can refetch immediately. */
+  /** Fired after a successful share so the opener can react (badges, refetch). */
   onSubmitted?: () => void;
+  /**
+   * Pre-filled values applied every time the dialog opens. Passed from the
+   * Examen-to-intercession bridge so a morning reflection arrives ready to send.
+   */
+  seed?: PrayerSubmissionSeed;
+  /** Optional handoff action offered after a successful share (e.g. view the wall). */
+  onViewWall?: () => void;
 }
 
 interface FormValues {
@@ -38,10 +50,10 @@ const FOCUSABLE_SELECTOR =
 
 const LABEL_CLASS = 'text-xs font-bold uppercase tracking-[0.14em] text-muted';
 const FIELD_CLASS =
-  'mt-1.5 w-full rounded-3xl border border-sand bg-pill px-4 py-2.5 text-sm text-espresso outline-none transition placeholder:text-muted/60 focus:border-gold focus:ring-2 focus:ring-gold/25 disabled:cursor-not-allowed disabled:bg-pill disabled:text-muted';
-const ERROR_TEXT_CLASS = 'mt-1 text-xs font-medium text-red-700';
+  'mt-1.5 min-h-[44px] w-full rounded-3xl border border-white/10 bg-canvas/60 px-4 py-2.5 text-sm text-espresso outline-none transition placeholder:text-muted/80 focus:border-gold focus:ring-2 focus:ring-gold/25 disabled:cursor-not-allowed disabled:bg-pill/60 disabled:text-muted';
+const ERROR_TEXT_CLASS = 'mt-1 text-xs font-medium text-red-300';
 const TOPIC_PILL_CLASS =
-  'inline-flex items-center rounded-full border px-3.5 py-1.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 aria-pressed:bg-pill aria-pressed:border-gold aria-pressed:text-pill-ink aria-[pressed=false]:border-sand aria-[pressed=false]:bg-pill aria-[pressed=false]:text-muted hover:border-gold';
+  'inline-flex min-h-[44px] items-center rounded-full border px-3.5 py-1.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 aria-pressed:border-gold/60 aria-pressed:bg-gold/10 aria-pressed:text-gold aria-[pressed=false]:border-white/10 aria-[pressed=false]:bg-white/5 aria-[pressed=false]:text-slate-300 hover:border-gold/50';
 
 function validate(values: FormValues): FormErrors {
   const errors: FormErrors = {};
@@ -72,12 +84,16 @@ export default function PrayerSubmissionModal({
   open,
   onClose,
   onSubmitted,
+  seed,
+  onViewWall,
 }: PrayerSubmissionModalProps) {
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  /** True when the share was kept on this device instead of the cloud. */
+  const [mirroredLocally, setMirroredLocally] = useState(false);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const firstFieldRef = useRef<HTMLInputElement | null>(null);
 
@@ -132,13 +148,49 @@ export default function PrayerSubmissionModal({
     };
   }, [open, onClose]);
 
+  /**
+   * Seeds the form every time the dialog opens: bridge-suggested values when
+   * provided, otherwise a blank slate. Mount-gated so the server HTML and the
+   * first client render agree (no hydration mismatch).
+   */
+  useEffect(() => {
+    if (!open) return;
+
+    let cancelled = false;
+    (async () => {
+      if (cancelled) return;
+      setValues({
+        ...EMPTY_FORM,
+        ...seed,
+        // A seeded reflection can exceed the field limits; trim so a shared
+        // bridge reflection arrives ready to send rather than pre-invalid.
+        title: (seed?.title ?? '').slice(0, MAX_TITLE_LENGTH),
+        body: (seed?.body ?? '').slice(0, MAX_BODY_LENGTH),
+      });
+      setErrors({});
+      setSubmitted(false);
+      setSubmitError(null);
+      setMirroredLocally(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, seed]);
+
   /** A completed submission resets so the next open starts from a fresh form. */
   const requestClose = () => {
     if (submitted) {
       setSubmitted(false);
-      setValues(EMPTY_FORM);
+      setValues({
+        ...EMPTY_FORM,
+        ...seed,
+        title: (seed?.title ?? '').slice(0, MAX_TITLE_LENGTH),
+        body: (seed?.body ?? '').slice(0, MAX_BODY_LENGTH),
+      });
       setErrors({});
       setSubmitError(null);
+      setMirroredLocally(false);
     }
     onClose();
   };
@@ -191,6 +243,7 @@ export default function PrayerSubmissionModal({
     const result = await submitPrayerRequest(prayer);
 
     if (result.ok) {
+      setMirroredLocally(result.mode === 'guest');
       setSubmitted(true);
       onSubmitted?.();
     } else {
@@ -205,7 +258,7 @@ export default function PrayerSubmissionModal({
     <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
       <div
         aria-hidden
-        className="absolute inset-0 bg-canvas/40 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-canvas/70 backdrop-blur-sm"
         onClick={requestClose}
       />
 
@@ -215,9 +268,9 @@ export default function PrayerSubmissionModal({
         aria-modal="true"
         aria-labelledby="prayer-submission-title"
         aria-describedby="prayer-submission-description"
-        className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-sand bg-canvas shadow-lift"
+        className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-white/10 bg-pill/95 shadow-2xl backdrop-blur-2xl"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-sand px-6 py-5">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-sand px-6 py-5">
           <div>
             <span className="inline-flex items-center rounded-full bg-pill px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-pill-ink">
               Prayer Wall
@@ -240,14 +293,14 @@ export default function PrayerSubmissionModal({
             type="button"
             onClick={requestClose}
             aria-label="Close dialog"
-            className="rounded-full border border-sand bg-pill p-2 text-muted transition hover:border-gold hover:bg-pill hover:text-espresso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50"
+            className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-300 outline-none transition hover:border-gold/50 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50"
           >
             <CloseIcon className="h-4 w-4" />
           </button>
         </div>
 
         {submitted ? (
-          <div className="overflow-y-auto px-6 py-8 text-center">
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8 text-center">
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold text-canvas shadow-soft">
               <CheckIcon className="h-7 w-7" />
             </span>
@@ -258,19 +311,37 @@ export default function PrayerSubmissionModal({
               The community can now see your request and press &ldquo;I Prayed&rdquo; to stand
               with you. &ldquo;Pray for one another, that you may be healed&rdquo; (James 5:16).
             </p>
+            {mirroredLocally ? (
+              <p className="mx-auto mt-3 max-w-sm rounded-2xl border border-gold/30 bg-gold/10 px-4 py-2.5 text-xs font-medium leading-5 text-gold">
+                Kept on this device for now &mdash; the community wall will carry it as soon as
+                the prayer service is reachable again.
+              </p>
+            ) : null}
             <div className="mt-6 flex flex-col-reverse justify-center gap-2 sm:flex-row">
+              {onViewWall ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    requestClose();
+                    onViewWall();
+                  }}
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-gold px-5 text-sm font-bold text-canvas shadow-soft transition hover:bg-gold-deep active:scale-95"
+                >
+                  See it on the wall
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={requestClose}
-                className="inline-flex items-center justify-center rounded-full border border-sand bg-pill px-4 py-2.5 text-sm font-bold text-espresso transition hover:border-gold hover:bg-pill"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-sand bg-pill px-4 text-sm font-bold text-espresso transition hover:border-gold hover:bg-pill"
               >
                 Back to the wall
               </button>
             </div>
           </div>
         ) : (
-          <form noValidate onSubmit={handleSubmit}>
-            <div className="flex flex-col gap-4 overflow-y-auto px-6 py-5">
+          <form noValidate onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
               <div>
                 <label htmlFor="prayer-author-name" className={LABEL_CLASS}>
                   Author name
@@ -420,24 +491,27 @@ export default function PrayerSubmissionModal({
               {submitError ? (
                 <p
                   role="alert"
-                  className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                  className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-300"
                 >
                   {submitError}
                 </p>
               ) : null}
 
-              <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+            </div>
+
+            <div className="shrink-0 border-t border-white/10 bg-pill/95 p-6 pt-4 backdrop-blur-xl">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={requestClose}
-                  className="inline-flex items-center justify-center rounded-full border border-sand bg-pill px-4 py-2.5 text-sm font-bold text-espresso transition hover:border-gold hover:bg-pill"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-sand bg-pill px-4 py-2.5 text-sm font-bold text-espresso transition hover:border-gold hover:bg-pill"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-canvas transition hover:bg-gold-deep hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-canvas transition hover:bg-gold-deep hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <HandHeartIcon className="h-4 w-4" />
                   {submitting ? 'Sharing…' : 'Share on the wall'}

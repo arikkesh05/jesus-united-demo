@@ -1,19 +1,58 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react';
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import {
   EMPTY_ALTAR_DAY,
   HABIT_MAX,
-  HABIT_STEP,
   clampHabitMinutes,
   loadAltarDay,
   persistAltarDay,
   todayLocalDate,
   type AltarDayState,
   type AltarPersistMode,
-  type HabitMinutes,
 } from '@/lib/altar';
-import { BookIcon, CheckIcon, ClockIcon } from '@/app/components/icons';
+import {
+  RHYTHMS,
+  RHYTHM_MINUTE_STEP,
+  RHYTHM_PRACTICE_MINUTES,
+  RHYTHM_WEEK_TARGET,
+  dayFullness,
+  dayMinutes,
+  emptyRhythmDay,
+  formationLabel,
+  hasPractised,
+  isRestingDay,
+  readEngineDay,
+  readHabitEngine,
+  rhythmProgress,
+  saveEngineDay,
+  setGraceMode,
+  stepRhythmMinutes,
+  toggleRhythmCompleted,
+  weekDatesFor,
+  weekdayInitial,
+  type HabitEngineStore,
+  type RhythmDaySnapshot,
+  type RhythmDefinition,
+  type RhythmId,
+} from '@/lib/habitEngine';
+import {
+  BookIcon,
+  CheckIcon,
+  ClockIcon,
+  HandHeartIcon,
+  MoonIcon,
+  SunIcon,
+  WindIcon,
+} from '@/app/components/icons';
 
 export interface ScriptureFocus {
   title: string;
@@ -31,7 +70,7 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 const TABS: { id: TabId; label: string }[] = [
   { id: 'morning', label: 'Morning Altar' },
   { id: 'evening', label: 'Evening Examen' },
-  { id: 'habits', label: 'Habit Logger' },
+  { id: 'habits', label: 'Rhythms of Grace' },
 ];
 
 const MORNING_PROMPTS: string[] = [
@@ -62,12 +101,13 @@ const FALLBACK_SCRIPTURE: ScriptureFocus = {
     'The steadfast love of the LORD never ceases; his mercies never come to an end; they are new every morning; great is your faithfulness.',
 };
 
-const HABIT_COUNTERS: { key: keyof HabitMinutes; label: string }[] = [
-  { key: 'prayer', label: 'Prayer' },
-  { key: 'scripture', label: 'Scripture' },
-  { key: 'worship', label: 'Worship' },
-  { key: 'service', label: 'Service' },
-];
+/** Icon per rhythm, keyed by the engine's rhythm ids (compass + cards). */
+const RHYTHM_ICONS: Record<RhythmId, (props: { className?: string }) => React.JSX.Element> = {
+  morning: SunIcon,
+  word: BookIcon,
+  midday: WindIcon,
+  community: HandHeartIcon,
+};
 
 const eyebrowClass = 'text-xs font-bold uppercase tracking-[0.18em] text-pill-ink';
 const whiteCardClass = 'rounded-2xl border border-sand bg-pill shadow-soft';
@@ -91,6 +131,11 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
   const [mode, setMode] = useState<AltarPersistMode>('guest');
   const [activeTab, setActiveTab] = useState<TabId>('morning');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+
+  /** Grace-Based Habit Engine (identity-first formation). */
+  const [engine, setEngine] = useState<HabitEngineStore | null>(null);
+  /** Pulse rings from the most recent consecration tap, by rhythm id. */
+  const [rhythmPulse, setRhythmPulse] = useState<RhythmId | null>(null);
 
   const userIdRef = useRef<string | null>(null);
   const todayRef = useRef('');
@@ -121,6 +166,9 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
       setMode(loaded.mode);
       stateRef.current = loaded.state;
       setState(loaded.state);
+      // The grace engine is a pure client-side mirror: load it inside the same
+      // mount-gated async pass so the first client render matches the skeleton.
+      setEngine(readHabitEngine());
       setMounted(true);
     })();
     return () => {
@@ -148,15 +196,107 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
     void persist(next);
   };
 
-  const adjustHabit = (key: keyof HabitMinutes, delta: number) => {
-    const current = stateRef.current.habits[key];
-    const next = {
-      ...stateRef.current,
-      habits: { ...stateRef.current.habits, [key]: clampHabitMinutes(current + delta) },
+  // -------------------------------------------------------------------------
+  // Grace-Based Habit Engine — rhythms, not streaks
+  // -------------------------------------------------------------------------
+
+  /**
+   * Today's rhythm snapshot. The engine record wins once it exists (it mirrors
+   * every write on this device); on a first visit the day is derived from the
+   * Altar OS layer so cloud-synced minutes stay continuous.
+   */
+  const todayDay = useMemo<RhythmDaySnapshot>(() => {
+    const stored = engine?.days[today];
+    if (stored) return stored;
+    if (!today) return emptyRhythmDay();
+    return {
+      morning: { minutes: state.habits.prayer, completed: state.morningCompleted },
+      word: { minutes: state.habits.scripture, completed: false },
+      midday: { minutes: state.habits.worship, completed: false },
+      community: { minutes: state.habits.service, completed: false },
     };
-    updateState(next);
-    void persist(next);
+  }, [engine, today, state.habits, state.morningCompleted]);
+
+  /** True when today sits inside an open (or past) Grace Season. */
+  const restingToday = engine !== null && today !== '' && isRestingDay(engine, today);
+
+  /** The seven-day compass window, richness and resting days included. */
+  const compassWeek = useMemo(() => {
+    if (engine === null || today === '') return [];
+    return weekDatesFor(today).map((date) => {
+      const day = readEngineDay(engine, date);
+      const resting = isRestingDay(engine, date);
+      return {
+        date,
+        weekday: weekdayInitial(date),
+        fullness: resting ? 1 : dayFullness(day),
+        minutes: dayMinutes(day),
+        resting,
+        isToday: date === today,
+        upcoming: date > today,
+      };
+    });
+  }, [engine, today]);
+
+  const weekFullness = useMemo(() => {
+    const lived = compassWeek.filter((day) => !day.upcoming);
+    if (lived.length === 0) return 0;
+    return lived.reduce((sum, day) => sum + day.fullness, 0) / lived.length;
+  }, [compassWeek]);
+
+  /** Persists the engine day and mirrors minutes into the cloud habit row. */
+  const commitRhythmDay = useCallback(
+    (nextDay: RhythmDaySnapshot, altarDay: AltarDayState) => {
+      if (todayRef.current === '') return;
+      saveEngineDay(todayRef.current, nextDay);
+      setEngine(readHabitEngine());
+      updateState(altarDay);
+      void persist(altarDay);
+    },
+    // `persist` and `updateState` are stable helpers defined in this component.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  /** Logs or removes minutes for a rhythm (counters freeze in a Grace Season). */
+  const adjustRhythm = (rhythm: RhythmDefinition, delta: number) => {
+    if (restingToday) return;
+    const nextDay = stepRhythmMinutes(todayDay, rhythm.id, delta);
+    const nextAltar: AltarDayState = {
+      ...stateRef.current,
+      habits: {
+        ...stateRef.current.habits,
+        [rhythm.habit]: clampHabitMinutes(stateRef.current.habits[rhythm.habit] + delta),
+      },
+    };
+    setRhythmPulse(rhythm.id);
+    commitRhythmDay(nextDay, nextAltar);
   };
+
+  /** Toggles a rhythm's consecration check; the Morning Altar stays in step. */
+  const toggleRhythm = (rhythm: RhythmDefinition) => {
+    const nextDay = toggleRhythmCompleted(todayDay, rhythm.id);
+    const nextAltar: AltarDayState = {
+      ...stateRef.current,
+      morningCompleted:
+        rhythm.id === 'morning' ? nextDay.morning.completed : stateRef.current.morningCompleted,
+    };
+    setRhythmPulse(rhythm.id);
+    commitRhythmDay(nextDay, nextAltar);
+  };
+
+  /** Enters or leaves a Grace Season: counters rest, history is preserved. */
+  const toggleGraceMode = () => {
+    if (engine === null || today === '') return;
+    setEngine(setGraceMode(engine, !engine.graceMode, today));
+  };
+
+  /** Clears the consecration pulse so the tap animation is per-interaction. */
+  useEffect(() => {
+    if (rhythmPulse === null) return undefined;
+    const timer = setTimeout(() => setRhythmPulse(null), 1100);
+    return () => clearTimeout(timer);
+  }, [rhythmPulse]);
 
   /** Journal autosave: debounced so every keystroke does not hit Supabase. */
   const handleJournalChange = (value: string) => {
@@ -367,47 +507,260 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
           aria-labelledby="altar-tab-habits"
           className="mt-5"
         >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {HABIT_COUNTERS.map((habit) => {
-              const minutes = state.habits[habit.key];
-              return (
-                <div key={habit.key} className={`${whiteCardClass} p-4`}>
-                  <p className={eyebrowClass}>{habit.label}</p>
-                  <p className="mt-2 text-3xl font-extrabold tabular-nums text-espresso">
-                    {minutes}
-                    <span className="ml-1 text-sm font-bold text-muted">min</span>
-                  </p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => adjustHabit(habit.key, -HABIT_STEP)}
-                      disabled={minutes === 0}
-                      aria-label={`Remove ${HABIT_STEP} minutes from ${habit.label.toLowerCase()}`}
-                      className="flex h-9 w-9 items-center justify-center rounded-full border border-sand bg-pill text-lg font-bold text-espresso transition hover:border-gold hover:bg-pill disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      &minus;
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => adjustHabit(habit.key, HABIT_STEP)}
-                      disabled={minutes >= HABIT_MAX}
-                      aria-label={`Add ${HABIT_STEP} minutes to ${habit.label.toLowerCase()}`}
-                      className="flex h-9 w-9 items-center justify-center rounded-full border border-sand bg-pill text-lg font-bold text-espresso transition hover:border-gold hover:bg-pill disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      +
-                    </button>
-                    <span className="ml-auto text-xs text-muted">+{HABIT_STEP} min</span>
+          <MotionConfig reducedMotion="user">
+          {/* Identity Rhythm Heading + Grace Season freeze switch */}
+          <div className="relative overflow-hidden rounded-3xl border border-gold/20 bg-gradient-to-br from-pill/80 to-canvas/60 p-5 sm:p-6">
+            {engine?.graceMode ? (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 bg-[radial-gradient(125%_125%_at_50%_0%,rgba(245,158,11,0.12),transparent_58%)]"
+              />
+            ) : null}
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h3
+                  id="grace-rhythm-heading"
+                  className="text-lg font-extrabold leading-snug tracking-tight text-espresso sm:text-xl"
+                >
+                  A Person Who Walks in Rhythms of Grace
+                </h3>
+                <p className="mt-1 max-w-md text-sm leading-6 text-muted">
+                  Consistency rooted in His faithfulness, not your performance.
+                </p>
+              </div>
+
+              <motion.button
+                type="button"
+                role="switch"
+                aria-checked={engine?.graceMode ?? false}
+                aria-label="Grace Season - pause the rhythm counters"
+                onClick={toggleGraceMode}
+                whileTap={{ scale: 0.97 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                disabled={engine === null || today === ''}
+                className={`inline-flex min-h-[44px] min-w-[144px] items-center gap-3 rounded-full border px-4 text-xs font-bold transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:opacity-60 ${
+                  engine?.graceMode
+                    ? 'border-gold/50 bg-gold/15 text-gold'
+                    : 'border-white/10 bg-canvas/50 text-slate-300 hover:border-gold/40 hover:text-gold'
+                }`}
+              >
+                <span className="flex h-5 w-9 shrink-0 items-center rounded-full bg-canvas/70 p-0.5 ring-1 ring-inset ring-white/10">
+                  <motion.span
+                    layout
+                    transition={{ type: 'spring', stiffness: 430, damping: 32 }}
+                    className={`block h-4 w-4 rounded-full ${engine?.graceMode ? 'ml-auto bg-gold' : 'bg-slate-400'}`}
+                  />
+                </span>
+                Grace Season
+              </motion.button>
+            </div>
+
+            {engine?.graceMode ? (
+              <motion.p
+                key="grace-badge"
+                role="status"
+                aria-live="polite"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                className="relative mt-4 inline-flex items-start gap-2 rounded-2xl border border-gold/30 bg-gold/10 px-4 py-3 text-xs font-semibold leading-5 text-gold shadow-[0_0_22px_rgba(245,158,11,0.18)]"
+              >
+                <span aria-hidden="true" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold amen-breath" />
+                Rest is Consecration &mdash; Grace Mode active. No streaks broken.
+              </motion.p>
+            ) : (
+              <p className="mt-3 text-xs leading-5 text-muted">
+                Going into a resting season? Switch this on and every counter pauses &mdash; the days you
+                rest are honoured, never counted against you.
+              </p>
+            )}
+          </div>
+
+          {/* Weekly Formation Compass */}
+          <div className="mt-6 rounded-3xl border border-sand bg-pill p-5 shadow-soft sm:p-6">
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <h4 className={eyebrowClass}>This Week&apos;s Compass</h4>
+              <p className="text-xs font-medium text-muted">
+                {Math.round(weekFullness * 100)}% of days lived in rhythm &middot; {formationLabel(weekFullness * 100)}
+              </p>
+            </div>
+
+            <div className="mt-4 grid grid-cols-7 gap-1.5 text-center">
+              {compassWeek.map((day) => (
+                <div key={day.date} className="flex flex-col items-center gap-1">
+                  <span className="text-[10px] uppercase tracking-wider text-muted">{day.weekday}</span>
+                  <div
+                    className={`relative h-10 w-10 rounded-full border transition-colors duration-300 ${
+                      day.resting
+                        ? 'border-gold/40 bg-gold/15'
+                        : day.isToday
+                        ? 'border-gold bg-gold/25'
+                        : 'border-sand bg-canvas/60'
+                    }`}
+                  >
+                    {day.resting ? <MoonIcon className="absolute inset-0 m-auto h-5 w-5 text-gold" /> : null}
+                    {!day.resting ? (
+                      <div
+                        className="absolute inset-1 rounded-full"
+                        style={{
+                          background: `conic-gradient(rgba(245,158,11,0.85) 0% ${day.fullness * 100}%, rgba(30,46,66,0.25) ${day.fullness * 100}% 100%)`,
+                        }}
+                      />
+                    ) : null}
+                    {day.isToday ? <span className="absolute inset-0 m-auto h-2 w-2 rounded-full bg-gold amen-breath" /> : null}
                   </div>
+                  <span className="text-[11px] font-medium tabular-nums text-slate-400">{day.minutes}</span>
                 </div>
+              ))}
+            </div>
+
+            <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-sand">
+              <motion.div
+                className="h-full rounded-full bg-gold"
+                initial={{ width: 0 }}
+                animate={{ width: `${weekFullness * 100}%` }}
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              />
+              <span className="sr-only">{Math.round(weekFullness * 100)}% of days lived in rhythm</span>
+            </div>
+
+            <p className="mt-1 text-[11px] leading-5 text-muted">
+              {weekFullness >= 0.75
+                ? `${Math.round(weekFullness * RHYTHMS.length)} of ${RHYTHMS.length * RHYTHM_WEEK_TARGET} rhythms marked practised this week`
+                : 'Each day counts. Begin where you are.'}
+            </p>
+          </div>
+
+          {/* Tactile Rhythm Cards */}
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {RHYTHMS.map((rhythm) => {
+              const snapshot = todayDay[rhythm.id];
+              const progress = rhythmProgress(snapshot);
+              const practiced = hasPractised(todayDay, rhythm.id);
+              const pulsed = rhythmPulse === rhythm.id;
+              const canAdd = !restingToday && snapshot.minutes < HABIT_MAX;
+              const canRemove = !restingToday && snapshot.minutes > 0;
+
+              return (
+                <motion.div
+                  key={rhythm.id}
+                  layout
+                  whileHover={{ y: -2 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                  className={`${whiteCardClass} relative p-4`}
+                >
+                  <div className="flex items-center gap-1">
+                    <span
+                      aria-hidden="true"
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border ${practiced ? 'border-gold/35 bg-gold/15 text-gold' : 'border-sand bg-canvas/60 text-muted'}`}
+                    >
+                      {RHYTHM_ICONS[rhythm.id]({ className: 'h-5 w-5' })}
+                    </span>
+                    <div className="min-w-0 flex-1 px-2">
+                      <p className="break-words text-xs font-semibold uppercase leading-tight tracking-wider text-espresso">
+                        {rhythm.name}
+                      </p>
+                      <p className="mt-0.5 break-words text-xs leading-tight text-muted">
+                        {rhythm.discipline}
+                      </p>
+                    </div>
+
+                    <motion.button
+                      type="button"
+                      aria-pressed={snapshot.completed}
+                      onClick={() => toggleRhythm(rhythm)}
+                      whileTap={{ scale: 0.95 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                      disabled={restingToday}
+                      className={`relative h-9 w-9 shrink-0 rounded-full text-xs font-bold transition disabled:opacity-40 ${
+                        snapshot.completed
+                          ? 'bg-gold text-canvas hover:bg-gold-deep'
+                          : 'border border-sand bg-pill text-espresso hover:border-gold hover:bg-gold/10'
+                      }`}
+                      aria-label={snapshot.completed ? 'Mark not completed' : 'Mark consecrated for the day'}
+                    >
+                      <CheckIcon className="absolute inset-0 m-auto h-4 w-4" />
+                    </motion.button>
+                  </div>
+
+                  <div className="mt-3 flex items-end gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-sand">
+                        <motion.div
+                          className="h-full rounded-full bg-gold"
+                          initial={false}
+                          animate={{ width: `${progress * 100}%` }}
+                          transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                        />
+                      </div>
+                      <div className="mt-1 flex items-center justify-between gap-2 text-[11px]">
+                        <span className="shrink-0 tabular-nums text-muted">
+                          {snapshot.minutes} min logged
+                        </span>
+                        <span className="min-w-0 truncate text-right text-muted">
+                          {RHYTHM_PRACTICE_MINUTES - snapshot.minutes > 0
+                            ? `${RHYTHM_PRACTICE_MINUTES - snapshot.minutes}m to goal`
+                            : 'Goal achieved'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-1">
+                      <motion.button
+                        type="button"
+                        onClick={() => adjustRhythm(rhythm, -RHYTHM_MINUTE_STEP)}
+                        disabled={!canRemove}
+                        whileTap={{ scale: 0.95 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                        aria-label={`Remove ${RHYTHM_MINUTE_STEP} min from ${rhythm.name.toLowerCase()}`}
+                        className={`flex h-7 w-7 items-center justify-center rounded-full border text-lg font-bold transition disabled:cursor-not-allowed disabled:opacity-30 ${
+                          canRemove ? 'border-sand bg-pill text-espresso hover:border-gold hover:bg-gold/10' : 'border-sand bg-canvas/50 text-muted'
+                        }`}
+                      >
+                        &minus;
+                      </motion.button>
+                      <motion.button
+                        type="button"
+                        onClick={() => adjustRhythm(rhythm, RHYTHM_MINUTE_STEP)}
+                        disabled={!canAdd}
+                        whileTap={{ scale: 0.95 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                        aria-label={`Add ${RHYTHM_MINUTE_STEP} min to ${rhythm.name.toLowerCase()}`}
+                        className={`flex h-7 w-7 items-center justify-center rounded-full border text-lg font-bold transition disabled:cursor-not-allowed disabled:opacity-30 ${
+                          canAdd ? 'border-sand bg-pill text-espresso hover:border-gold hover:bg-gold/10' : 'border-sand bg-canvas/50 text-muted'
+                        }`}
+                      >
+                        +
+                      </motion.button>
+                    </div>
+                  </div>
+
+                  <AnimatePresence initial={false}>
+                    {pulsed ? (
+                      <motion.span
+                        key="pulse"
+                        initial={{ opacity: 0.6, scale: 0.6 }}
+                        animate={{ opacity: 0, scale: 2.2 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.9, ease: 'easeOut' }}
+                        className="absolute -inset-1 rounded-full border-2 border-gold"
+                      />
+                    ) : null}
+                  </AnimatePresence>
+                </motion.div>
               );
             })}
           </div>
-          <p className="mt-4 text-xs leading-5 text-muted">
-            Signed-in believers sync daily totals to their account; guests keep everything safely on
-            this device.
+
+          <p className="mt-5 text-xs leading-5 text-muted">
+            Signed-in believers sync daily totals to their account; guests keep everything safely on this
+            device. Days within a Grace Season rest in consecration &mdash; no rhythms kept, none lost.
           </p>
+          </MotionConfig>
         </section>
       ) : null}
+
     </div>
   );
 }
