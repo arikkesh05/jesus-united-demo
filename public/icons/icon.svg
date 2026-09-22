@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="ember-glow" cx="256" cy="248" r="236" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F59E0B" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#F59E0B" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="#0A1118"/>
+  <circle cx="256" cy="248" r="236" fill="url(#ember-glow)"/>
+  <g fill="#F59E0B">
+    <rect x="233" y="118" width="46" height="282" rx="23"/>
+    <rect x="148" y="188" width="216" height="46" rx="23"/>
+  </g>
+  <circle cx="256" cy="188" r="12" fill="#FBBF24"/>
+</svg>
