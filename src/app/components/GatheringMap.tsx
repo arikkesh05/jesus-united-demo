@@ -130,7 +130,7 @@ export default function GatheringMap({ gatherings }: GatheringMapProps) {
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => setActiveHub(filter.id)}
-                  className={`relative min-h-[40px] shrink-0 rounded-full px-4 py-2 text-xs font-bold outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-gold/50 ${
+                  className={`relative min-h-[44px] shrink-0 rounded-full px-4 py-2 text-xs font-bold outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-gold/50 ${
                     isActive ? 'text-canvas' : 'text-slate-300 hover:text-white'
                   }`}
                 >

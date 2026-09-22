@@ -10,7 +10,10 @@ import type { PrayerRequest } from '@/lib/types';
  *   set of Scripture-grounded demo prayers when the table is empty or the
  *   cloud read fails — the wall is never blank.
  * - `submitPrayerRequest` inserts into `prayer_requests`; guests resolve to a
- *   `null` `user_id` (the DB column is nullable for anonymous submissions).
+ *   `null` `user_id` (the DB column is nullable for anonymous submissions). A
+ *   rejected write degrades to an on-device mirror, and every accepted share
+ *   announces `PRAYER_SUBMISSION_EVENT` (see `subscribeToPrayerSubmissions`) so
+ *   a mounted wall shows the new request without a page refresh.
  * - `recordIntercession` inserts into `prayer_intercessions` and increments
  *   `intercession_count`. Guests (or any failed cloud write) degrade
  *   gracefully to localStorage (`jesusunited:prayer-intercessions:v1`) so the
@@ -30,8 +33,12 @@ export interface PrayerFilter {
   answeredOnly?: boolean;
 }
 
+/** How a share was persisted: `cloud` = Supabase row, `guest` = on-device mirror. */
+export type PrayerSubmissionMode = 'cloud' | 'guest';
+
 export interface SubmitPrayerResult {
   ok: boolean;
+  mode: PrayerSubmissionMode;
   error: string | null;
 }
 
@@ -54,6 +61,20 @@ export const PRAYER_TOPICS: readonly string[] = [
 ];
 
 const INTERCESSION_STORAGE_KEY = 'jesusunited:prayer-intercessions:v1';
+
+/**
+ * Guest-first mirror of shares the cloud would not accept, so a prayer written
+ * on this device still shows on this device's wall.
+ */
+const SUBMISSION_STORAGE_KEY = 'jesusunited:prayer-submissions:v1';
+const MAX_MIRRORED_SUBMISSIONS = 20;
+
+/**
+ * Window event announced after any *accepted* share (cloud or on-device). The
+ * Prayer Wall subscribes to it so a prayer written in the Examen bridge appears
+ * immediately, without a page refresh.
+ */
+export const PRAYER_SUBMISSION_EVENT = 'jesusunited:prayer-submitted';
 
 /** On-device intercession mirror shaped like a minimal `PrayerIntercession` row. */
 export interface LocalIntercessionRecord {
@@ -179,6 +200,107 @@ export function parsePrayerRow(raw: unknown): PrayerRequest | null {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Cross-module bridge: share announcements + guest-first submission mirror
+// ---------------------------------------------------------------------------
+
+/** Announces an accepted share so every mounted wall can refresh immediately. */
+export function announcePrayerSubmitted(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event(PRAYER_SUBMISSION_EVENT));
+}
+
+/** Subscribes to share announcements; returns the unsubscribe cleanup. */
+export function subscribeToPrayerSubmissions(handler: () => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+  window.addEventListener(PRAYER_SUBMISSION_EVENT, handler);
+  return () => window.removeEventListener(PRAYER_SUBMISSION_EVENT, handler);
+}
+
+/** Insert payload after the guest/user resolution performed by the share path. */
+type ResolvedPrayerInsert = Omit<PrayerRequestInsert, 'user_id'> & { user_id: string | null };
+
+/** Device-only ids for mirrored rows (the database mints real uuids). */
+function localSubmissionId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Reads the on-device submission mirror; corrupt storage degrades to empty. */
+function readLocalSubmissions(): PrayerRequest[] {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const raw = window.localStorage.getItem(SUBMISSION_STORAGE_KEY);
+    if (!raw) return [];
+
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return [];
+
+    const records = (parsed as { records?: unknown }).records;
+    if (!Array.isArray(records)) return [];
+
+    const prayers: PrayerRequest[] = [];
+    for (const record of records as unknown[]) {
+      const prayer = parsePrayerRow(record);
+      if (prayer) prayers.push(prayer);
+    }
+    return prayers;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Mirrors a share the cloud did not accept onto this device so the wall still
+ * shows it. Returns the mirrored row, or `null` when storage is unavailable.
+ */
+function mirrorLocalSubmission(prayer: ResolvedPrayerInsert): PrayerRequest | null {
+  if (typeof window === 'undefined') return null;
+
+  const mirrored: PrayerRequest = {
+    ...prayer,
+    id: localSubmissionId(),
+    user_id: prayer.user_id ?? '',
+    created_at: new Date().toISOString(),
+    intercession_count: 0,
+  };
+
+  const next = [mirrored, ...readLocalSubmissions()].slice(0, MAX_MIRRORED_SUBMISSIONS);
+
+  try {
+    window.localStorage.setItem(SUBMISSION_STORAGE_KEY, JSON.stringify({ records: next }));
+    return mirrored;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Merges device-mirrored shares into a freshly loaded list (deduped by id,
+ * filter applied, newest first) so a guest's own prayer stays visible.
+ */
+function withLocalSubmissions(base: PrayerRequest[], filter: PrayerFilter): PrayerRequest[] {
+  const local = readLocalSubmissions();
+  if (local.length === 0) return base;
+
+  const known = new Set(base.map((prayer) => prayer.id));
+  const merged = [...base];
+
+  for (const prayer of local) {
+    if (known.has(prayer.id)) continue;
+    if (!prayer.is_public) continue;
+    if (filter.topic && !prayer.topics.includes(filter.topic)) continue;
+    if (filter.answeredOnly && !prayer.is_answered) continue;
+    merged.push(prayer);
+  }
+
+  merged.sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
+  return merged;
+}
+
 /**
  * Latest public prayer requests, newest first. When the table is empty (or the
  * cloud read fails) the bundled demo prayers are returned so the wall always
@@ -200,7 +322,7 @@ export async function getPrayerRequests(filter: PrayerFilter = {}): Promise<Pray
     if (error) throw error;
 
     if (!Array.isArray(data) || data.length === 0) {
-      return filterDemoPrayers(filter);
+      return withLocalSubmissions(filterDemoPrayers(filter), filter);
     }
 
     const prayers: PrayerRequest[] = [];
@@ -208,11 +330,11 @@ export async function getPrayerRequests(filter: PrayerFilter = {}): Promise<Pray
       const prayer = parsePrayerRow(row);
       if (prayer) prayers.push(prayer);
     }
-    if (prayers.length === 0) return filterDemoPrayers(filter);
-    return prayers;
+    if (prayers.length === 0) return withLocalSubmissions(filterDemoPrayers(filter), filter);
+    return withLocalSubmissions(prayers, filter);
   } catch (error) {
     console.warn('Prayer wall: cloud read unavailable, showing demo prayers:', error);
-    return filterDemoPrayers(filter);
+    return withLocalSubmissions(filterDemoPrayers(filter), filter);
   }
 }
 
@@ -227,7 +349,7 @@ export async function submitPrayerRequest(
   const userId = await getCurrentUserId();
   const resolvedUserId = userId ?? (prayer.user_id.trim() === '' ? null : prayer.user_id.trim());
 
-  const payload: Omit<PrayerRequestInsert, 'user_id'> & { user_id: string | null } = {
+  const payload: ResolvedPrayerInsert = {
     ...prayer,
     user_id: resolvedUserId,
   };
@@ -235,14 +357,23 @@ export async function submitPrayerRequest(
   try {
     const supabase = createClient();
     const { error } = await supabase.from('prayer_requests').insert(payload);
-    if (error) {
-      console.error('Prayer submission rejected:', error.message);
-      return { ok: false, error: error.message };
-    }
-    return { ok: true, error: null };
+    if (error) throw error;
+    announcePrayerSubmitted();
+    return { ok: true, mode: 'cloud', error: null };
   } catch (error) {
-    console.error('Prayer submission failed:', error);
-    return { ok: false, error: 'The prayer service is unavailable. Please try again.' };
+    // Guest-first degradation (same contract as `recordIntercession`): the
+    // share is mirrored on this device so the bridge never dead-ends.
+    console.warn('Prayer submission cloud write failed, keeping an on-device copy:', error);
+    const mirrored = mirrorLocalSubmission(payload);
+    if (!mirrored) {
+      return {
+        ok: false,
+        mode: 'guest',
+        error: 'The prayer service is unavailable. Please try again.',
+      };
+    }
+    announcePrayerSubmitted();
+    return { ok: true, mode: 'guest', error: null };
   }
 }
 

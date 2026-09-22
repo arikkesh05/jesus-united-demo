@@ -5,12 +5,17 @@ import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
 import type { Reflection } from '@/lib/types';
 import AudioPlayer from '@/app/components/AudioPlayer';
 import PrayerWatchModal from '@/app/components/PrayerWatchModal';
+import PrayerSubmissionModal, {
+  type PrayerSubmissionSeed,
+} from '@/app/components/PrayerSubmissionModal';
 import {
   BellIcon,
   CheckIcon,
   ChevronDownIcon,
   CopyIcon,
+  HandHeartIcon,
   HeartIcon,
+  ShareIcon,
 } from '@/app/components/icons';
 
 interface DailyReflectionProps {
@@ -39,6 +44,15 @@ interface AmenPulseEntry {
 }
 
 const AMEN_STORAGE_KEY = 'jesusunited:amen-pulse:v1';
+
+/** Examen prompt that carries a shareable conviction (Prompt 3: One Small Step). */
+const STEP_PROMPT_ID = 'one-small-step';
+
+/** Wall category the bridge files a Morning Reflection under. */
+const BRIDGE_TOPIC = 'Guidance';
+
+/** Minimum reflection length before an intercession share is offered. */
+const BRIDGE_MIN_LENGTH = 10;
 
 /** Local calendar date (YYYY-MM-DD) so the Amen lock rolls over at local midnight. */
 function todayKey(): string {
@@ -217,6 +231,12 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Examen-to-intercession bridge state (Prompt 3 → Prayer Wall).
+  const [bridgeOpen, setBridgeOpen] = useState(false);
+  const [shareHintVisible, setShareHintVisible] = useState(false);
+  const [sharedToWall, setSharedToWall] = useState(false);
+  const [bridgeRings, setBridgeRings] = useState<number[]>([]);
+
   // Synchronous Amen Resonance + Prayer Rhythms state.
   const [isWatchModalOpen, setIsWatchModalOpen] = useState(false);
   const [hasAmenToday, setHasAmenToday] = useState(false);
@@ -302,6 +322,61 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
     const nextNotes = { ...notes, [id]: value };
     setNotes(nextNotes);
     writeExamenEntry(reflectionDate, { completed, notes: nextNotes });
+
+    // The bridge's "write something first" hint clears itself once satisfied.
+    if (id === STEP_PROMPT_ID && value.trim().length >= BRIDGE_MIN_LENGTH) {
+      setShareHintVisible(false);
+    }
+  };
+
+  // ---------------------------------------------------------------------
+  // Examen-to-intercession bridge (Prompt 3 → Community Prayer Wall)
+  // ---------------------------------------------------------------------
+
+  /** True when Prompt 3 carries something worth sharing. */
+  const stepNote = notes[STEP_PROMPT_ID] ?? '';
+  const canShareStep = stepNote.trim().length >= BRIDGE_MIN_LENGTH;
+
+  /** Opens the pre-filled intercession dialog (anonymous by default). */
+  const openIntercessionBridge = () => {
+    if (!canShareStep) {
+      setShareHintVisible(true);
+      return;
+    }
+    setShareHintVisible(false);
+    setBridgeOpen(true);
+  };
+
+  /** Modal seed: title from the day's theme, body from the typed reflection. */
+  const bridgeSeed = useMemo<PrayerSubmissionSeed>(
+    () => ({
+      title: reflection ? `Morning Reflection: ${reflection.title}` : 'Morning Reflection',
+      body: stepNote.trim(),
+      topics: [BRIDGE_TOPIC],
+      anonymous: true,
+    }),
+    [reflection, stepNote]
+  );
+
+  /** Optimistic confirmation: the wall reflects the share on its own. */
+  const handleBridgeSubmitted = () => {
+    setSharedToWall(true);
+    setBridgeRings((current) => [...current, Date.now()]);
+  };
+
+  /** Smooth handoff: carry the believer from the Examen card to the live wall. */
+  const scrollToWall = () => {
+    const wall = document.getElementById('prayer-wall-section');
+    if (!wall) return;
+    const reduceMotion =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    wall.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  };
+
+  /** Removes a finished radial gold pulse ring from the Animate-free ring stack. */
+  const dismissBridgeRing = (id: number) => {
+    setBridgeRings((current) => current.filter((ring) => ring !== id));
   };
 
   /** Copies the full reflection to the clipboard with legacy-fallback support. */
@@ -554,6 +629,13 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
                     }
                     onToggleCompleted={() => toggleCompleted(prompt.id)}
                     onNoteChange={(value) => updateNote(prompt.id, value)}
+                    canBridge={prompt.id === STEP_PROMPT_ID}
+                    shared={prompt.id === STEP_PROMPT_ID && sharedToWall}
+                    hintVisible={prompt.id === STEP_PROMPT_ID && shareHintVisible}
+                    shareHintId="examen-share-hint"
+                    bridgeRings={bridgeRings}
+                    onShareToWall={openIntercessionBridge}
+                    onDismissRing={dismissBridgeRing}
                   />
                 ))}
               </ul>
@@ -597,6 +679,13 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
         open={isWatchModalOpen}
         onClose={() => setIsWatchModalOpen(false)}
       />
+      <PrayerSubmissionModal
+        open={bridgeOpen}
+        onClose={() => setBridgeOpen(false)}
+        onSubmitted={handleBridgeSubmitted}
+        seed={bridgeSeed}
+        onViewWall={scrollToWall}
+      />
     </MotionConfig>
   );
 }
@@ -610,6 +699,17 @@ interface ExamenCardProps {
   onToggleExpanded: () => void;
   onToggleCompleted: () => void;
   onNoteChange: (value: string) => void;
+  /** True only for the prompt that carries the intercession bridge. */
+  canBridge: boolean;
+  /** True once this prompt's reflection has reached the community altar. */
+  shared: boolean;
+  /** True while the "write something first" hint is showing. */
+  hintVisible: boolean;
+  shareHintId: string;
+  /** Active radial gold pulse rings for the share confirmation. */
+  bridgeRings: number[];
+  onShareToWall: () => void;
+  onDismissRing: (id: number) => void;
 }
 
 /** One interactive, spring-damped Examen prompt card with a checkable state. */
@@ -622,6 +722,13 @@ function ExamenCard({
   onToggleExpanded,
   onToggleCompleted,
   onNoteChange,
+  canBridge,
+  shared,
+  hintVisible,
+  shareHintId,
+  bridgeRings,
+  onShareToWall,
+  onDismissRing,
 }: ExamenCardProps) {
   const bodyId = `examen-body-${prompt.id}`;
   const headerId = `examen-header-${prompt.id}`;
@@ -720,6 +827,75 @@ function ExamenCard({
                   <CheckIcon className="h-4 w-4" />
                   {isCompleted ? 'Completed' : 'Mark Reflected'}
                 </motion.button>
+
+                {/* Examen-to-intercession bridge (Prompt 3 only). */}
+                {canBridge ? (
+                  <div className="mt-3 border-t border-sand/70 pt-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <motion.button
+                        type="button"
+                        onClick={onShareToWall}
+                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ y: -1 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                        aria-describedby={hintVisible ? shareHintId : undefined}
+                        className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/10 bg-pill/60 px-3.5 py-2 text-xs font-medium text-slate-300 transition hover:bg-gold/15 hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                      >
+                        <ShareIcon className="h-3.5 w-3.5" />
+                        Share Anonymously to Intercession Pulse
+                      </motion.button>
+
+                      <AnimatePresence initial={false}>
+                        {shared ? (
+                          <motion.span
+                            key="shared-badge"
+                            role="status"
+                            aria-live="polite"
+                            initial={{ opacity: 0, scale: 0.9, y: 4 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+                            className="relative inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/15 px-3 py-1.5 text-[11px] font-semibold text-gold shadow-[0_0_16px_rgba(245,158,11,0.28)]"
+                          >
+                            <span
+                              aria-hidden="true"
+                              className="h-1.5 w-1.5 rounded-full bg-gold amen-breath"
+                            />
+                            <HandHeartIcon className="h-3.5 w-3.5" />
+                            Shared with the community prayer altar
+                            {bridgeRings.map((ringId) => (
+                              <motion.span
+                                key={ringId}
+                                initial={{ opacity: 0.5, scale: 0.4 }}
+                                animate={{ opacity: 0, scale: 2.2 }}
+                                transition={{ duration: 1, ease: 'easeOut' }}
+                                onAnimationComplete={() => onDismissRing(ringId)}
+                                className="pointer-events-none absolute inset-0 block rounded-full border-2 border-gold"
+                              />
+                            ))}
+                          </motion.span>
+                        ) : null}
+                      </AnimatePresence>
+                    </div>
+
+                    <AnimatePresence initial={false}>
+                      {hintVisible ? (
+                        <motion.p
+                          key="share-hint"
+                          id={shareHintId}
+                          role="status"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+                          className="overflow-hidden text-xs font-medium text-gold/90"
+                        >
+                          <span className="mt-2 block">Write a short reflection first to share.</span>
+                        </motion.p>
+                      ) : null}
+                    </AnimatePresence>
+                  </div>
+                ) : null}
               </div>
             </motion.div>
           )}
