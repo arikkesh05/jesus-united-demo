@@ -8,6 +8,7 @@ import PrayerWatchModal from '@/app/components/PrayerWatchModal';
 import PrayerSubmissionModal, {
   type PrayerSubmissionSeed,
 } from '@/app/components/PrayerSubmissionModal';
+import AvatarCanvas from '@/app/components/3d/AvatarCanvas';
 import {
   BellIcon,
   CheckIcon,
@@ -242,6 +243,8 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
   const [hasAmenToday, setHasAmenToday] = useState(false);
   const [amenDrift, setAmenDrift] = useState(0);
   const [amenRings, setAmenRings] = useState<number[]>([]);
+  /** Monotonic Amen counter — each increment lights the Watchman's ember core. */
+  const [amenPulseCount, setAmenPulseCount] = useState(0);
   const amenBase = useMemo(
     () => regionBaselineFor(reflectionDate || 'daily'),
     [reflectionDate],
@@ -305,6 +308,8 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
     setHasAmenToday(true);
     writeAmenPulse(todayKey());
     setAmenRings((current) => [...current, Date.now()]);
+    // Light the Watchman's interior ember core (800ms pulse).
+    setAmenPulseCount((current) => current + 1);
   };
 
   /** Removes a finished radial gold pulse ring from the Animate-free ring stack. */
@@ -510,6 +515,15 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
             <h2 className="mt-5 font-serif text-2xl font-bold leading-tight tracking-tight text-espresso sm:text-3xl">
               {reflection.title}
             </h2>
+
+            {/* Contemplative Watchman — interactive 3D avatar (client-only) */}
+            <div
+              className="relative mx-auto mt-6 h-64 w-full max-w-[280px] overflow-hidden rounded-[1.75rem] border border-white/10 bg-pill/40 shadow-[0_20px_60px_-15px_rgba(2,8,18,0.55)] backdrop-blur-2xl sm:h-72"
+              role="img"
+              aria-label="A contemplative watchman figure keeping vigil over today's scripture"
+            >
+              <AvatarCanvas amenPulseCount={amenPulseCount} />
+            </div>
 
             {/* Scripture anchor */}
             <figure className="mt-5 flex items-start gap-3 rounded-2xl border border-sand/70 bg-pill/50 p-4 sm:p-5">
