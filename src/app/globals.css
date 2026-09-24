@@ -101,6 +101,19 @@ body {
 }
 
 /* Phase 5: print isolation - exporting prints only the Pulpit Kit. */
+/*
+ * The 3D figurine stage. drei's OrbitControls writes `touch-action: none` inline onto this
+ * element (it is R3F's event source, and therefore the controller's dom element), which would
+ * make the hero a scroll trap on phones: a vertical swipe would turn the figurine instead of
+ * scrolling the page. An `!important` author declaration outranks an inline style, so vertical
+ * panning and pinch-zoom go back to the browser while horizontal drags still reach the
+ * controller — which ends its gesture on `pointercancel`, the event a scroll-claim dispatches.
+ */
+.watchman-stage {
+  touch-action: pan-y pinch-zoom !important;
+}
+
+
 @media print {
   body {
     background: white !important;

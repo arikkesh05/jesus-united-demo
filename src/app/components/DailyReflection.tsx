@@ -516,11 +516,13 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
               {reflection.title}
             </h2>
 
-            {/* Contemplative Watchman — interactive 3D avatar (client-only) */}
+            {/* Watchman viewport — the real GLB figurine rendered in WebGL. Client-only:
+                the canvas mounts after hydration and fills this transparent stage, so
+                there is no card, border or backdrop behind it. */}
             <div
-              className="relative mx-auto mt-6 h-64 w-full max-w-[280px] overflow-hidden rounded-[1.75rem] border border-white/10 bg-pill/40 shadow-[0_20px_60px_-15px_rgba(2,8,18,0.55)] backdrop-blur-2xl sm:h-72"
+              className="relative mx-auto mt-6 flex h-[380px] w-full max-w-[340px] items-center justify-center"
               role="img"
-              aria-label="A contemplative watchman figure keeping vigil over today's scripture"
+              aria-label="An interactive 3D watchman figure standing on a lit amber pedestal as it keeps vigil over today's scripture — tap the figure to make it wave"
             >
               <AvatarCanvas amenPulseCount={amenPulseCount} />
             </div>
