@@ -310,3 +310,24 @@ export function MoonIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+/** The private journal — this device only, never the wall. */
+export function LockIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <rect x="4.8" y="10.4" width="14.4" height="9.4" rx="2.2" />
+      <path d="M8.4 10.4V7.8a3.6 3.6 0 0 1 7.2 0v2.6" />
+      <path d="M12 14v2.2" />
+    </svg>
+  );
+}
+
+/** The rhythm count — a kept rhythm, never a punitive streak. */
+export function FlameIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <path d="M12 3.4c2.4 2.6 4.2 4.5 4.2 7.2a4.2 4.2 0 0 1-8.4 0c0-1 .3-1.9.8-2.7.8.9 1.6 1.1 2.1.8.9-.4 1.1-1.6 1.3-5.3Z" />
+      <path d="M12 20.4a2.6 2.6 0 0 0 2.6-2.6c0-1.5-1.2-2.3-2.6-3.9-1.4 1.6-2.6 2.4-2.6 3.9a2.6 2.6 0 0 0 2.6 2.6Z" />
+    </svg>
+  );
+}

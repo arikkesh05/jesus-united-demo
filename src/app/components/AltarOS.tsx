@@ -44,6 +44,7 @@ import {
   type RhythmDefinition,
   type RhythmId,
 } from "@/lib/habitEngine";
+import ExamenJournal from "@/app/components/ExamenJournal";
 import {
   BookIcon,
   CheckIcon,
@@ -53,6 +54,17 @@ import {
   SunIcon,
   WindIcon,
 } from "@/app/components/icons";
+import {
+  altarDayKey,
+  composeExamenNote,
+  formatDuration,
+  phaseForTime,
+  quietHoursNotice,
+  rhythmGate,
+  type JournalEntry,
+  type RhythmGate,
+  type RhythmPhase,
+} from "@/lib/altarRhythms";
 
 export interface ScriptureFocus {
   title: string;
@@ -67,34 +79,21 @@ interface AltarOSProps {
 type TabId = "morning" | "evening" | "habits";
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "morning", label: "Morning Altar" },
-  { id: "evening", label: "Evening Examen" },
-  { id: "habits", label: "Rhythms of Grace" },
+const TABS: { id: TabId; label: string; phase: RhythmPhase | null }[] = [
+  { id: "morning", label: "Morning Altar", phase: "morning" },
+  { id: "evening", label: "Evening Examen", phase: "evening" },
+  { id: "habits", label: "Rhythms of Grace", phase: null },
 ];
+
+/** Which gated rhythm's canonical hour is open at this clock reading. */
+function openPhase(now: Date | null): RhythmPhase | null {
+  return now === null ? null : phaseForTime(now);
+}
 
 const MORNING_PROMPTS: string[] = [
   "What are you carrying into today that you need to hand to God first?",
   "Which promise of Scripture do you most need to stand on before tonight?",
   "Who has God placed in your path today, and how will you serve them?",
-];
-
-const EVENING_PROMPTS: { label: string; prompt: string }[] = [
-  {
-    label: "Gratitude",
-    prompt:
-      "Name three gifts from today — however small — and thank God for each one.",
-  },
-  {
-    label: "Awareness",
-    prompt:
-      "When were you most aware of His presence today, and when did you drift?",
-  },
-  {
-    label: "Grace",
-    prompt:
-      "Where do you need His grace tonight? Name it, receive it, and release the day.",
-  },
 ];
 
 const FALLBACK_SCRIPTURE: ScriptureFocus = {
@@ -119,6 +118,9 @@ const eyebrowClass =
   "text-xs font-bold uppercase tracking-[0.18em] text-pill-ink";
 const whiteCardClass = "rounded-2xl border border-sand bg-pill shadow-soft";
 
+/** How often the liturgical gate re-reads the clock. */
+const CLOCK_TICK_MS = 60_000;
+
 function formatDisplayDate(isoDate: string): string {
   const date = new Date(`${isoDate}T00:00:00`);
   if (Number.isNaN(date.getTime())) return isoDate;
@@ -127,6 +129,37 @@ function formatDisplayDate(isoDate: string): string {
     month: "long",
     day: "numeric",
   });
+}
+
+/** One honest line about a rhythm's canonical hour. */
+function gateLine(gate: RhythmGate): string {
+  if (gate.status === "open") {
+    return `${gate.hours} — open now, about ${formatDuration(
+      gate.closesInMinutes,
+    )} of quiet ahead.`;
+  }
+  return `${gate.hours} — ${gate.notice}`;
+}
+
+/**
+ * The time gate, said once and plainly. It never blocks the panel: an altar is
+ * not a turnstile, so a closed hour is explained and then left to the visitor.
+ */
+function RhythmGateNote({ gate }: { gate: RhythmGate | null }) {
+  if (gate === null) return null;
+  return (
+    <p className="mt-4 flex items-start gap-2 rounded-2xl border border-gold/20 bg-gold/5 px-4 py-3 text-xs leading-5 text-muted">
+      {gate.status === "open" ? (
+        <SunIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold-deep" />
+      ) : (
+        <ClockIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      )}
+      <span>
+        <span className="font-bold text-pill-ink">{gate.label}</span> ·{" "}
+        {gate.cadence}. {gateLine(gate)}
+      </span>
+    </p>
+  );
 }
 
 export default function AltarOS({ scriptureFocus }: AltarOSProps) {
@@ -143,11 +176,16 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
   const [engine, setEngine] = useState<HabitEngineStore | null>(null);
   /** Pulse rings from the most recent consecration tap, by rhythm id. */
   const [rhythmPulse, setRhythmPulse] = useState<RhythmId | null>(null);
+  /**
+   * The liturgical clock. Held as state (never read during render) because
+   * `Date.now()` in render is both a hydration hazard and a lint error — the
+   * gate is mount-gated and reticked each minute, like the wall's beacon ages.
+   */
+  const [now, setNow] = useState<Date | null>(null);
 
   const userIdRef = useRef<string | null>(null);
   const todayRef = useRef("");
   const stateRef = useRef<AltarDayState>(EMPTY_ALTAR_DAY);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * Single mutation path: keeps the ref in sync synchronously so debounced
@@ -180,9 +218,26 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
     })();
     return () => {
       cancelled = true;
-      if (saveTimer.current) clearTimeout(saveTimer.current);
     };
   }, []);
+
+  /**
+   * Mount-gated clock for the time gate: the first reading lands on the next
+   * frame (so the server HTML never guesses an hour) and then reticks each
+   * minute, which is the finest resolution a "opens in 2h 14m" line needs.
+   */
+  useEffect(() => {
+    if (!mounted) return undefined;
+    const frame = requestAnimationFrame(() => setNow(new Date()));
+    const interval = window.setInterval(
+      () => setNow(new Date()),
+      CLOCK_TICK_MS,
+    );
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearInterval(interval);
+    };
+  }, [mounted]);
 
   const persist = useCallback(async (next: AltarDayState) => {
     setSaveStatus("saving");
@@ -323,16 +378,51 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
     return () => clearTimeout(timer);
   }, [rhythmPulse]);
 
-  /** Journal autosave: debounced so every keystroke does not hit Supabase. */
-  const handleJournalChange = (value: string) => {
-    const next = { ...stateRef.current, eveningJournal: value };
+  /** The dawn-rolled altar day a private journal entry is filed under. */
+  const altarDay = useMemo(
+    () => (now === null ? "" : altarDayKey(now)),
+    [now],
+  );
+
+  /** Grace-Season test handed to the journal, so both counts agree. */
+  const restingTest = useCallback(
+    (key: string) => (engine === null ? false : isRestingDay(engine, key)),
+    [engine],
+  );
+
+  /**
+   * Sealing an examen files the day to the account (guest path included) and
+   * marks the evening rhythm kept. The private journal keeps its own copy on
+   * the device, so this mirror is convenience, never the record of truth.
+   */
+  const handleExamenSealed = (entry: JournalEntry) => {
+    const next: AltarDayState = {
+      ...stateRef.current,
+      eveningJournal: composeExamenNote(entry),
+      eveningCompleted: true,
+    };
     updateState(next);
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      saveTimer.current = null;
-      void persist(stateRef.current);
-    }, 800);
+    void persist(next);
   };
+
+  /** The two gated panels' canonical hours at the current reading. */
+  const morningGate = useMemo(
+    () => (now === null ? null : rhythmGate("morning", now)),
+    [now],
+  );
+  const eveningGate = useMemo(
+    () => (now === null ? null : rhythmGate("evening", now)),
+    [now],
+  );
+
+  /** The header clock line: the open hour's own words, or the next hour's. */
+  const clockNotice = useMemo(() => {
+    if (now === null) return "";
+    const phase = openPhase(now);
+    return phase === null
+      ? (quietHoursNotice(now) ?? "")
+      : rhythmGate(phase, now).notice;
+  }, [now]);
 
   const handleTabKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
@@ -400,6 +490,22 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
         examen, and a running habit log in between.
       </p>
 
+      {clockNotice !== "" ? (
+        <p className="mt-2 flex items-start gap-2 text-xs leading-5 text-muted">
+          <MoonIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold-deep" />
+          {clockNotice}
+        </p>
+      ) : null}
+      {saveNotice !== "" ? (
+        <p
+          role="status"
+          aria-live="polite"
+          className={`mt-1 text-xs ${saveStatus === "error" ? "font-semibold text-pill-ink" : "text-muted"}`}
+        >
+          {saveNotice}
+        </p>
+      ) : null}
+
       <div
         role="tablist"
         aria-label="Altar OS sections"
@@ -425,6 +531,15 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
               }
             >
               {tab.label}
+              {tab.phase !== null && tab.phase === openPhase(now) ? (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-current"
+                  />
+                  <span className="sr-only">(open now)</span>
+                </>
+              ) : null}
             </button>
           );
         })}
@@ -437,6 +552,8 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
           aria-labelledby="altar-tab-morning"
           className="mt-5"
         >
+          <RhythmGateNote gate={morningGate} />
+
           <div className={`${whiteCardClass} p-5`}>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-sand bg-pill px-2.5 py-1 text-xs font-bold text-pill-ink">
               <BookIcon className="h-3.5 w-3.5" />
@@ -490,38 +607,13 @@ export default function AltarOS({ scriptureFocus }: AltarOSProps) {
           aria-labelledby="altar-tab-evening"
           className="mt-5"
         >
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {EVENING_PROMPTS.map((item) => (
-              <div key={item.label} className={`${whiteCardClass} p-4`}>
-                <p className={eyebrowClass}>{item.label}</p>
-                <p className="mt-2 text-sm leading-6 text-muted">
-                  {item.prompt}
-                </p>
-              </div>
-            ))}
-          </div>
+          <RhythmGateNote gate={eveningGate} />
 
-          <label
-            htmlFor="altar-evening-journal"
-            className={`mt-5 block ${eyebrowClass}`}
-          >
-            Journal Reflection
-          </label>
-          <textarea
-            id="altar-evening-journal"
-            value={state.eveningJournal}
-            onChange={(event) => handleJournalChange(event.target.value)}
-            rows={5}
-            placeholder="Pour out the day — what you saw, felt, and learned…"
-            className="mt-2 w-full rounded-2xl border border-sand bg-pill px-4 py-3 text-sm leading-6 text-espresso outline-none transition placeholder:text-muted/80 focus:border-gold focus:ring-2 focus:ring-gold/25"
+          <ExamenJournal
+            dateKey={altarDay}
+            isResting={restingTest}
+            onSealed={handleExamenSealed}
           />
-          <p
-            role="status"
-            aria-live="polite"
-            className={`mt-2 text-xs ${saveStatus === "error" ? "font-semibold text-pill-ink" : "text-muted"}`}
-          >
-            {saveNotice || "Your journal saves automatically as you write."}
-          </p>
 
           <button
             type="button"

@@ -1447,3 +1447,118 @@ notice) · `src/app/components/DailyReflection.tsx` (pulse subscription + presen
 `tests/intercessionPulse.test.mjs` (new).
 
 
+
+
+## SPRINT 3 — TIME-GATED ALTAR RHYTHMS, THE PRIVATE JOURNAL, AND THE INTERACTIVE EXAMEN (2026-09-26)
+
+The evening altar used to be one `<textarea>` and a checkbox: one flat field, no memory, and a
+"mark complete" button standing in for a day of prayer. This sprint replaces it with a
+**time-gated rhythm clock**, a **private journal on the device**, and the **Examen as a
+five-step state machine** — plus the one deliberate door that lets a single line leave the
+device and reach the community.
+
+### The three decisions
+
+**The gate teaches, it never locks.** `rhythmGate(phase, now)` returns
+`{ status: "open" | "waiting" | "later", closesInMinutes, opensInMinutes, opensLabel, notice }` —
+copy, not a disabled panel. "Morning Altar · 5:00 AM – 11:30 AM — opens in 2h 14m. You can still
+begin now; nothing here expires." An altar is not a turnstile, so every panel stays writable at
+every hour; the gate exists to teach the rhythm, not to enforce it. The canonical hours are
+05:00–11:30, 11:30–15:00 and 17:00–21:30, and `quietHoursNotice` names the *next* hour when none
+is open ("the hours are quiet. Evening Examen opens at 5:00 PM today — about 1h away").
+
+**The altar day rolls at dawn.** `altarDayKey` files anything before 05:00 local under the day
+that just ended, so a 01:00 examen seals *yesterday's* altar instead of opening a new day at
+one in the morning. `shiftDayKey` anchors its arithmetic at local **noon**, because a
+spring-forward can delete local midnight and a midnight-anchored walk would silently skip a day
+out of the rhythm count.
+
+**The count is a rhythm count, not a streak.** `rhythmStreak` has three mercies, each pinned by
+a test: *today is never a break* (the hour may still be ahead of the visitor, so an unkept today
+leaves the chain standing on yesterday), *Grace-Season days bridge without counting*
+(`restingRun` records the rest; the count stays honest), and *the walk stops at a day that was
+lived and left*, so the number can never leap a gap and claim a run that never happened. The
+injected `isResting` predicate is what keeps the journal and `habitEngine`'s compass from ever
+disagreeing about what a resting day is.
+
+
+### Privacy: the journal is the device, and the burden is the only door
+
+`src/lib/altarJournal.ts` writes one versioned `localStorage` key and **nothing else** — no
+Supabase, no anonymous upload, no sync. The only text that can reach the community is the single
+*burden* line, and only when the visitor presses "Carry this burden to the prayer wall". That
+share deliberately reuses `sanitizeDropInDraft` / `buildDropInPrayerRequest` from
+`intercessionPulse.ts` rather than re-implementing a screen, so the journal and the drop-in
+dialog can never drift apart on privacy. There is no cloud copy of the journal to delete, which
+is why "Erase this journal from this device" is a two-step, ceremony-free button that *is* the
+whole erasure.
+
+Sealing does still file the day to the account: the parent `onSealed` writes
+`composeExamenNote(entry)` into the cloud-synced `evening_journal` and flips
+`eveningCompleted`, so a signed-in believer's account shows what the night said. The device keeps
+the record of truth; the mirror is convenience.
+
+### The bugs worth remembering
+
+**The draft cap evicted the wrong day.** `saveJournalDraft` originally sliced the draft list by
+*write* order, so restoring an old day's draft pushed **today's** unfinished examen off the end
+(the suite caught it: the 8th surviving draft was `2026-09-17`, not `2026-09-19`). The cap now
+sorts by `dateKey`, newest day wins, and a stale save can never cost today its work.
+
+**`formatClock` printed "0:00 AM".** The old `hour12 === 0 ? 12 : hour12` branch was operating on
+a *minute count*, not an hour, so both midnight and noon lost their 12 — and `1440` (which clamps
+to the end of the day) printed as PM. Fixed by normalising with `% DAY_MINUTES` first, then
+reading the meridiem off the normalised value.
+
+**`react-hooks/set-state-in-effect` (this Next's React Compiler rules) refused the two idiomatic
+hydration effects.** Reading `localStorage` into state in the effect body, and setting
+`setSaveState("saving")` there, are both cascading renders. The store read now lands in a
+microtask — the same shape the beacon feed already uses for its async fetch — and the "saving"
+transition moved onto the keystroke in `handleAnswer` / `handleBurden`, where it is honest anyway:
+typing is what starts a save.
+
+**`instanceof Date` and the vm harness.** The rhythm module guards its clocks with
+`instanceof Date`, and a `Date` built in the host realm is *not* an instance of the sandbox's
+`Date`. The suite injects an `at()` helper that constructs clocks **inside** the context, so
+every liturgical boundary is tested for real rather than silently falling through to defaults.
+
+### Test invariants
+
+**241 → 324, all green** (`npx tsc --noEmit` 0 · `npm run lint` 0 warnings · `npm run build`
+clean prerender). The 83 new tests in `tests/altarJournal.test.mjs` cover the dawn roll and its
+boundary minutes, date-key validation, month/year and DST-safe shifting, clock and duration
+formatting, every gate status (including the 21:29/21:30 close and the 23:00 → "5:00 PM
+tomorrow" wrap), the quiet-hours notice, all four streak states plus the lookback cap, the
+no-gap-leaping rule and the "never counts a kept day as resting" rule, the five-step rail's ends,
+text hygiene (paragraphs kept, control/zero-width/bidi characters dropped, word-boundary caps),
+seal/sanitise/compose/share/summary/stale-draft, and the store's SSR branch, corrupt and
+version-mismatched payloads, throwing storage, refused writes, draft upsert + cap + stale offer,
+seal replace, entry cap, share flagging, the streak integration and the erase.
+
+
+### Browser evidence (headless Chrome + CDP, production build on :3111)
+
+`/tmp/exj/verify.mjs` (the same CDP approach as `scripts/verifyHeroRender.mjs`) drove the real
+page and reported: the evening tab clicked open and labelled itself **"Evening Examen(open now)"**;
+the gate note read *"Evening Examen · Closing the day with Him. 5:00 PM – 9:30 PM — open now, about
+2h 27m of quiet ahead."*; the private badge *"Private journal — stays on this device"*; the streak
+pill *"0 days of rhythm"* with *"No count to keep yet. Today is the first page."*; the five-step
+rail `["1 Gratitude","2 Review","3 Honesty","4 Grace","5 Release"]` with `aria-current="step"` on
+step 1; `#altar-examen-answer` (`maxLength` 900) and `#altar-examen-burden` present with **seal
+disabled**. Typing one line autosaved a draft to `jesusunited:altar-journal:v1` with the answer
+text and `stepId: "gratitude"`. **A full page reload restored it** — `recovered: true`, the answer
+back in the field, notice *"Draft saved on this device — a reload cannot lose it."* Adding the
+burden enabled the seal; sealing produced the "Amen" panel, **"1 day of rhythm"**, the five topic
+pills plus *"Carry this burden to the prayer wall"*, *"Write the examen again"* and *"Erase this
+journal from this device"*, the history row *"Sat, Sep 26 — 1 of 5 steps answered · burden handed
+over"*, the stored entry `2026-09-26:evening` with the draft retired (`drafts: 0`), and the parent
+panel flipped to **"Evening examen complete"** (the cloud mirror path). **0 console errors, 0
+hydration errors.** The wall share itself was deliberately not exercised — it writes a real row to
+the demo database.
+
+### Files
+
+`src/lib/altarRhythms.ts` (new) · `src/lib/altarJournal.ts` (new) ·
+`src/app/components/ExamenJournal.tsx` (new) · `src/app/components/AltarOS.tsx` (gate notes, clock
+line, open-hour tab marker, Examen mount, cloud mirror) · `src/app/components/icons.tsx`
+(`LockIcon`, `FlameIcon`) · `tests/altarJournal.test.mjs` (new).
