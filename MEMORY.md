@@ -1240,3 +1240,92 @@ view instead. And query the hero by its `[role="img"]` container — never
 `document.querySelector('canvas')`, which returns the **globe**, a second, much larger WebGL context
 competing for the same software rasteriser.
 
+## SPRINT 1 — AUDIO ENGINE CONTRACT: PURE CORE, MM:SS, CUE ANCHORS, RESUME (2026-09-26)
+
+### The shape of the change
+
+`AudioPlayer.tsx` already had play/pause, a range-input seek, speed cycling, mute, and an
+autoplay-retry pass. The sprint's genuinely-missing pieces were narrower than the brief implied, so
+this pass added what was absent rather than rebuilding what worked:
+
+| Objective | Before | After |
+|---|---|---|
+| Restart | absent | transport button + new `RestartIcon` |
+| Resume across navigation | absent | `sessionStorage` position/completion/rate |
+| Autoplay rejection | generic retry, reported as failure | typed `NotAllowedError` → "tap play" |
+| Waveform | static, `aria-hidden` | click-to-seek, still `aria-hidden` |
+| Time display | `m:ss` (width jittered) | `mm:ss`, widening to `h:mm:ss` |
+| Scripture sync | absent | cue resolver → prompt highlight |
+
+**`src/lib/audioEngine.ts` is the new home for the arithmetic**, and it is deliberately free of DOM
+and React so `tests/audioPlayer.test.mjs` can verify it with the same
+`ts.transpileModule` + `node:vm` sandbox `globeSearch.test.mjs` and `watchmanStage.test.mjs` already
+use. Two invariants run through the whole module:
+
+1. **No `NaN` ever reaches the UI.** `duration` is `NaN` until metadata loads and `Infinity` on a
+   live stream, so every helper maps non-finite input to a neutral value. `progressFraction(30, NaN)`
+   returns `0`, not `NaN` — the divide-by-zero that would collapse the progress bar.
+2. **Positions clamp, never wrap.** A seek past either end pins there. Wrapping to the opposite side
+   would be a spectacular way to lose a reader's place.
+
+### Decisions worth remembering
+
+**`mm:ss`, not `m:ss`.** The old `formatTime` emitted `0:09` then `0:59` then `1:00`, so the counter
+changed width *during* playback. `formatTimestamp` pads minutes and widens to `h:mm:ss` past the hour.
+
+**Cue anchors start after the opening.** `buildEvenCues` places the first cue at 10% of the track, not
+at zero: at `t=0` the reader has heard nothing, so lighting a prompt immediately would assert a
+connection before the audio earns one. `activeCueAt` returns the *last passed* cue, not the next
+upcoming one, so the gap between two cues holds the earlier prompt lit instead of flickering to null.
+
+**`activeCueAt` returns `null` when the duration is unknown.** This was a real bug the tests caught:
+every cue's position collapses to `0` without a duration, so the unguarded version lit *all* prompts
+simultaneously. Malformed cues (empty id, `NaN`/out-of-range `at`) are skipped, not rendered.
+
+**Resume runs in a media event, not an effect.** The first draft restored position in a
+`useEffect` keyed on `duration`; `react-hooks/set-state-in-effect` (and a second
+`react-hooks/refs` error on the ref write during render) rejected it, and the rule was right — the
+effect would run against a `NaN` duration. `restorePlayback` is now called from `syncFromElement`,
+which fires from `loadedmetadata`/`canplay`/`durationchange`: the first moment the track is provably
+real, guarded by `hasRestoredRef` so it applies at most once. Same reason the completed-flag reset
+moved into `handleTimeUpdate` — the flag changes with the playhead that caused it.
+
+**`sessionStorage` is read through a guarded getter.** Private-mode Safari throws on the *first
+property access*, not just on write, so an unguarded `window.sessionStorage` would take the player
+down on exactly the devices least able to run audio. `getSessionStorage()` returns `null` and
+playback proceeds without persistence.
+
+**A completed track restarts rather than resuming at its end.** `resumeTimeFor` returns `0` when
+`completed` is set, or when the stored position is past the end of a shorter track (the reader
+replayed a longer one earlier in the session). Resuming at the final second would look identical to
+"finished" and stop again immediately.
+
+**The waveform stays `aria-hidden`.** It became clickable, but the range input below is already the
+accessible seek control; a second exposed seek surface would mean two controls for one job. Sighted
+users get a pointer cursor, everyone else gets the slider. The restart button is `h-11` (44px) to
+satisfy the repo's touch-target rule — the pre-existing mute button is `h-8` and was left alone.
+
+**The cue highlight is a quiet ring, not a looping pulse.** Three simultaneously glowing cards would
+be the most eye-catching thing on the page, competing with the audio they are meant to accompany. The
+gold border + `box-shadow` ring carries the state, and a polite `sr-only` live region announces the
+prompt label for screen readers (polite, not assertive: the cue changes on its own, and a reader who
+never started the track should not be interrupted).
+
+### Test invariants
+
+**136 → 176, all green** (`tsc` 0 · `lint` 0 warnings · `npm run build` clean). The 40 new tests in
+`tests/audioPlayer.test.mjs` cover timestamp formatting/parsing round-trips, the speed cycle against
+hostile indices, duration clamping, the cue resolver's edge cases, and the storage contract including
+a corrupt or half-written record.
+
+Two test-suite gotchas, both the same shape as existing repo conventions: objects built inside the
+`node:vm` realm carry that realm's `Object.prototype`, so `assert.deepEqual` reports them unequal to
+an identical literal — the `plain()` JSON round-trip from `globeSearch.test.mjs` is required, not
+optional. And **cross-realm `deepEqual` on a freshly created literal fails even when every field
+matches**; assert field-by-field or use `eq()`.
+
+The cue resolver's two bugs above were both caught by tests written *before* the guards existed,
+which is the argument for writing the edge cases first: "returns null when duration is unknown" and
+"ignores malformed cues" were not hypotheticals — one of them was live in the first draft.
+
+
