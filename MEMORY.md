@@ -1329,3 +1329,121 @@ which is the argument for writing the edge cases first: "returns null when durat
 "ignores malformed cues" were not hypotheticals — one of them was live in the first draft.
 
 
+
+## SPRINT 2 — COMMUNITY INTERCESSION PULSE: DROP-IN, PULSE GATE, FAIL-OPEN BEACON FEED (2026-09-26)
+
+Sprint 2 lowers the wall's cost of entry and makes the community's praying *visible*: an anonymous
+one-field drop-in dialog, a rate-limited optimistic Amen that answers on the Watchman hero, and a
+live intercession beacon feed whose floor is a labelled preview stream rather than an error.
+
+**`src/lib/intercessionPulse.ts` (new) is the pure core.** Four separable pieces, all
+headless-testable: drop-in sanitising (`sanitizeDropInDraft`, `sanitizeDropInText`,
+`deriveDropInTitle`, `buildDropInPrayerRequest`), a sliding-window pulse gate (`createPulseGate`),
+the beacon model + fail-open stream (`parseBeaconRow`, `buildBeaconFeed`, `prependBeacon`,
+`createLocalBeacon`, `previewBeaconFeed`, `fetchIntercessionBeacons`), and the `amen-pulse` window
+bridge (`announceAmenPulse`, `subscribeToAmenPulses`, `normaliseAmenPulseDetail`).
+
+**The privacy screen runs before the network.** `findPrivacyLeak` refuses emails, links, @handles and
+phone numbers; the phone rule requires **nine or more digits carrying a separator or a leading `+`**,
+because a looser rule flagged Scripture references (`1 Peter 5:7`) and dates (`2026-09-30`). Control
+characters, zero-width joiners and bidi overrides are stripped — a bidi override can visually scramble
+a shared prayer — and whitespace runs collapse to one space. A name field containing digits is refused
+outright. The database still moderates; the client is simply the first gate.
+
+**A drop-in has no title, so the prayer titles itself.** `deriveDropInTitle` clips the first 72
+characters at a word boundary and appends `…`, keeping the wall-card contract identical for the quick
+path and the full form. The five drop-in topics are `Healing, Guidance, Family, Praise, Peace`;
+`Praise` and `Peace` were **appended to the canonical `PRAYER_TOPICS`** so the quick path's tags are
+filterable on the wall like any other — and `tests/intercessionPulse.test.mjs` asserts the subset
+relation rather than trusting the comment.
+
+**The pulse gate is 6 pulses per rolling minute, 700ms apart**, shared wall-wide through one ref for
+the session. A refused pulse changes nothing — no optimistic bump, no network write — and shows a
+`role="status"` pill ("Take a breath — the wall is catching up. Try again in 2 seconds.") that retires
+itself after 4s.
+
+**`attempt()` exists because of `react-hooks/purity`.** `Date.now()` inside the wall's intercession
+handler is a lint error ("Cannot call impure function during render"), so the clock read lives in the
+module: `gate.attempt()` returns `{ allowed, retryAfterMs }` in one call, while
+`allow`/`retryAfterMs`/`remaining` keep their explicit-timestamp signatures for tests.
+
+**The self-echo guard is the sprint's subtle bug.** Postgres realtime cannot say *who* bumped a
+counter — `prayer_requests.user_id` is the prayer's author, not the intercessor — so the visitor's own
+write comes back looking exactly like a remote believer's. The wall already assumed this (it clears
+its own optimistic override on any count change), but Sprint 2 *announces* pulses, so without a guard
+the visitor would see their own Amen celebrated twice and captioned "a believer somewhere just
+prayed". `createSelfEchoGuard` marks the id before the write and consumes exactly one matching echo;
+an unclaimed mark expires after 10s so a genuine remote pulse is never swallowed forever, and the map
+is bounded at 16 entries.
+
+**`fetchIntercessionBeacons` never rejects and never returns an empty list.** Supabase missing, the
+query denied, the table empty, every row malformed — all of it resolves to `previewBeaconFeed(now)`:
+six simulated, region-labelled, deterministic-per-local-day entries (the same idiom as
+`regionBaselineFor`). The UI says which it is — a gold "Live" pill or a muted "Preview stream" pill
+plus a plain-language caption — because a simulated pulse presented as real would be a lie about the
+community. Live beacons deliberately carry **no** region: a prayer's geography is not ours to publish.
+
+**Share announcements now carry `{ title, topic }`.** `announcePrayerSubmitted(detail?)` takes an
+optional detail and `subscribeToPrayerSubmissions`'s handler may read it; both call sites in
+`submitPrayerRequest` pass the payload's title and first topic. Existing zero-arg listeners still
+type-check and still get their nudge, so the beacon feed logs real shares ("A new prayer joined the
+wall: …") with no new table subscription.
+
+**The hero answers the wall.** `DailyReflection` subscribes to `subscribeToAmenPulses` and increments
+`amenPulseCount` (the shipped `ThumbsUp` gesture + 800ms amber rim surge, `watchmanStage.ts`) plus a
+new `communityPulses` term in the communal presence count. It is deliberately **not** wired to the
+per-day Amen lock: "I stand with the wall" and "Amen to today's scripture" are different acts. No new
+channel churn either — `usePrayerRealtime` already stores its callback in a ref, so the wall's
+`handleRemoteActivity` keeps a `[]` dependency array and reads the freshest list through a new
+`prayersRef`.
+
+**Beacon feed a11y.** The list itself is not a live region (twelve rows announcing would be noise); one
+`sr-only` `role="status"` line announces each new beacon. Tally pills render the number `aria-hidden`
+with an `sr-only` label ("Healing: 2 intercessions"), entries spring in on transform+opacity only, and
+`MotionConfig reducedMotion="user"` settles every entrance for visitors who asked for stillness.
+`VISIBLE_BEACONS = 5` of the 12 kept, and the relative ages tick every 30s behind a mount-gated clock
+(no server-rendered ages → no hydration diff).
+
+### Test invariants
+
+**176 → 241, all green** (`npx tsc --noEmit` 0 · `npm run lint` 0 warnings · `npm run build` clean
+prerender). The 65 new tests in `tests/intercessionPulse.test.mjs` cover the sanitiser (including the
+false positives the phone rule must *not* trip), the gate's window/gap/defaults/NaN paths,
+`attempt()`'s clock read, the self-echo guard's expiry and memory bound, relative-time scaling and
+future clamping, beacon parsing/dedupe/cap/tally ordering, preview determinism and day-rolling ids,
+every fail-open branch of `fetchIntercessionBeacons`, and both window bridges (dispatch, subscribe,
+unsubscribe, malformed details, SSR no-op).
+
+Two suite gotchas, one old and one new: the cross-realm `eq()` helper must `plain()` **both** sides —
+`eq(previewBeaconFeed(NOW).beacons, previewBeaconFeed(NOW).beacons)` failed until it did — and
+`node --test tests/` does **not** work on Node 25 (it resolves `tests/` as a module and dies with
+`MODULE_NOT_FOUND`); the working invocation is `node --test tests/*.test.mjs`.
+
+### Browser evidence (headless Chrome + CDP, production build on :3111)
+
+`/tmp/verifyPulse.mjs` (the same CDP approach as `scripts/verifyHeroRender.mjs`) drove the real page
+and reported: the feed found with heading "Intercession beacons", `statusPill: "preview"` (guest RLS
+leaves `prayer_intercessions` unreadable — the preview path is the *normal* one for guests, not an
+edge case), six rows with relative times `45s ago / 4m ago / 11m ago / 26m ago / 52m ago`, tally
+pills `Healing 2 · Peace 2 · Family 1 · Guidance 1 · Praise 1`; the drop-in dialog opened with
+`role=dialog aria-modal=true`, focus on `#drop-in-body`, `maxLength=320`, name disabled while
+anonymous, the five topic pills, submit "Drop it on the wall"; the phone-number draft was refused with
+`role="alert"` + `aria-invalid="true"` and stayed on the form; a clean draft reached "Your prayer is on
+the wall" (cloud mode, `mirrored: false`); the wall showed the new CTA pair, the new Praise/Peace
+pills, and the fresh share as a live "shared" beacon at the top of the feed — the submission bridge
+working end to end. **0 console errors, 0 hydration errors.**
+
+Side effect to know about: that verification pass wrote one real row into the demo database
+(`Healing for my father before his surgery on Friday`, anonymous, topic Healing). It is a plausible
+demo prayer and remains on the wall; removing it needs moderator access (`setPrayerVisibility` /
+`deletePrayerRequest` behind the `can_moderate` RPC).
+
+### Files
+
+`src/lib/intercessionPulse.ts` (new) · `src/lib/prayers.ts` (topics + share detail) ·
+`src/app/components/PrayerDropInModal.tsx` (new) · `src/app/components/IntercessionBeaconFeed.tsx`
+(new) · `src/app/components/PrayerWall.tsx` (CTA pair, gate, self-echo guard, feed mount, pulse
+notice) · `src/app/components/DailyReflection.tsx` (pulse subscription + presence term) ·
+`tests/intercessionPulse.test.mjs` (new).
+
+

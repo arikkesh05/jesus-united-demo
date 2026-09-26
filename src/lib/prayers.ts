@@ -50,7 +50,12 @@ export interface RecordIntercessionResult {
   error: string | null;
 }
 
-/** Canonical wall topics; the modal selector and filter pills share this list. */
+/**
+ * Canonical wall topics; the full submission modal and the filter pills share
+ * this list. `Praise` and `Peace` were appended for the Sprint 2 drop-in dialog
+ * (see `DROP_IN_TOPICS` in `src/lib/intercessionPulse.ts`, a curated subset) so
+ * a quick share's tags are filterable on the wall like any other topic.
+ */
 export const PRAYER_TOPICS: readonly string[] = [
   "Healing",
   "Provision",
@@ -58,6 +63,8 @@ export const PRAYER_TOPICS: readonly string[] = [
   "Guidance",
   "Thanksgiving",
   "Salvation",
+  "Praise",
+  "Peace",
 ];
 
 const INTERCESSION_STORAGE_KEY = "jesusunited:prayer-intercessions:v1";
@@ -210,17 +217,55 @@ export function parsePrayerRow(raw: unknown): PrayerRequest | null {
 // Cross-module bridge: share announcements + guest-first submission mirror
 // ---------------------------------------------------------------------------
 
-/** Announces an accepted share so every mounted wall can refresh immediately. */
-export function announcePrayerSubmitted(): void {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new Event(PRAYER_SUBMISSION_EVENT));
+/** What a share announcement carries so listeners can log it without a refetch. */
+export interface PrayerSubmissionDetail {
+  title: string;
+  topic: string | null;
 }
 
-/** Subscribes to share announcements; returns the unsubscribe cleanup. */
-export function subscribeToPrayerSubmissions(handler: () => void): () => void {
+/** Normalises anything crossing the share event into a safe detail, or null. */
+function normaliseSubmissionDetail(
+  raw: unknown,
+): PrayerSubmissionDetail | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const record = raw as Record<string, unknown>;
+  const title = typeof record.title === "string" ? record.title.trim() : "";
+  if (title === "") return null;
+  return {
+    title,
+    topic:
+      typeof record.topic === "string" && record.topic !== ""
+        ? record.topic
+        : null,
+  };
+}
+
+/**
+ * Announces an accepted share so every mounted wall can refresh immediately.
+ * The optional detail (the shared prayer's title and first topic) lets the
+ * intercession beacon feed log the share as a live entry; listeners that only
+ * need the nudge keep working unchanged, because the argument is optional.
+ */
+export function announcePrayerSubmitted(
+  detail: PrayerSubmissionDetail | null = null,
+): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(PRAYER_SUBMISSION_EVENT, { detail }));
+}
+
+/**
+ * Subscribes to share announcements; returns the unsubscribe cleanup. Handlers
+ * receive `null` when an event carries no usable detail (including the legacy
+ * bare `Event` form).
+ */
+export function subscribeToPrayerSubmissions(
+  handler: (detail: PrayerSubmissionDetail | null) => void,
+): () => void {
   if (typeof window === "undefined") return () => {};
-  window.addEventListener(PRAYER_SUBMISSION_EVENT, handler);
-  return () => window.removeEventListener(PRAYER_SUBMISSION_EVENT, handler);
+  const listener = (event: Event) =>
+    handler(normaliseSubmissionDetail((event as CustomEvent<unknown>).detail));
+  window.addEventListener(PRAYER_SUBMISSION_EVENT, listener);
+  return () => window.removeEventListener(PRAYER_SUBMISSION_EVENT, listener);
 }
 
 /** Insert payload after the guest/user resolution performed by the share path. */
@@ -389,7 +434,10 @@ export async function submitPrayerRequest(
     const supabase = createClient();
     const { error } = await supabase.from("prayer_requests").insert(payload);
     if (error) throw error;
-    announcePrayerSubmitted();
+    announcePrayerSubmitted({
+      title: payload.title,
+      topic: payload.topics[0] ?? null,
+    });
     return { ok: true, mode: "cloud", error: null };
   } catch (error) {
     // Guest-first degradation (same contract as `recordIntercession`): the
@@ -406,7 +454,10 @@ export async function submitPrayerRequest(
         error: "The prayer service is unavailable. Please try again.",
       };
     }
-    announcePrayerSubmitted();
+    announcePrayerSubmitted({
+      title: payload.title,
+      topic: payload.topics[0] ?? null,
+    });
     return { ok: true, mode: "guest", error: null };
   }
 }

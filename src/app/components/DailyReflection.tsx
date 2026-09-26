@@ -9,6 +9,7 @@ import PrayerSubmissionModal, {
   type PrayerSubmissionSeed,
 } from "@/app/components/PrayerSubmissionModal";
 import AvatarCanvas from "@/app/components/3d/AvatarCanvas";
+import { subscribeToAmenPulses } from "@/lib/intercessionPulse";
 import {
   BellIcon,
   CheckIcon,
@@ -252,6 +253,12 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
   const [amenRings, setAmenRings] = useState<number[]>([]);
   /** Monotonic Amen counter — each increment lights the Watchman's ember core. */
   const [amenPulseCount, setAmenPulseCount] = useState(0);
+  /**
+   * Sprint 2 — community intercessions relayed from the Prayer Wall. Each one
+   * answers on the Watchman (thumbs-up + 800ms rim surge) and joins the
+   * communal presence count, so a prayer prayed downstairs is felt upstairs.
+   */
+  const [communityPulses, setCommunityPulses] = useState(0);
   const amenBase = useMemo(
     () => regionBaselineFor(reflectionDate || "daily"),
     [reflectionDate],
@@ -297,6 +304,22 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
       cancelled = true;
     };
   }, []);
+
+  /**
+   * The community pulse bridge: the Prayer Wall announces every intercession —
+   * this visitor's own Amen, and remote believers' relayed by the wall's
+   * realtime layer. Each pulse is answered by the hero's shipped thumbs-up
+   * gesture and raises the communal presence number by one. The subscription is
+   * session-scoped and deliberately separate from the per-day Amen lock: "I
+   * stand with the wall" and "Amen to today's scripture" are different acts.
+   */
+  useEffect(
+    () =>
+      subscribeToAmenPulses(() =>
+        setCommunityPulses((current) => current + 1),
+      ),
+    [],
+  );
 
   /** Gentle ambient drift on the communal count so the bar breathes while open. */
   useEffect(() => {
@@ -473,7 +496,7 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
   const completedCount = prompts.filter(
     (prompt) => completed[prompt.id],
   ).length;
-  const amenCount = amenBase + amenDrift + (hasAmenToday ? 1 : 0);
+  const amenCount = amenBase + amenDrift + (hasAmenToday ? 1 : 0) + communityPulses;
 
   return (
     <MotionConfig reducedMotion="user">

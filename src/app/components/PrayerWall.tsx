@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, MotionConfig } from "framer-motion";
+import IntercessionBeaconFeed from "@/app/components/IntercessionBeaconFeed";
+import PrayerDropInModal from "@/app/components/PrayerDropInModal";
 import PrayerSubmissionModal from "@/app/components/PrayerSubmissionModal";
 import {
   CheckIcon,
@@ -9,6 +11,14 @@ import {
   PlusIcon,
   UsersIcon,
 } from "@/app/components/icons";
+import {
+  announceAmenPulse,
+  createPulseGate,
+  createSelfEchoGuard,
+  formatRetryAfter,
+  type PulseGate,
+  type SelfEchoGuard,
+} from "@/lib/intercessionPulse";
 import {
   getLocalIntercessionIds,
   getPrayerRequests,
@@ -41,6 +51,9 @@ export default function PrayerWall() {
   const [topic, setTopic] = useState<string | null>(null);
   const [answeredOnly, setAnsweredOnly] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [dropInOpen, setDropInOpen] = useState(false);
+  /** Copy shown when the pulse gate refuses a burst of rapid Amens. */
+  const [pulseNotice, setPulseNotice] = useState<string | null>(null);
   const [optimisticCounts, setOptimisticCounts] = useState<
     Record<string, number>
   >({});
@@ -48,6 +61,39 @@ export default function PrayerWall() {
   const [pulseId, setPulseId] = useState<string | null>(null);
   /** Card whose counter badge is pulsing from a *remote* believer's "I Prayed". */
   const [remotePulseId, setRemotePulseId] = useState<string | null>(null);
+
+  /**
+   * Freshest wall list for callbacks that must not re-subscribe the realtime
+   * channel when the list changes (mirrors `usePrayerRealtime`'s own ref bridge).
+   */
+  const prayersRef = useRef<PrayerRequest[]>([]);
+
+  /** One sliding-window gate per session: this visitor's Amen budget is shared wall-wide. */
+  const pulseGateRef = useRef<PulseGate | null>(null);
+
+  /** Recognises this device's own realtime echo so it is never re-announced. */
+  const selfEchoRef = useRef<SelfEchoGuard | null>(null);
+
+  /** Retires the rate-limit notice once it has been read. */
+  const pulseNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    prayersRef.current = prayers ?? [];
+  }, [prayers]);
+
+  useEffect(
+    () => () => {
+      if (pulseNoticeTimer.current) clearTimeout(pulseNoticeTimer.current);
+    },
+    [],
+  );
+
+  /** Shows the gentle "one prayer at a time" notice, then clears it. */
+  const showPulseNotice = useCallback((message: string) => {
+    setPulseNotice(message);
+    if (pulseNoticeTimer.current) clearTimeout(pulseNoticeTimer.current);
+    pulseNoticeTimer.current = setTimeout(() => setPulseNotice(null), 4000);
+  }, []);
 
   const applyResult = useCallback((result: LoadResult) => {
     setPrayers(result.prayers);
@@ -115,6 +161,24 @@ export default function PrayerWall() {
       return next;
     });
     setRemotePulseId(requestId);
+
+    // The community pulse: the Watchman hero answers with its shipped thumbs-up
+    // gesture and the beacon feed logs the entry. The title is looked up through
+    // a ref so this callback keeps a stable identity (no channel churn).
+    //
+    // Our own write arriving back over the wire is not news, though: consume the
+    // pending self-echo and stop (the counter override above is already released
+    // by then, so the tally still settles on the server's truth).
+    if (selfEchoRef.current?.consume(requestId) === true) return;
+
+    const activity = prayersRef.current.find(
+      (prayer) => prayer.id === requestId,
+    );
+    announceAmenPulse({
+      title: activity?.title ?? "A prayer on the wall",
+      topic: activity?.topics[0] ?? null,
+      source: "remote",
+    });
   }, []);
 
   const realtimeStatus = usePrayerRealtime({
@@ -126,6 +190,23 @@ export default function PrayerWall() {
   const handleIntercede = async (prayer: PrayerRequest) => {
     if (intercededIds.includes(prayer.id)) return;
 
+    // Sprint 2 pulse gate: a sliding window (6/minute, 700ms apart) so an
+    // excited burst cannot inflate counters or hammer the cloud. Refused
+    // pulses change nothing — no optimistic bump, no network write. The gate
+    // reads the clock itself (`attempt`), keeping this render function pure.
+    const gate = (pulseGateRef.current ??= createPulseGate());
+    const decision = gate.attempt();
+    if (!decision.allowed) {
+      const wait = formatRetryAfter(decision.retryAfterMs);
+      showPulseNotice(
+        wait === ""
+          ? "Take a breath — one prayer at a time."
+          : `Take a breath — the wall is catching up. Try again in ${wait}.`,
+      );
+      return;
+    }
+    setPulseNotice(null);
+
     const current = optimisticCounts[prayer.id] ?? prayer.intercession_count;
     setOptimisticCounts((currentCounts) => ({
       ...currentCounts,
@@ -133,6 +214,16 @@ export default function PrayerWall() {
     }));
     setIntercededIds((currentIds) => [...currentIds, prayer.id]);
     setPulseId(prayer.id);
+
+    // Announce the pulse before the write: the celebration is the visitor's
+    // own act of prayer, and it must not wait on the network (the counter
+    // rollback below only affects the tally, never the hero or the feed).
+    (selfEchoRef.current ??= createSelfEchoGuard()).mark(prayer.id);
+    announceAmenPulse({
+      title: prayer.title,
+      topic: prayer.topics[0] ?? null,
+      source: "local",
+    });
 
     const result = await recordIntercession(prayer.id);
     if (!result.ok) {
@@ -233,17 +324,30 @@ export default function PrayerWall() {
             </button>
           </div>
 
-          <motion.button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            whileTap={{ scale: 0.96 }}
-            whileHover={{ y: -1 }}
-            transition={{ type: "spring", stiffness: 420, damping: 30 }}
-            className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full bg-gold px-4 py-2 text-xs font-bold text-canvas shadow-lg shadow-gold/20 outline-none transition hover:bg-gold-deep focus-visible:ring-2 focus-visible:ring-gold/50"
-          >
-            <PlusIcon className="h-3.5 w-3.5" />
-            Share a Prayer
-          </motion.button>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <motion.button
+              type="button"
+              onClick={() => setDropInOpen(true)}
+              whileTap={{ scale: 0.96 }}
+              whileHover={{ y: -1 }}
+              transition={{ type: "spring", stiffness: 420, damping: 30 }}
+              aria-haspopup="dialog"
+              aria-expanded={dropInOpen}
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-gold px-4 py-2 text-xs font-bold text-canvas shadow-lg shadow-gold/20 outline-none transition hover:bg-gold-deep focus-visible:ring-2 focus-visible:ring-gold/50"
+            >
+              <PlusIcon className="h-3.5 w-3.5" />
+              Drop a Prayer
+            </motion.button>
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={modalOpen}
+              className="inline-flex min-h-[44px] items-center rounded-full border border-sand bg-pill px-3.5 py-2 text-xs font-bold text-espresso transition-colors duration-200 hover:border-gold hover:text-pill-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50"
+            >
+              Write a fuller request
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2.5">
@@ -263,7 +367,18 @@ export default function PrayerWall() {
               Live
             </span>
           ) : null}
+          {pulseNotice ? (
+            <span
+              role="status"
+              aria-live="polite"
+              className="inline-flex items-center rounded-full border border-gold/30 bg-gold/10 px-2.5 py-0.5 text-[11px] font-bold text-gold"
+            >
+              {pulseNotice}
+            </span>
+          ) : null}
         </div>
+
+        <IntercessionBeaconFeed />
 
         {prayers === null ? (
           <div
@@ -424,6 +539,11 @@ export default function PrayerWall() {
             </AnimatePresence>
           </motion.ul>
         )}
+
+        <PrayerDropInModal
+          open={dropInOpen}
+          onClose={() => setDropInOpen(false)}
+        />
 
         <PrayerSubmissionModal
           open={modalOpen}
