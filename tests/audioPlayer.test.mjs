@@ -164,6 +164,18 @@ describe('audioEngine — playback rate', () => {
     assert.equal(speedAtIndex(99), 1.5);
   });
 
+  it('treats a zero or non-finite step as a no-op instead of dividing by zero', () => {
+    assert.equal(cycleSpeedIndex(1, 0), 1);
+    assert.equal(cycleSpeedIndex(1, NaN), 1);
+  });
+
+  it('labels rates without float noise', () => {
+    assert.equal(formatSpeedLabel(1), '1x');
+    assert.equal(formatSpeedLabel(1.25), '1.25x');
+    assert.equal(formatSpeedLabel(1.5), '1.5x');
+    assert.equal(formatSpeedLabel(NaN), '1x');
+  });
+});
 
 describe('audioEngine — duration and seeking', () => {
   it('refuses to treat an unloaded or live track as having a duration', () => {
@@ -234,19 +246,6 @@ describe('audioEngine — autoplay policy', () => {
     assert.equal(isAutoplayRejection(null), false);
     assert.equal(isAutoplayRejection('NotAllowedError'), false);
     assert.equal(isAutoplayRejection(undefined), false);
-  });
-});
-
-  it('treats a zero or non-finite step as a no-op instead of dividing by zero', () => {
-    assert.equal(cycleSpeedIndex(1, 0), 1);
-    assert.equal(cycleSpeedIndex(1, NaN), 1);
-  });
-
-  it('labels rates without float noise', () => {
-    assert.equal(formatSpeedLabel(1), '1x');
-    assert.equal(formatSpeedLabel(1.25), '1.25x');
-    assert.equal(formatSpeedLabel(1.5), '1.5x');
-    assert.equal(formatSpeedLabel(NaN), '1x');
   });
 });
 
