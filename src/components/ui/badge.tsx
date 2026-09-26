@@ -19,14 +19,10 @@ export function Badge({
     "inline-flex items-center font-medium rounded-full select-none transition-colors";
 
   const variantStyles = {
-    default:
-      "bg-[#101D2B] text-[#F8FAFC] border border-[#1E2E42]",
-    gold:
-      "bg-[#F59E0B]/15 text-[#E2E8F0] border border-[#F59E0B]/30",
-    subtle:
-      "bg-[#F8FAFC]/5 text-[#94A3B8] border border-transparent",
-    outline:
-      "bg-transparent text-[#F8FAFC] border border-[#1E2E42]",
+    default: "bg-[#101D2B] text-[#F8FAFC] border border-[#1E2E42]",
+    gold: "bg-[#F59E0B]/15 text-[#E2E8F0] border border-[#F59E0B]/30",
+    subtle: "bg-[#F8FAFC]/5 text-[#94A3B8] border border-transparent",
+    outline: "bg-transparent text-[#F8FAFC] border border-[#1E2E42]",
   };
 
   const sizeStyles = {
@@ -36,7 +32,12 @@ export function Badge({
 
   return (
     <span
-      className={cn(baseStyles, variantStyles[variant], sizeStyles[size], className)}
+      className={cn(
+        baseStyles,
+        variantStyles[variant],
+        sizeStyles[size],
+        className,
+      )}
       {...props}
     >
       {children}

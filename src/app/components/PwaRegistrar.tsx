@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
+import { useEffect } from "react";
 
 /**
  * Registers the offline & notification service worker without ever blocking
@@ -12,8 +12,8 @@ import { useEffect } from 'react';
  */
 export default function PwaRegistrar() {
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!('serviceWorker' in navigator)) return;
+    if (typeof window === "undefined") return;
+    if (!("serviceWorker" in navigator)) return;
     // Service workers require a secure context (https, or localhost in dev).
     if (!window.isSecureContext) return;
 
@@ -21,31 +21,31 @@ export default function PwaRegistrar() {
 
     const register = () => {
       if (cancelled) return;
-      navigator.serviceWorker.register('/sw.js').catch(() => {
+      navigator.serviceWorker.register("/sw.js").catch(() => {
         // Best-effort: an offline-capable shell is enhancement, not requirement.
       });
     };
 
     const schedule = () => {
       if (cancelled) return;
-      if (typeof window.requestIdleCallback === 'function') {
+      if (typeof window.requestIdleCallback === "function") {
         window.requestIdleCallback(register);
       } else {
         window.setTimeout(register, 200);
       }
     };
 
-    if (document.readyState === 'complete') {
+    if (document.readyState === "complete") {
       schedule();
       return () => {
         cancelled = true;
       };
     }
 
-    window.addEventListener('load', schedule, { once: true });
+    window.addEventListener("load", schedule, { once: true });
     return () => {
       cancelled = true;
-      window.removeEventListener('load', schedule);
+      window.removeEventListener("load", schedule);
     };
   }, []);
 

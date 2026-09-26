@@ -1,14 +1,14 @@
-import Link from 'next/link';
+import Link from "next/link";
 
-import AltarOS from '@/app/components/AltarOS';
-import DailyReflection from '@/app/components/DailyReflection';
-import GatheringMap from '@/app/components/GatheringMap';
-import PulpitKit from '@/app/components/PulpitKit';
-import PrayerWall from '@/app/components/PrayerWall';
-import MissionGlobe from '@/app/components/globe/MissionGlobe';
-import { getGatherings, getPublicGatheringMarkers } from '@/lib/gatherings';
-import { getLatestPulpitKit } from '@/lib/pulpitKits';
-import { getDailyReflection } from '@/lib/reflections';
+import AltarOS from "@/app/components/AltarOS";
+import DailyReflection from "@/app/components/DailyReflection";
+import GatheringMap from "@/app/components/GatheringMap";
+import PulpitKit from "@/app/components/PulpitKit";
+import PrayerWall from "@/app/components/PrayerWall";
+import MissionGlobe from "@/app/components/globe/MissionGlobe";
+import { getGatherings, getPublicGatheringMarkers } from "@/lib/gatherings";
+import { getLatestPulpitKit } from "@/lib/pulpitKits";
+import { getDailyReflection } from "@/lib/reflections";
 
 export default async function Home() {
   const reflection = await getDailyReflection();
@@ -28,9 +28,9 @@ export default async function Home() {
             JesusUnited
           </h1>
           <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-muted">
-            A guest-first ministry toolkit: a daily audio reflection, a church gathering map, an
-            interactive 3D mission globe, a community prayer wall, and automated Sunday pulpit
-            kits.
+            A guest-first ministry toolkit: a daily audio reflection, a church
+            gathering map, an interactive 3D mission globe, a community prayer
+            wall, and automated Sunday pulpit kits.
           </p>
           <nav
             aria-label="Module shortcuts"
@@ -179,13 +179,15 @@ export default async function Home() {
             <PulpitKit kit={pulpitKit} />
           ) : (
             <p className="rounded-3xl border border-dashed border-sand bg-pill p-6 text-center text-sm leading-6 text-muted">
-              This week&apos;s pulpit kit is being prepared &mdash; please check back soon.
+              This week&apos;s pulpit kit is being prepared &mdash; please check
+              back soon.
             </p>
           )}
         </section>
 
         <footer className="mt-16 border-t border-sand pt-6 text-center text-sm text-muted">
-          Built for the JesusUnited demo &mdash; guest-first, mobile-responsive, and ready to grow.
+          Built for the JesusUnited demo &mdash; guest-first, mobile-responsive,
+          and ready to grow.
         </footer>
       </main>
     </div>

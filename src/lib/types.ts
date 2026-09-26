@@ -97,7 +97,7 @@ export interface HabitEntry {
 }
 
 /** Moderation state for guest-submitted gatherings. */
-export type GatheringSubmissionStatus = 'pending' | 'approved' | 'rejected';
+export type GatheringSubmissionStatus = "pending" | "approved" | "rejected";
 
 /**
  * The guest-provided gathering payload stored in
@@ -156,11 +156,10 @@ export interface PrayerIntercession {
   prayed_at: DatabaseTimestamp;
 }
 
-
 /** Parameters for the transactional, moderator-only database function. */
 export interface ModerateGatheringArgs {
   p_submission_id: string;
-  p_action: 'approve' | 'reject';
+  p_action: "approve" | "reject";
 }
 
 export interface PrayerVisibilityUpdate {
@@ -189,7 +188,7 @@ export interface GatheringInquiryPayload {
 
 /** Result of an inquiry submission; failures carry a message, never throw. */
 export type GatheringInquiryResult =
-  | { ok: true; delivered: 'remote' | 'simulated' }
+  | { ok: true; delivered: "remote" | "simulated" }
   | { ok: false; error: string };
 
 // ---------------------------------------------------------------------------
@@ -218,4 +217,3 @@ export interface GlobeMarker {
    */
   role?: string | null;
 }
-

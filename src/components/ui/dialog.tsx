@@ -60,7 +60,7 @@ export function Dialog({
             className={cn(
               "relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-sand",
               "bg-canvas p-6 shadow-xl text-espresso",
-              className
+              className,
             )}
           >
             {children}
@@ -80,7 +80,7 @@ export function DialogClose({ onClose }: { onClose: () => void }) {
       className={cn(
         "absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg",
         "text-muted hover:bg-pill hover:text-espresso focus-visible:outline-none",
-        "focus-visible:ring-2 focus-visible:ring-gold transition-colors"
+        "focus-visible:ring-2 focus-visible:ring-gold transition-colors",
       )}
     >
       <X className="h-4 w-4" />

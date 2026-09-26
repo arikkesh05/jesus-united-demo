@@ -3,13 +3,13 @@ interface IconProps {
 }
 
 const baseProps = {
-  viewBox: '0 0 24 24',
-  fill: 'none',
-  stroke: 'currentColor',
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
   strokeWidth: 1.8,
-  strokeLinecap: 'round' as const,
-  strokeLinejoin: 'round' as const,
-  'aria-hidden': true,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
 };
 
 export function MapPinIcon({ className }: IconProps) {
@@ -153,7 +153,14 @@ export function PauseIcon({ className }: IconProps) {
   return (
     <svg {...baseProps} className={className}>
       <rect x="7" y="5.5" width="3.5" height="13" rx="1" fill="currentColor" />
-      <rect x="13.5" y="5.5" width="3.5" height="13" rx="1" fill="currentColor" />
+      <rect
+        x="13.5"
+        y="5.5"
+        width="3.5"
+        height="13"
+        rx="1"
+        fill="currentColor"
+      />
     </svg>
   );
 }
