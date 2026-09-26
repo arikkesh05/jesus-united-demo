@@ -232,6 +232,12 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * The prompt the audio is currently sitting on, or `null` before the first cue.
+   * Owned here rather than in the player because the prompts live here; the
+   * player only reports which cue is active.
+   */
+  const [activeCueId, setActiveCueId] = useState<string | null>(null);
 
   // Examen-to-intercession bridge state (Prompt 3 → Prayer Wall).
   const [bridgeOpen, setBridgeOpen] = useState(false);
@@ -636,6 +642,8 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
               <AudioPlayer
                 src={reflection.audio_url ?? ""}
                 title={reflection.title}
+                cueIds={prompts.map((prompt) => prompt.id)}
+                onActiveCueChange={setActiveCueId}
               />
             </div>
 
@@ -650,6 +658,20 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
               <p className="mt-1 text-sm leading-6 text-muted">
                 Open a prompt, jot a thought, and mark it reflected — three
                 small steps of examen.
+              </p>
+              {/*
+                Announced politely rather than assertively: the cue changes on
+                its own as the audio plays, and a screen-reader user who did not
+                start the track should not be interrupted by it. The visual ring
+                on the card is decoration; this line is the accessible equivalent.
+              */}
+              <p aria-live="polite" className="sr-only">
+                {activeCueId
+                  ? `The reflection is now at: ${
+                      prompts.find((prompt) => prompt.id === activeCueId)
+                        ?.label ?? ""
+                    }`
+                  : ""}
               </p>
               <ul className="mt-4 space-y-3">
                 {prompts.map((prompt, index) => (
@@ -674,6 +696,7 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
                     }
                     shareHintId="examen-share-hint"
                     bridgeRings={bridgeRings}
+                    isCueActive={activeCueId === prompt.id}
                     onShareToWall={openIntercessionBridge}
                     onDismissRing={dismissBridgeRing}
                   />
@@ -752,6 +775,11 @@ interface ExamenCardProps {
   bridgeRings: number[];
   onShareToWall: () => void;
   onDismissRing: (id: number) => void;
+  /**
+   * True while the audio is sitting on this prompt's cue. Drives a soft pulse so
+   * the reader can follow along without losing their place in the narration.
+   */
+  isCueActive?: boolean;
 }
 
 /** One interactive, spring-damped Examen prompt card with a checkable state. */
@@ -771,6 +799,7 @@ function ExamenCard({
   bridgeRings,
   onShareToWall,
   onDismissRing,
+  isCueActive = false,
 }: ExamenCardProps) {
   const bodyId = `examen-body-${prompt.id}`;
   const headerId = `examen-header-${prompt.id}`;
@@ -785,10 +814,19 @@ function ExamenCard({
       <motion.div
         whileHover={{ y: -2 }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
-        className={`overflow-hidden rounded-2xl border transition-colors duration-200 ${
-          isCompleted
-            ? "border-gold/50 bg-pill/60 shadow-sm"
-            : "border-sand bg-pill/80 hover:border-gold/40 hover:shadow-sm"
+        /**
+         * The cue highlight is a quiet ring rather than a pulsing animation: a
+         * looping glow on three cards would be the most eye-catching thing on
+         * the page, competing with the audio it is meant to accompany. The gold
+         * border and tint carry the state; `MotionConfig reducedMotion="user"`
+         * upstream keeps any motion honest for readers who have asked for less.
+         */
+        className={`overflow-hidden rounded-2xl border transition-[border-color,background-color,box-shadow] duration-300 ${
+          isCueActive && !isCompleted
+            ? "border-gold/60 bg-pill shadow-[0_0_0_2px_rgba(212,163,89,0.35)]"
+            : isCompleted
+              ? "border-gold/50 bg-pill/60 shadow-sm"
+              : "border-sand bg-pill/80 hover:border-gold/40 hover:shadow-sm"
         }`}
       >
         <button
