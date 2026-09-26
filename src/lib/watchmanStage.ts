@@ -14,7 +14,9 @@
  * parent *inflates*, and an animated rig leaves its rest bounds anyway — so the pins below are
  * sampled across Idle, Wave and ThumbsUp (`scripts/measureWatchmanBounds.mjs`).
  *
- *   geometry       4,055 vertices / 8,116 triangles, 1 skin, 34 joints, 3 clips
+ *   geometry       6,235 vertices / 8,116 triangles, 1 skin, 34 joints, 3 clips
+ *                           (un-welded, so the mesh can carry its texture seams; see
+ *                            `tests/watchmanAsset.test.mjs` and the header of that module)
  *   crown          1.0000   normalized head top — rest is exact, every clip samples below it
  *   sole           0.0000   deepest vertex across all three clips — never dips beneath it
  *   silhouette     0.3800   widest swing from the Y axis while the rig plays: measured peak
@@ -119,17 +121,31 @@ export const PEDESTAL_RING_Y =
 
 // --- Camera + orbit framing -------------------------------------------------------------------
 
-/** Vertical field of view of the hero's camera. */
-export const CAMERA_FOV = 45;
+/**
+ * Vertical field of view of the hero's camera.
+ *
+ * Widened 45 → 57 for the altar-desk framing below. A 2.44-unit composition pivoting at *heart*
+ * level (0.47, not the composition's midpoint) hangs far lower in frame than it used to, so a 45°
+ * lens no longer clears the pedestal's underside at the narrowest card. 57° restores the framing
+ * margin the old rig had (both land at 89.2% of the half-frame on the binding vertical axis) while
+ * the *reduced* orbit distance keeps the perspective from opening into a wide-angle distortion.
+ */
+export const CAMERA_FOV = 57;
 
 /**
- * Distance from the orbit pivot. At fov 45 the frame is `2·D·tan(22.5°) = 3.81` units tall, so the
- * 2.44-unit composition (pedestal underside to crown) keeps ~0.6 units of headroom top and bottom.
+ * Distance from the orbit pivot. Pulled in from 4.6 to 4.2: with the pivot raised to the chest,
+ * holding the old distance would have pushed the camera *up* (the old mount sat at Y = 1.600,
+ * above the crown) — the exact "looking down on it" read this recalibration removes. The suite
+ * proves the composition still clears the frustum at both orbit limits on the narrowest card.
  */
-export const CAMERA_DISTANCE = 4.6;
+export const CAMERA_DISTANCE = 4.2;
 
-/** The camera starts 18° above the horizon: eye level would show the slab edge-on as a line. */
-export const CAMERA_ELEVATION = (18 * Math.PI) / 180;
+/**
+ * The camera starts 15° above the horizon: an eye-level mount would show the slab edge-on as a
+ * line, and the clamp ceiling below (20° of reachable elevation) is what keeps every orbit angle
+ * in the same product-shot register rather than drifting back toward a top-down plan view.
+ */
+export const CAMERA_ELEVATION = (15 * Math.PI) / 180;
 
 /**
  * Polar clamps (spec). They are also the framing guarantee: zoom and pan are off, so the only way a
@@ -137,16 +153,38 @@ export const CAMERA_ELEVATION = (18 * Math.PI) / 180;
  * the composition — the crown, the pedestal's rim and the resting silhouette at its widest height —
  * stays inside the frustum at both ends, at the narrowest card the hero renders in.
  *
+ * The ceiling is the load-bearing one. At `π/3` a visitor could drag the camera 30° above the
+ * horizon, which foreshortens the torso and inflates the head — the "statuette photographed from a
+ * drone" read. Clamped to 70° (20° of reachable elevation) the whole arc stays in the 0–20° band,
+ * inside the 15–20° the mount uses, so no drag can reintroduce the top-down.
+ *
  * Gesture clips used to be the exception — the old rig threw its hand past the platter and could
  * cross a narrow card's edge. The normalized shepherd never leaves the composition: Wave peaks at
  * 0.37 source units out (0.88 world, inside the rim) and 0.998 crown-heights up, so every frame of
  * every clip stays inside what this guarantee covers.
  */
-export const ORBIT_MIN_POLAR_ANGLE = Math.PI / 3;
+export const ORBIT_MIN_POLAR_ANGLE = (70 * Math.PI) / 180;
 export const ORBIT_MAX_POLAR_ANGLE = Math.PI / 2.05;
 
-/** Orbit pivot: the vertical centre of the pedestal + figurine composition (≈ 0.18). */
-export const ORBIT_TARGET_Y = (PEDESTAL_BOTTOM_Y + FIGURINE_TOP_Y) / 2;
+/**
+ * Where the figure's sternum sits along the composed 2.4-unit figure, as a fraction of its height
+ * above the ground plane. Measured off the shipped rig's bone chain (hips at ~0.48, spine at ~0.62,
+ * clavicle at ~0.72) — 0.6125 is the sternum's own height fraction, and the camera looking here
+ * instead of at the composition's midpoint is what stops the head dominating the frame.
+ */
+export const FIGURINE_HEART_FRACTION = 0.6125;
+
+/**
+ * Orbit pivot: the figurine's heart, not the centre of the composition bounding box.
+ *
+ * The old value was `(PEDESTAL_BOTTOM_Y + FIGURINE_TOP_Y) / 2` ≈ 0.179 — the midpoint of pedestal
+ * *underside to crown*, which sits at the figure's waist. Pivoting there framed the composition
+ * symmetrically but pushed the camera above the crown and tilted it down onto the top of the head.
+ * At the sternum the camera reads the figurine the way you would lean over a desk to inspect a
+ * collectible: level with the chest, looking slightly down the length of the robe.
+ */
+export const ORBIT_TARGET_Y =
+  FIGURINE_GROUND_Y + FIGURINE_HEIGHT * FIGURINE_HEART_FRACTION;
 
 /**
  * Mounted camera position: the pivot, offset by the elevation angle. `sin` is the height and
@@ -163,13 +201,45 @@ export const CAMERA_POSITION: [number, number, number] = [
 /** The same pivot as an array, for `OrbitControls target={...}` (R3F applies it via `fromArray`). */
 export const ORBIT_TARGET: [number, number, number] = [0, ORBIT_TARGET_Y, 0];
 
+/**
+ * The idle-breathing pivot — the same height as the ground plane, by design.
+ *
+ * `WatchmanModel` seats a group here and drives a micro-sway and a vertical swell on it, which is
+ * what makes the figurine read as alive between gestures. It has to be the *ground plane* and not
+ * the world origin: the rig group sits at the origin, a unit above the soles, so a sway applied
+ * there would slide the feet sideways and a swell would lift them off the acrylic — the exact
+ * "feet feel detached" symptom the contact-shadow calibration in the scene exists to fix. Pinned to
+ * the sole line, the figure turns and breathes *about its own feet* and the grounding never moves.
+ * The suite pins the equality.
+ */
+export const BREATHING_PIVOT_Y = FIGURINE_GROUND_Y;
+
 // --- The Amen window (800ms, spec) -------------------------------------------------------------
 
 export const AMEN_PULSE_MS = 800;
 
-/** Amber rim / backlight: 3.5 at rest, a full 6.0 on the instant of an Amen. */
-export const RIM_BASE_INTENSITY = 3.5;
+/**
+ * Gold rim / backlight. The studio rig's rim is a three-point *silhouette* light, so its rest value
+ * is calibrated against the key in `WatchmanScene` rather than in isolation: at 3.5 it out-shone the
+ * 2.8 key and turned every back-facing edge into a hard white-hot band. It now rests just under the
+ * key's 1.6 and still carries the full 6.0 on the instant of an Amen, so the celebratory flare is
+ * now a *surge* against a quiet rim instead of a step down from a rim that was already blinding.
+ */
+export const RIM_BASE_INTENSITY = 1.4;
+
+/** The Amen surge — 4.3× the resting rim, which is what makes the moment read at a glance. */
 export const RIM_SURGE_INTENSITY = 6.0;
+
+/**
+ * Where the rim hangs: behind and slightly above the figure, at `[0, 2.5, -2.5]`.
+ *
+ * Co-owned here (rather than inline in the scene) because it is a *framing* constant as much as a
+ * lighting one: the gold edge only separates the figurine from the dark stage while the camera looks
+ * at it from the front arc, and the orbit clamps above guarantee it always does. Raising it back
+ * toward the old `[0, 4, -4]` would drop the rim below the shoulders on the widest poses, losing
+ * the outline exactly when the silhouette is widest.
+ */
+export const RIM_POSITION: [number, number, number] = [0, 2.5, -2.5];
 
 /** The decay the rim surge and the pedestal flare share: `(1 - p) ^ 1.4`. */
 export const AMEN_DECAY_EXPONENT = 1.4;

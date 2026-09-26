@@ -21,9 +21,15 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
  * src setter fires `load` with plausible dimensions — GLTFLoader never reads pixels during
  * load, it only needs the element to report success.
  */
-globalThis.self = globalThis; // GLTFLoader's image path reaches for `self.URL`.
+/**
+ * The shim is deliberately partial, so it cannot satisfy the full `Window`/`Document` DOM types
+ * even though it satisfies everything three actually calls. Cast once, at the boundary, rather
+ * than scattering `any` through the body.
+ */
+const shim = /** @type {any} */ (globalThis);
+shim.self = globalThis; // GLTFLoader's image path reaches for `self.URL`.
 
-globalThis.document = {
+shim.document = {
   createElementNS(_namespace, tag) {
     if (tag !== "img") throw new Error(`unexpected element <${tag}>`);
     const listeners = {};
@@ -65,7 +71,9 @@ loader.parse(
 
     const meshList = [];
     scene.traverse((object) => {
-      if (object.isMesh) meshList.push(object);
+      // `instanceof Mesh` rather than the `isMesh` duck-type flag: the flag is declared only on
+      // the concrete class, so the static checker cannot see it on an `Object3D` traversal value.
+      if (object instanceof THREE.Mesh) meshList.push(object);
     });
 
     /** Bounds accumulator over every mesh vertex in world space. */

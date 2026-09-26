@@ -17,34 +17,68 @@ import {
   PEDESTAL_RING_Y,
   PEDESTAL_THICKNESS,
   RIM_BASE_INTENSITY,
+  RIM_POSITION,
   amenFlare,
   amenProgress,
 } from "@/lib/watchmanStage";
 import WatchmanModel from "./WatchmanModel";
 
 /**
- * Studio rig (spec): a strong ambient lift over the lapis canvas, a warm key from the upper
- * right, a cool fill from the left, and an amber rim/backlight that separates the figure from
- * the dark stage. The asset ships authored PBR materials and NORMAL data (see WatchmanModel), so
- * every light in here contributes real shading — nothing in the rig compensates for the mesh.
+ * Studio rig: a low ambient floor over the lapis canvas, a warm key from the upper front right, a
+ * cool fill from the low back left, and a gold rim from behind and above. The asset ships authored
+ * PBR materials and NORMAL data (see WatchmanModel), so every light in here contributes real
+ * shading — nothing in the rig compensates for the mesh.
+ *
+ * The hierarchy is three-point and deliberately *narrow* in range, which is what makes the folds
+ * read: the key alone carries form, the fill is a fraction of it so the shadow side stays cool and
+ * legible instead of grey, and the rim is nearly as strong as the key so the silhouette always has
+ * a gold edge against the dark stage. Everything below is scaled together — moving one without the
+ * others collapses the contrast this rig exists to create.
  *
  * Shadow maps stay off deliberately: the grounding shadow is the pedestal's `<ContactShadows>`
  * pool — contact-accurate, 512² — and a directional map would fight a *skinned* rig (its bones
  * move the caster between the depth pass and the light every frame) while adding a second,
  * longer shadow competing with the contact-accurate pool.
  */
-const AMBIENT_INTENSITY = 1.8;
-const KEY_INTENSITY = 2.8;
-const KEY_COLOR = "#FFF5E6";
-const FILL_INTENSITY = 1.4;
-const FILL_COLOR = "#B4D7FF";
 
-/** Palette C tokens (`src/app/globals.css`): gold `--color-gold`, pill `--color-pill`. */
+/**
+ * Ambient floor (spec: 0.35). Deliberately low: this is the "bounce off the altar cloth" term, and
+ * it exists to keep occluded creases from going to pure black. The previous 1.8 was a flat-lift
+ * value that washed the whole figure toward mid-grey and erased the fold shadows the key is
+ * supposed to carve.
+ */
+const AMBIENT_INTENSITY = 0.35;
+
+/**
+ * Key light (spec): warm altar sunlight, upper front right at `[2.5, 4, 3]`, intensity 1.6, a
+ * soft amber-white rather than pure white so the highlights stay inside the brand's warm palette.
+ * This is the only light with enough energy to model the robe's folds.
+ */
+const KEY_INTENSITY = 1.6;
+const KEY_COLOR = "#FFF5EA";
+const KEY_POSITION: [number, number, number] = [2.5, 4, 3];
+
+/**
+ * Fill (spec): a cool sky/navy bounce from the low back left at `[-2.5, 1.5, -1]`, intensity 0.5.
+ * A third of the key's strength on purpose — enough to put blue into the shadow side of the cloth
+ * so folds separate, not enough to lift them back to grey. Placed low and behind (rather than
+ * beside) so it grazes the robe's silhouette edge instead of flattening the front.
+ */
+const FILL_INTENSITY = 0.5;
+const FILL_COLOR = "#1E293B";
+const FILL_POSITION: [number, number, number] = [-2.5, 1.5, -1];
+
+/** Palette C tokens (`src/app/globals.css`): gold `--color-gold`, deep `--color-gold-deep`. */
 const GOLD = "#F59E0B";
+const GOLD_DEEP = "#FBBF24";
 const ACRYLIC_TINT = "#101D2B";
 
-/** 60% IBL: enough city-lit sheen to keep the figure's matte panels alive, never a second key. */
-const ENVIRONMENT_INTENSITY = 0.6;
+/**
+ * 40% IBL: enough city-lit sheen to keep the figure's matte panels alive, never a second key. It
+ * was 60% against the old flat-lift rig; with the ambient floor and fill now carrying real
+ * separation, a full-strength environment would quietly re-flatten the cloth.
+ */
+const ENVIRONMENT_INTENSITY = 0.4;
 
 /** Pedestal flare (spec): the point light inside the slab reaches 6.0 for the 800ms after an Amen. */
 const PEDESTAL_FLARE_INTENSITY = 6.0;
@@ -67,6 +101,32 @@ const PEDESTAL_EMISSIVE_FLARE = 0.85;
 /** The halo ring is the flare's visible half: it brightens where the light itself cannot be seen. */
 const RING_EMISSIVE_BASE = 1.4;
 const RING_EMISSIVE_FLARE = 1.8;
+
+/**
+ * Contact-shadow pool (spec). Every number here is a *contact* calibration, not a soft-shadow one:
+ * the job is to weld the sandals to the acrylic, so the pool stays tight, dark and close.
+ *
+ *   opacity 0.7  dense enough that the soles read as bearing weight (the previous 0.75 over a
+ *                wider pool read as a smudge once the camera dropped to chest height)
+ *   blur    2.0  enough falloff to be a shadow rather than a stencil, still tight under the feet
+ *   scale   2.2  shrunk from 2.8 so the pool hugs the figurine instead of reaching the slab's rim,
+ *                which keeps the pedestal edge crisp against the dark card
+ *   far     1.1  from 1.5 — captures the sandals and the hem above them, and nothing higher up the
+ *                robe, so a raised arm during a Wave cannot smear a second shadow across the slab
+ */
+const CONTACT_SHADOW_OPACITY = 0.7;
+const CONTACT_SHADOW_BLUR = 2.0;
+const CONTACT_SHADOW_SCALE = 2.2;
+const CONTACT_SHADOW_FAR = 1.1;
+
+/**
+ * The brass ring. Bronze-coloured and near-metallic so the key and rim both find a specular
+ * highlight on it — the previous flat gold at roughness 0.3 / metalness 0.2 had almost no
+ * highlight band to catch, which is what left the pedestal's edge looking unfinished.
+ */
+const RING_METALNESS = 0.85;
+const RING_ROUGHNESS = 0.18;
+const BRASS = "#C9A227";
 
 /**
  * Browsers can refuse a WebGL context (hardened policy, driver blocklist, headless VM).
@@ -163,29 +223,35 @@ export default function WatchmanScene({
         toneMappingExposure: 1.35,
       }}
     >
+      {/*
+       * The studio rig, in the order it reads: a low ambient floor that only keeps occluded creases
+       * off pure black, the warm key that actually models the robe, a cool low back-left fill that
+       * separates the shadow side without greying it, and the gold rim that draws the silhouette.
+       * No shadow maps — the grounding shadow is the pedestal's contact pool (see the rig note).
+       */}
       <ambientLight intensity={AMBIENT_INTENSITY} />
 
-      {/* Warm key from the upper right. No shadow map: the pedestal's contact-shadow pool is the
-          grounding shadow on this stage (see the rig note above). */}
+      {/* Key: warm altar sunlight, upper front right. */}
       <directionalLight
-        position={[3, 5, 4]}
+        position={KEY_POSITION}
         intensity={KEY_INTENSITY}
         color={KEY_COLOR}
       />
 
-      {/* Cool fill from the left — keeps the shadow side from collapsing into mud. */}
+      {/* Fill: cool sky bounce, low and behind on the left — grazes the cloth, never floods it. */}
       <directionalLight
-        position={[-3, 2, 2]}
+        position={FILL_POSITION}
         intensity={FILL_INTENSITY}
         color={FILL_COLOR}
       />
 
-      {/* Amber rim/backlight — surges to 6.0 for 800ms on every Amen (see WatchmanModel). */}
+      {/* Gold rim, behind and slightly above — surges from 1.4 to 6.0 for 800ms on every Amen
+          (see WatchmanModel). */}
       <directionalLight
         ref={rimLightRef}
-        position={[0, 4, -4]}
+        position={RIM_POSITION}
         intensity={RIM_BASE_INTENSITY}
-        color={GOLD}
+        color={GOLD_DEEP}
       />
 
       {/* The stage owns the ground: the acrylic slab the figurine stands on, its gold halo, its
@@ -285,13 +351,14 @@ function Pedestal({ amenPulseCount }: PedestalProps) {
   return (
     <group>
       {/* Contact shadow pool (spec): anchors the sandals and the sheep to the acrylic surface,
-          with the plane 2mm above the slab's top face so the two can never z-fight. */}
+          with the plane 2mm above the slab's top face so the two can never z-fight. Tight and
+          close — see the calibration above. */}
       <ContactShadows
         position={[0, FIGURINE_GROUND_Y, 0]}
-        opacity={0.75}
-        scale={2.8}
-        blur={1.8}
-        far={1.5}
+        opacity={CONTACT_SHADOW_OPACITY}
+        scale={CONTACT_SHADOW_SCALE}
+        blur={CONTACT_SHADOW_BLUR}
+        far={CONTACT_SHADOW_FAR}
         resolution={512}
         color="#000000"
       />
@@ -315,8 +382,10 @@ function Pedestal({ amenPulseCount }: PedestalProps) {
         />
       </mesh>
 
-      {/* Gold halo on the slab's upper rim, seated entirely below the ground plane so the shadow
-          pool's depth pass (which renders everything above the plane) can never capture it. */}
+      {/* Brass halo on the slab's upper rim, seated entirely below the ground plane so the shadow
+          pool's depth pass (which renders everything above the plane) can never capture it. Kept
+          metallic and polished so the key and rim both leave a travelling specular gleam on it —
+          that highlight is what separates the pedestal's edge from the dark card behind it. */}
       <mesh
         ref={ringRef}
         position={[0, PEDESTAL_RING_Y, 0]}
@@ -324,11 +393,11 @@ function Pedestal({ amenPulseCount }: PedestalProps) {
       >
         <torusGeometry args={[PEDESTAL_RADIUS, PEDESTAL_RING_TUBE, 16, 96]} />
         <meshStandardMaterial
-          color={GOLD}
+          color={BRASS}
           emissive={GOLD}
           emissiveIntensity={RING_EMISSIVE_BASE}
-          roughness={0.3}
-          metalness={0.2}
+          roughness={RING_ROUGHNESS}
+          metalness={RING_METALNESS}
         />
       </mesh>
 
