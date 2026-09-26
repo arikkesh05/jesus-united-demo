@@ -1,12 +1,16 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import { CheckIcon, CloseIcon, HandHeartIcon } from '@/app/components/icons';
-import { PRAYER_TOPICS, submitPrayerRequest, type PrayerRequestInsert } from '@/lib/prayers';
+import { useEffect, useRef, useState } from "react";
+import { CheckIcon, CloseIcon, HandHeartIcon } from "@/app/components/icons";
+import {
+  PRAYER_TOPICS,
+  submitPrayerRequest,
+  type PrayerRequestInsert,
+} from "@/lib/prayers";
 
 /** Optional seed for the form, e.g. the Examen-to-intercession bridge. */
 export type PrayerSubmissionSeed = Partial<
-  Pick<FormValues, 'anonymous' | 'body' | 'title' | 'topics'>
+  Pick<FormValues, "anonymous" | "body" | "title" | "topics">
 >;
 
 interface PrayerSubmissionModalProps {
@@ -31,12 +35,14 @@ interface FormValues {
   topics: string[];
 }
 
-type FormErrors = Partial<Record<'authorName' | 'title' | 'body' | 'topics', string>>;
+type FormErrors = Partial<
+  Record<"authorName" | "title" | "body" | "topics", string>
+>;
 
 const EMPTY_FORM: FormValues = {
-  authorName: '',
-  title: '',
-  body: '',
+  authorName: "",
+  title: "",
+  body: "",
   anonymous: false,
   topics: [],
 };
@@ -48,33 +54,34 @@ const MAX_BODY_LENGTH = 1000;
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-const LABEL_CLASS = 'text-xs font-bold uppercase tracking-[0.14em] text-muted';
+const LABEL_CLASS = "text-xs font-bold uppercase tracking-[0.14em] text-muted";
 const FIELD_CLASS =
-  'mt-1.5 min-h-[44px] w-full rounded-3xl border border-white/10 bg-canvas/60 px-4 py-2.5 text-sm text-espresso outline-none transition placeholder:text-muted/80 focus:border-gold focus:ring-2 focus:ring-gold/25 disabled:cursor-not-allowed disabled:bg-pill/60 disabled:text-muted';
-const ERROR_TEXT_CLASS = 'mt-1 text-xs font-medium text-red-300';
+  "mt-1.5 min-h-[44px] w-full rounded-3xl border border-white/10 bg-canvas/60 px-4 py-2.5 text-sm text-espresso outline-none transition placeholder:text-muted/80 focus:border-gold focus:ring-2 focus:ring-gold/25 disabled:cursor-not-allowed disabled:bg-pill/60 disabled:text-muted";
+const ERROR_TEXT_CLASS = "mt-1 text-xs font-medium text-red-300";
 const TOPIC_PILL_CLASS =
-  'inline-flex min-h-[44px] items-center rounded-full border px-3.5 py-1.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 aria-pressed:border-gold/60 aria-pressed:bg-gold/10 aria-pressed:text-gold aria-[pressed=false]:border-white/10 aria-[pressed=false]:bg-white/5 aria-[pressed=false]:text-slate-300 hover:border-gold/50';
+  "inline-flex min-h-[44px] items-center rounded-full border px-3.5 py-1.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 aria-pressed:border-gold/60 aria-pressed:bg-gold/10 aria-pressed:text-gold aria-[pressed=false]:border-white/10 aria-[pressed=false]:bg-white/5 aria-[pressed=false]:text-slate-300 hover:border-gold/50";
 
 function validate(values: FormValues): FormErrors {
   const errors: FormErrors = {};
 
-  if (!values.anonymous && values.authorName.trim() === '') {
+  if (!values.anonymous && values.authorName.trim() === "") {
     errors.authorName = 'Your name is required — or choose "Remain Anonymous".';
   }
-  if (values.title.trim() === '') {
-    errors.title = 'A short title is required.';
+  if (values.title.trim() === "") {
+    errors.title = "A short title is required.";
   } else if (values.title.trim().length > MAX_TITLE_LENGTH) {
     errors.title = `Keep the title under ${MAX_TITLE_LENGTH} characters.`;
   }
-  if (values.body.trim() === '') {
-    errors.body = 'Share your prayer request.';
+  if (values.body.trim() === "") {
+    errors.body = "Share your prayer request.";
   } else if (values.body.trim().length < MIN_BODY_LENGTH) {
-    errors.body = 'Please share a few more words so others can pray meaningfully.';
+    errors.body =
+      "Please share a few more words so others can pray meaningfully.";
   } else if (values.body.trim().length > MAX_BODY_LENGTH) {
     errors.body = `Keep the prayer under ${MAX_BODY_LENGTH} characters.`;
   }
   if (values.topics.length === 0) {
-    errors.topics = 'Choose at least one topic.';
+    errors.topics = "Choose at least one topic.";
   }
 
   return errors;
@@ -106,28 +113,33 @@ export default function PrayerSubmissionModal({
     if (!open) return;
 
     const previouslyFocused =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
     firstFieldRef.current?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         event.preventDefault();
         onClose();
         return;
       }
-      if (event.key !== 'Tab') return;
+      if (event.key !== "Tab") return;
 
       const container = dialogRef.current;
       if (!container) return;
-      const focusables = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+      const focusables = Array.from(
+        container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      );
       if (focusables.length === 0) return;
 
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
       const active = document.activeElement;
-      const inside = active instanceof HTMLElement && container.contains(active);
+      const inside =
+        active instanceof HTMLElement && container.contains(active);
 
       if (event.shiftKey) {
         if (!inside || active === first) {
@@ -140,9 +152,9 @@ export default function PrayerSubmissionModal({
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
       previouslyFocused?.focus();
     };
@@ -164,8 +176,8 @@ export default function PrayerSubmissionModal({
         ...seed,
         // A seeded reflection can exceed the field limits; trim so a shared
         // bridge reflection arrives ready to send rather than pre-invalid.
-        title: (seed?.title ?? '').slice(0, MAX_TITLE_LENGTH),
-        body: (seed?.body ?? '').slice(0, MAX_BODY_LENGTH),
+        title: (seed?.title ?? "").slice(0, MAX_TITLE_LENGTH),
+        body: (seed?.body ?? "").slice(0, MAX_BODY_LENGTH),
       });
       setErrors({});
       setSubmitted(false);
@@ -185,8 +197,8 @@ export default function PrayerSubmissionModal({
       setValues({
         ...EMPTY_FORM,
         ...seed,
-        title: (seed?.title ?? '').slice(0, MAX_TITLE_LENGTH),
-        body: (seed?.body ?? '').slice(0, MAX_BODY_LENGTH),
+        title: (seed?.title ?? "").slice(0, MAX_TITLE_LENGTH),
+        body: (seed?.body ?? "").slice(0, MAX_BODY_LENGTH),
       });
       setErrors({});
       setSubmitError(null);
@@ -196,16 +208,20 @@ export default function PrayerSubmissionModal({
   };
 
   const updateField =
-    (field: 'authorName' | 'title' | 'body') =>
+    (field: "authorName" | "title" | "body") =>
     (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       const value = event.target.value;
       setValues((current) => ({ ...current, [field]: value }));
-      setErrors((current) => (current[field] ? { ...current, [field]: undefined } : current));
+      setErrors((current) =>
+        current[field] ? { ...current, [field]: undefined } : current,
+      );
     };
 
   const toggleAnonymous = () => {
     setValues((current) => ({ ...current, anonymous: !current.anonymous }));
-    setErrors((current) => (current.authorName ? { ...current, authorName: undefined } : current));
+    setErrors((current) =>
+      current.authorName ? { ...current, authorName: undefined } : current,
+    );
   };
 
   const toggleTopic = (topic: string) => {
@@ -215,7 +231,9 @@ export default function PrayerSubmissionModal({
         ? current.topics.filter((existing) => existing !== topic)
         : [...current.topics, topic],
     }));
-    setErrors((current) => (current.topics ? { ...current, topics: undefined } : current));
+    setErrors((current) =>
+      current.topics ? { ...current, topics: undefined } : current,
+    );
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -224,14 +242,15 @@ export default function PrayerSubmissionModal({
 
     const nextErrors = validate(values);
     setErrors(nextErrors);
-    if (Object.values(nextErrors).some((message) => message !== undefined)) return;
+    if (Object.values(nextErrors).some((message) => message !== undefined))
+      return;
 
     setSubmitting(true);
     setSubmitError(null);
 
     const prayer: PrayerRequestInsert = {
-      user_id: '',
-      author_name: values.anonymous ? '' : values.authorName.trim(),
+      user_id: "",
+      author_name: values.anonymous ? "" : values.authorName.trim(),
       title: values.title.trim(),
       body: values.body.trim(),
       topics: values.topics,
@@ -243,11 +262,13 @@ export default function PrayerSubmissionModal({
     const result = await submitPrayerRequest(prayer);
 
     if (result.ok) {
-      setMirroredLocally(result.mode === 'guest');
+      setMirroredLocally(result.mode === "guest");
       setSubmitted(true);
       onSubmitted?.();
     } else {
-      setSubmitError(result.error ?? 'The prayer service is unavailable. Please try again.');
+      setSubmitError(
+        result.error ?? "The prayer service is unavailable. Please try again.",
+      );
     }
     setSubmitting(false);
   };
@@ -285,8 +306,8 @@ export default function PrayerSubmissionModal({
               id="prayer-submission-description"
               className="mt-1 text-sm leading-6 text-muted"
             >
-              Your request joins the public wall so the whole community can stand with you in
-              prayer.
+              Your request joins the public wall so the whole community can
+              stand with you in prayer.
             </p>
           </div>
           <button
@@ -308,13 +329,14 @@ export default function PrayerSubmissionModal({
               Your prayer is on the wall
             </h3>
             <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted">
-              The community can now see your request and press &ldquo;I Prayed&rdquo; to stand
-              with you. &ldquo;Pray for one another, that you may be healed&rdquo; (James 5:16).
+              The community can now see your request and press &ldquo;I
+              Prayed&rdquo; to stand with you. &ldquo;Pray for one another, that
+              you may be healed&rdquo; (James 5:16).
             </p>
             {mirroredLocally ? (
               <p className="mx-auto mt-3 max-w-sm rounded-2xl border border-gold/30 bg-gold/10 px-4 py-2.5 text-xs font-medium leading-5 text-gold">
-                Kept on this device for now &mdash; the community wall will carry it as soon as
-                the prayer service is reachable again.
+                Kept on this device for now &mdash; the community wall will
+                carry it as soon as the prayer service is reachable again.
               </p>
             ) : null}
             <div className="mt-6 flex flex-col-reverse justify-center gap-2 sm:flex-row">
@@ -340,13 +362,18 @@ export default function PrayerSubmissionModal({
             </div>
           </div>
         ) : (
-          <form noValidate onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <form
+            noValidate
+            onSubmit={handleSubmit}
+            className="flex min-h-0 flex-1 flex-col"
+          >
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
               <div>
                 <label htmlFor="prayer-author-name" className={LABEL_CLASS}>
                   Author name
                   <span aria-hidden className="text-gold-deep">
-                    {' '}*
+                    {" "}
+                    *
                   </span>
                 </label>
                 <input
@@ -355,17 +382,23 @@ export default function PrayerSubmissionModal({
                   name="prayer-author-name"
                   type="text"
                   value={values.authorName}
-                  onChange={updateField('authorName')}
+                  onChange={updateField("authorName")}
                   placeholder="How you would like to be known"
                   autoComplete="name"
                   disabled={values.anonymous}
                   aria-required={!values.anonymous || undefined}
                   aria-invalid={errors.authorName ? true : undefined}
-                  aria-describedby={errors.authorName ? 'prayer-author-name-error' : undefined}
+                  aria-describedby={
+                    errors.authorName ? "prayer-author-name-error" : undefined
+                  }
                   className={FIELD_CLASS}
                 />
                 {errors.authorName ? (
-                  <p id="prayer-author-name-error" role="alert" className={ERROR_TEXT_CLASS}>
+                  <p
+                    id="prayer-author-name-error"
+                    role="alert"
+                    className={ERROR_TEXT_CLASS}
+                  >
                     {errors.authorName}
                   </p>
                 ) : null}
@@ -380,8 +413,8 @@ export default function PrayerSubmissionModal({
                     aria-hidden
                     className={`inline-flex h-4 w-4 items-center justify-center rounded-full border transition ${
                       values.anonymous
-                        ? 'border-gold bg-gold text-canvas'
-                        : 'border-sand bg-pill text-transparent'
+                        ? "border-gold bg-gold text-canvas"
+                        : "border-sand bg-pill text-transparent"
                     }`}
                   >
                     <CheckIcon className="h-2.5 w-2.5" />
@@ -394,7 +427,8 @@ export default function PrayerSubmissionModal({
                 <label htmlFor="prayer-title" className={LABEL_CLASS}>
                   Title
                   <span aria-hidden className="text-gold-deep">
-                    {' '}*
+                    {" "}
+                    *
                   </span>
                 </label>
                 <input
@@ -402,16 +436,22 @@ export default function PrayerSubmissionModal({
                   name="prayer-title"
                   type="text"
                   value={values.title}
-                  onChange={updateField('title')}
-                  placeholder="A short summary, e.g. &quot;Healing for my father&quot;"
+                  onChange={updateField("title")}
+                  placeholder='A short summary, e.g. "Healing for my father"'
                   maxLength={MAX_TITLE_LENGTH}
                   aria-required="true"
                   aria-invalid={errors.title ? true : undefined}
-                  aria-describedby={errors.title ? 'prayer-title-error' : undefined}
+                  aria-describedby={
+                    errors.title ? "prayer-title-error" : undefined
+                  }
                   className={FIELD_CLASS}
                 />
                 {errors.title ? (
-                  <p id="prayer-title-error" role="alert" className={ERROR_TEXT_CLASS}>
+                  <p
+                    id="prayer-title-error"
+                    role="alert"
+                    className={ERROR_TEXT_CLASS}
+                  >
                     {errors.title}
                   </p>
                 ) : null}
@@ -421,24 +461,31 @@ export default function PrayerSubmissionModal({
                 <label htmlFor="prayer-body" className={LABEL_CLASS}>
                   Prayer request
                   <span aria-hidden className="text-gold-deep">
-                    {' '}*
+                    {" "}
+                    *
                   </span>
                 </label>
                 <textarea
                   id="prayer-body"
                   name="prayer-body"
                   value={values.body}
-                  onChange={updateField('body')}
+                  onChange={updateField("body")}
                   rows={5}
                   maxLength={MAX_BODY_LENGTH}
                   placeholder="Share the details you would like the community to pray for…"
                   aria-required="true"
                   aria-invalid={errors.body ? true : undefined}
-                  aria-describedby={errors.body ? 'prayer-body-error' : undefined}
+                  aria-describedby={
+                    errors.body ? "prayer-body-error" : undefined
+                  }
                   className={`${FIELD_CLASS} resize-y`}
                 />
                 {errors.body ? (
-                  <p id="prayer-body-error" role="alert" className={ERROR_TEXT_CLASS}>
+                  <p
+                    id="prayer-body-error"
+                    role="alert"
+                    className={ERROR_TEXT_CLASS}
+                  >
                     {errors.body}
                   </p>
                 ) : null}
@@ -447,12 +494,15 @@ export default function PrayerSubmissionModal({
               <div
                 role="group"
                 aria-labelledby="prayer-topics-label"
-                aria-describedby={errors.topics ? 'prayer-topics-error' : undefined}
+                aria-describedby={
+                  errors.topics ? "prayer-topics-error" : undefined
+                }
               >
                 <span id="prayer-topics-label" className={LABEL_CLASS}>
                   Topic
                   <span aria-hidden className="text-gold-deep">
-                    {' '}*
+                    {" "}
+                    *
                   </span>
                 </span>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -466,8 +516,8 @@ export default function PrayerSubmissionModal({
                         onClick={() => toggleTopic(topic)}
                         className={`${TOPIC_PILL_CLASS} ${
                           selected
-                            ? 'border-gold bg-pill text-pill-ink'
-                            : 'border-sand bg-pill text-muted'
+                            ? "border-gold bg-pill text-pill-ink"
+                            : "border-sand bg-pill text-muted"
                         }`}
                       >
                         {topic}
@@ -476,16 +526,20 @@ export default function PrayerSubmissionModal({
                   })}
                 </div>
                 {errors.topics ? (
-                  <p id="prayer-topics-error" role="alert" className={ERROR_TEXT_CLASS}>
+                  <p
+                    id="prayer-topics-error"
+                    role="alert"
+                    className={ERROR_TEXT_CLASS}
+                  >
                     {errors.topics}
                   </p>
                 ) : null}
               </div>
 
               <p className="rounded-2xl border border-sand bg-pill px-4 py-3 text-xs leading-5 text-pill-ink">
-                If you are in immediate crisis, please reach a pastor, a trusted local church, or
-                emergency services right away &mdash; this wall is for community prayer, not
-                emergency care.
+                If you are in immediate crisis, please reach a pastor, a trusted
+                local church, or emergency services right away &mdash; this wall
+                is for community prayer, not emergency care.
               </p>
 
               {submitError ? (
@@ -496,7 +550,6 @@ export default function PrayerSubmissionModal({
                   {submitError}
                 </p>
               ) : null}
-
             </div>
 
             <div className="shrink-0 border-t border-white/10 bg-pill/95 p-6 pt-4 backdrop-blur-xl">
@@ -514,7 +567,7 @@ export default function PrayerSubmissionModal({
                   className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-canvas transition hover:bg-gold-deep hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <HandHeartIcon className="h-4 w-4" />
-                  {submitting ? 'Sharing…' : 'Share on the wall'}
+                  {submitting ? "Sharing…" : "Share on the wall"}
                 </button>
               </div>
             </div>

@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
-import { BellIcon, CheckIcon, CloseIcon } from '@/app/components/icons';
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, MotionConfig } from "framer-motion";
+import { BellIcon, CheckIcon, CloseIcon } from "@/app/components/icons";
 
 /** The four canonical fixed-hour prayer watches of the daily liturgy. */
-export type PrayerWatchId = 'lauds' | 'sext' | 'vespers' | 'compline';
+export type PrayerWatchId = "lauds" | "sext" | "vespers" | "compline";
 
 /** Per-watch guest preference: an on/off switch plus the local reminder time (HH:mm). */
 export interface PrayerWatchConfig {
@@ -35,43 +35,44 @@ interface WatchDefinition {
 
 const WATCH_DEFINITIONS: WatchDefinition[] = [
   {
-    id: 'lauds',
-    numeral: 'I',
-    name: 'Lauds — Morning Altar',
-    liturgy: 'Anchor Scripture & Daily Consecration',
-    defaultTime: '07:00',
+    id: "lauds",
+    numeral: "I",
+    name: "Lauds — Morning Altar",
+    liturgy: "Anchor Scripture & Daily Consecration",
+    defaultTime: "07:00",
   },
   {
-    id: 'sext',
-    numeral: 'II',
-    name: 'Sext — Midday Pause',
-    liturgy: '60-Second Workplace Peace Pause',
-    defaultTime: '12:30',
+    id: "sext",
+    numeral: "II",
+    name: "Sext — Midday Pause",
+    liturgy: "60-Second Workplace Peace Pause",
+    defaultTime: "12:30",
   },
   {
-    id: 'vespers',
-    numeral: 'III',
-    name: 'Vespers — Evening Examen',
-    liturgy: 'Gratitude Audit & Burdens Released',
-    defaultTime: '18:30',
+    id: "vespers",
+    numeral: "III",
+    name: "Vespers — Evening Examen",
+    liturgy: "Gratitude Audit & Burdens Released",
+    defaultTime: "18:30",
   },
   {
-    id: 'compline',
-    numeral: 'IV',
-    name: 'Compline — Night Rest',
-    liturgy: 'Sleep in Peace: He Neither Slumbers Nor Sleeps',
-    defaultTime: '21:30',
+    id: "compline",
+    numeral: "IV",
+    name: "Compline — Night Rest",
+    liturgy: "Sleep in Peace: He Neither Slumbers Nor Sleeps",
+    defaultTime: "21:30",
   },
 ];
 
-const STORAGE_KEY = 'jesus_united_prayer_watches_v1';
+const STORAGE_KEY = "jesus_united_prayer_watches_v1";
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** Browser notification permission, normalised with an explicit unsupported state. */
-type NotificationPermissionState = 'granted' | 'denied' | 'default' | 'unsupported';
+type NotificationPermissionState =
+  "granted" | "denied" | "default" | "unsupported";
 
 /** Deterministic default rhythm: all four watches on at their canonical hours. */
 function defaultWatches(): Record<PrayerWatchId, PrayerWatchConfig> {
@@ -88,25 +89,26 @@ function defaultWatches(): Record<PrayerWatchId, PrayerWatchConfig> {
  */
 function readStoredWatches(): Record<PrayerWatchId, PrayerWatchConfig> {
   const fallback = defaultWatches();
-  if (typeof window === 'undefined') return fallback;
+  if (typeof window === "undefined") return fallback;
 
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return fallback;
 
     const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return fallback;
+    if (!parsed || typeof parsed !== "object") return fallback;
 
     const stored = (parsed as { watches?: unknown }).watches;
-    if (!stored || typeof stored !== 'object') return fallback;
+    if (!stored || typeof stored !== "object") return fallback;
 
     for (const definition of WATCH_DEFINITIONS) {
       const entry = (stored as Record<string, unknown>)[definition.id];
-      if (!entry || typeof entry !== 'object') continue;
+      if (!entry || typeof entry !== "object") continue;
 
       const { enabled, time } = entry as Partial<PrayerWatchConfig>;
-      if (typeof enabled === 'boolean') fallback[definition.id].enabled = enabled;
-      if (typeof time === 'string' && TIME_PATTERN.test(time)) {
+      if (typeof enabled === "boolean")
+        fallback[definition.id].enabled = enabled;
+      if (typeof time === "string" && TIME_PATTERN.test(time)) {
         fallback[definition.id].time = time;
       }
     }
@@ -117,8 +119,10 @@ function readStoredWatches(): Record<PrayerWatchId, PrayerWatchConfig> {
 }
 
 /** Persists the watch preferences; quota or privacy failures stay non-fatal. */
-function writeStoredWatches(watches: Record<PrayerWatchId, PrayerWatchConfig>): void {
-  if (typeof window === 'undefined') return;
+function writeStoredWatches(
+  watches: Record<PrayerWatchId, PrayerWatchConfig>,
+): void {
+  if (typeof window === "undefined") return;
 
   const preferences: PrayerWatchPreferences = {
     version: 1,
@@ -154,23 +158,28 @@ function WatchSwitch({
     >
       <span
         className={`absolute inset-0 rounded-full transition-colors duration-200 ${
-          checked ? 'bg-gold' : 'bg-sand'
+          checked ? "bg-gold" : "bg-sand"
         }`}
         aria-hidden="true"
       />
       <motion.span
         aria-hidden="true"
         animate={{ x: checked ? 20 : 0 }}
-        transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+        transition={{ type: "spring", stiffness: 500, damping: 32 }}
         className="relative ml-0.5 block h-5 w-5 rounded-full bg-pill shadow-md"
       />
     </button>
   );
 }
 
-export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProps) {
-  const [draft, setDraft] = useState<Record<PrayerWatchId, PrayerWatchConfig>>(defaultWatches);
-  const [permission, setPermission] = useState<NotificationPermissionState>('default');
+export default function PrayerWatchModal({
+  open,
+  onClose,
+}: PrayerWatchModalProps) {
+  const [draft, setDraft] =
+    useState<Record<PrayerWatchId, PrayerWatchConfig>>(defaultWatches);
+  const [permission, setPermission] =
+    useState<NotificationPermissionState>("default");
   const [chimeSent, setChimeSent] = useState(false);
   const chimeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -179,10 +188,11 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const supported = typeof window !== 'undefined' && 'Notification' in window;
+      const supported =
+        typeof window !== "undefined" && "Notification" in window;
       const status: NotificationPermissionState = supported
         ? Notification.permission
-        : 'unsupported';
+        : "unsupported";
       if (cancelled) return;
       setPermission(status);
     })();
@@ -200,22 +210,24 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
 
     const previouslyFocused = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
     dialogRef.current?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         event.preventDefault();
         onClose();
         return;
       }
 
-      if (event.key !== 'Tab') return;
+      if (event.key !== "Tab") return;
 
       const dialog = dialogRef.current;
       if (!dialog) return;
 
-      const focusables = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+      const focusables = Array.from(
+        dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      );
       if (focusables.length === 0) return;
 
       const first = focusables[0];
@@ -231,9 +243,9 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
       previouslyFocused?.focus();
     };
@@ -273,8 +285,8 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
 
   /** Requests browser notification permission; graceful on refusal or absence. */
   const requestPermission = async () => {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
-      setPermission('unsupported');
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setPermission("unsupported");
       return;
     }
 
@@ -289,12 +301,12 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
 
   /** Fires a sample liturgical notification so the guest can preview the rhythm. */
   const sendTestChime = () => {
-    if (permission !== 'granted') return;
+    if (permission !== "granted") return;
 
     try {
-      new Notification('Jesus United — Prayer Watch', {
-        body: 'A gentle chime for the hours. When a watch arrives, a quiet reminder like this will call you to prayer.',
-        tag: 'jesus-united-prayer-watch-test',
+      new Notification("Jesus United — Prayer Watch", {
+        body: "A gentle chime for the hours. When a watch arrives, a quiet reminder like this will call you to prayer.",
+        tag: "jesus-united-prayer-watch-test",
       });
       setChimeSent(true);
       if (chimeTimer.current) clearTimeout(chimeTimer.current);
@@ -322,7 +334,7 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
               className="absolute inset-0 cursor-default bg-canvas/30 backdrop-blur-sm"
             />
 
@@ -333,10 +345,10 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
               aria-modal="true"
               aria-labelledby="prayer-watch-title"
               tabIndex={-1}
-              initial={{ x: '100%' }}
+              initial={{ x: "100%" }}
               animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 34 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", stiffness: 300, damping: 34 }}
               className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-sand/80 bg-canvas/95 shadow-2xl outline-none backdrop-blur-2xl"
             >
               {/* Pinned header */}
@@ -350,7 +362,8 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
                     Prayer Rhythms
                   </h2>
                   <p className="mt-1 text-xs leading-5 text-muted">
-                    The four fixed-hour watches of the ancient liturgy, tuned to your day.
+                    The four fixed-hour watches of the ancient liturgy, tuned to
+                    your day.
                   </p>
                 </div>
                 <button
@@ -368,24 +381,26 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
                 {/* Permission status badge */}
                 <div className="rounded-2xl border border-sand/80 bg-pill/80 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-sm font-bold text-espresso">Reminder chimes</p>
-                    {permission === 'granted' && (
+                    <p className="text-sm font-bold text-espresso">
+                      Reminder chimes
+                    </p>
+                    {permission === "granted" && (
                       <span className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
                         <CheckIcon className="h-3.5 w-3.5" />
                         Notifications Enabled
                       </span>
                     )}
-                    {permission === 'denied' && (
+                    {permission === "denied" && (
                       <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
                         Permission Blocked
                       </span>
                     )}
-                    {permission === 'unsupported' && (
+                    {permission === "unsupported" && (
                       <span className="inline-flex items-center rounded-full bg-pill px-3 py-1 text-xs font-bold text-muted">
                         Notifications Not Supported
                       </span>
                     )}
-                    {permission === 'default' && (
+                    {permission === "default" && (
                       <motion.button
                         type="button"
                         onClick={() => void requestPermission()}
@@ -398,20 +413,22 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
                     )}
                   </div>
                   <p className="mt-2 text-xs leading-5 text-muted">
-                    Reminders arrive as quiet browser notifications at each watch hour. Your
-                    rhythm stays on this device — nothing is uploaded.
+                    Reminders arrive as quiet browser notifications at each
+                    watch hour. Your rhythm stays on this device — nothing is
+                    uploaded.
                   </p>
-                  {permission === 'denied' && (
+                  {permission === "denied" && (
                     <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
-                      Your browser has blocked notifications for this site. Re-enable them in
-                      the address-bar settings to receive watch-hour chimes.
+                      Your browser has blocked notifications for this site.
+                      Re-enable them in the address-bar settings to receive
+                      watch-hour chimes.
                     </p>
                   )}
                   <motion.button
                     type="button"
                     onClick={sendTestChime}
-                    disabled={permission !== 'granted'}
-                    whileTap={{ scale: permission === 'granted' ? 0.96 : 1 }}
+                    disabled={permission !== "granted"}
+                    whileTap={{ scale: permission === "granted" ? 0.96 : 1 }}
                     className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-sand bg-pill px-4 text-sm font-bold text-espresso transition hover:border-gold hover:text-pill-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {chimeSent ? (
@@ -419,10 +436,12 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
                     ) : (
                       <BellIcon className="h-4 w-4" />
                     )}
-                    {chimeSent ? 'Chime Sent' : 'Send Test Chime'}
+                    {chimeSent ? "Chime Sent" : "Send Test Chime"}
                   </motion.button>
                   <span role="status" aria-live="polite" className="sr-only">
-                    {chimeSent ? 'A sample prayer watch notification was sent.' : ''}
+                    {chimeSent
+                      ? "A sample prayer watch notification was sent."
+                      : ""}
                   </span>
                 </div>
 
@@ -439,7 +458,9 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-sm font-bold text-espresso">
-                              <span className="text-pill-ink">{definition.numeral}.</span>{' '}
+                              <span className="text-pill-ink">
+                                {definition.numeral}.
+                              </span>{" "}
                               {definition.name}
                             </p>
                             <p className="mt-0.5 text-xs leading-5 text-muted">
@@ -481,7 +502,9 @@ export default function PrayerWatchModal({ open, onClose }: PrayerWatchModalProp
               {/* Pinned footer */}
               <footer className="shrink-0 border-t border-sand/80 bg-canvas/95 px-6 py-4 backdrop-blur-2xl">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs leading-5 text-muted">Saved on this device only.</p>
+                  <p className="text-xs leading-5 text-muted">
+                    Saved on this device only.
+                  </p>
                   <motion.button
                     type="button"
                     onClick={saveRhythms}
