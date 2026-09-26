@@ -165,6 +165,22 @@ export function PauseIcon({ className }: IconProps) {
   );
 }
 
+/** Rewind-to-start transport glyph: a bar plus a left-pointing triangle. */
+export function RestartIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className}>
+      <path
+        d="M12 5.5a6.5 6.5 0 1 0 6.32 8.06"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+      />
+      <path d="M12 2.6 8.1 5.5 12 8.4V2.6Z" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function VolumeIcon({ className }: IconProps) {
   return (
     <svg {...baseProps} className={className}>

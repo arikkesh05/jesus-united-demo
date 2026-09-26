@@ -1,21 +1,58 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type {
+  ChangeEvent,
+  KeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+} from "react";
 import { motion, MotionConfig } from "framer-motion";
 import {
   PauseIcon,
   PlayIcon,
+  RestartIcon,
   VolumeIcon,
   VolumeOffIcon,
 } from "@/app/components/icons";
 import { FALLBACK_REFLECTION_AUDIO_URL } from "@/lib/reflectionFallback";
+import {
+  PLAYBACK_SPEEDS,
+  SCRUB_STEP_SECONDS,
+  activeCueAt,
+  buildEvenCues,
+  clampSeekTime,
+  emptyPlaybackMemory,
+  formatRemainingLabel,
+  formatSpeedLabel,
+  formatTimestamp,
+  hasUsableDuration,
+  isAutoplayRejection,
+  isPlaybackComplete,
+  normalizeSpeedIndex,
+  playbackStorageKey,
+  progressFraction,
+  readPlaybackMemory,
+  resumeTimeFor,
+  seekTimeFromFraction,
+  serializePlaybackMemory,
+  speedAtIndex,
+  type AudioCue,
+  type PlaybackMemory,
+  type StorageLike,
+} from "@/lib/audioEngine";
 
 interface AudioPlayerProps {
   src: string;
   title?: string;
+  /**
+   * Ordered prompt ids to light up as the track plays. The player spaces them
+   * evenly across the duration and reports the active one upward; it never
+   * renders the prompts itself.
+   */
+  cueIds?: readonly string[];
+  /** Fires whenever the active cue changes, and with `null` when none is. */
+  onActiveCueChange?: (cueId: string | null) => void;
 }
-
-const SPEEDS = [1, 1.25, 1.5];
 
 /**
  * Deterministic waveform bar profile: the heights are pure functions of the bar
@@ -33,9 +70,6 @@ const WAVEFORM_BAR_HEIGHTS = Array.from(
     return 0.22 + 0.78 * Math.min(1, wave);
   },
 );
-
-/** Keyboard scrub step (seconds) for Left/Right arrows on the player group. */
-const SCRUB_STEP_SECONDS = 5;
 
 /**
  * Tier 2 of the playback architecture: a bundled, locally synthesised track
@@ -119,14 +153,28 @@ function resolveAudioType(src: string): string | undefined {
   return AUDIO_MIME_TYPES[match[1].toLowerCase()];
 }
 
-function formatTime(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
-  const minutes = Math.floor(seconds / 60);
-  const remainder = Math.floor(seconds % 60);
-  return `${minutes}:${remainder.toString().padStart(2, "0")}`;
+/**
+ * Session storage, or `null` where it is unavailable.
+ *
+ * Private-mode Safari throws on the *first property access*, not just on write,
+ * so the getter itself is guarded -- an unguarded `window.sessionStorage` would
+ * take the whole player down on exactly the devices least able to run audio.
+ */
+function getSessionStorage(): StorageLike | null {
+  try {
+    if (typeof window === "undefined") return null;
+    return window.sessionStorage ?? null;
+  } catch {
+    return null;
+  }
 }
 
-export default function AudioPlayer({ src, title }: AudioPlayerProps) {
+export default function AudioPlayer({
+  src,
+  title,
+  cueIds,
+  onActiveCueChange,
+}: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -136,16 +184,37 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
   const [hasError, setHasError] = useState(false);
   const [usingFallback, setUsingFallback] = useState(false);
   const [isScrubTrackHovered, setIsScrubTrackHovered] = useState(false);
+  const [isAutoplayBlocked, setIsAutoplayBlocked] = useState(false);
+  const [hasCompleted, setHasCompleted] = useState(false);
+  /** Guards the resume effect so a later `src` change re-applies it exactly once. */
+  const hasRestoredRef = useRef(false);
+  /** Latest cue callback, so the timeupdate handler never closes over a stale one. */
+  const cueCallbackRef = useRef(onActiveCueChange);
+  const lastCueIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    cueCallbackRef.current = onActiveCueChange;
+  }, [onActiveCueChange]);
 
   const primarySrc = resolveAudioSrc(src);
   const primaryType = resolveAudioType(primarySrc);
-  const hasDuration = Number.isFinite(duration) && duration > 0;
-  const progress = hasDuration
-    ? Math.min(100, (currentTime / duration) * 100)
-    : 0;
+  const hasDuration = hasUsableDuration(duration);
+  const progress = progressFraction(currentTime, duration) * 100;
   const showsFallbackNotice = usingFallback && primarySrc !== FALLBACK_SRC;
   /** The transport control never claims to be playing while the badge reports a failure. */
   const showPlaying = isPlaying && !hasError;
+  const remainingLabel = formatRemainingLabel(currentTime, duration);
+  /**
+   * True once the reader has heard the whole track. Distinct from `hasCompleted`
+   * (which is persisted and cleared by restart): this one is derived from the
+   * playhead, so it reflects the current position rather than stored history.
+   */
+  const hasListenedToEnd = isPlaybackComplete(currentTime, duration);
+
+  /** Cues are spaced over the track once its length is known. */
+  const cues: AudioCue[] = buildEvenCues(cueIds ?? [], duration);
+  const activeCue = activeCueAt(cues, currentTime, duration);
+  const activeCueId = hasDuration ? activeCue?.id ?? null : null;
 
   /**
    * The media element reports which `<source>` candidate it actually loaded, so
@@ -169,14 +238,51 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
   /** Reads the element's live metadata into React state. `duration` is never NaN. */
   const syncFromElement = (audio: HTMLAudioElement) => {
     const mediaDuration = audio.duration;
-    setDuration(
-      Number.isFinite(mediaDuration) && mediaDuration > 0 ? mediaDuration : 0,
-    );
+    setDuration(hasUsableDuration(mediaDuration) ? mediaDuration : 0);
     if (Number.isFinite(audio.currentTime) && audio.currentTime > 0) {
       setCurrentTime(audio.currentTime);
     }
     if (audio.error) setHasError(true);
     syncFallbackNotice(audio);
+    // Restored here rather than in an effect: this is the first event that
+    // proves the track is real, it runs at most once, and it keeps the resume
+    // off the render path entirely.
+    restorePlayback(audio);
+  };
+
+  /**
+   * Applies the reader's saved place, exactly once per mount.
+   *
+   * Called from the metadata handlers rather than a `useEffect` on purpose. The
+   * position can only be clamped against a real `duration`, which does not exist
+   * until metadata lands, and a media event is the honest moment to act on it --
+   * an effect would fire against a NaN duration and silently discard the very
+   * position it was trying to restore.
+   */
+  const restorePlayback = (audio: HTMLAudioElement) => {
+    if (hasRestoredRef.current) return;
+    if (!hasUsableDuration(audio.duration)) return;
+    hasRestoredRef.current = true;
+
+    const storage = getSessionStorage();
+    const memory = readPlaybackMemory(
+      storage ? storage.getItem(playbackStorageKey(primarySrc)) : null,
+    );
+
+    const resumeAt = resumeTimeFor(memory, audio.duration);
+    if (resumeAt > 0) {
+      audio.currentTime = resumeAt;
+      setCurrentTime(resumeAt);
+    }
+
+    if (memory.completed) setHasCompleted(true);
+
+    // Only applied when it differs, so a normal-speed resume does not fight the
+    // element's own default.
+    if (memory.speedIndex !== 0) {
+      setSpeedIndex(memory.speedIndex);
+      audio.playbackRate = speedAtIndex(memory.speedIndex);
+    }
   };
 
   /**
@@ -190,7 +296,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
     audioRef.current = node;
     if (!node) return;
     syncFromElement(node);
-    node.playbackRate = SPEEDS[speedIndex];
+    node.playbackRate = speedAtIndex(speedIndex);
     node.muted = isMuted;
   };
 
@@ -201,7 +307,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
 
     setHasError(false);
     syncFromElement(audio);
-    audio.playbackRate = SPEEDS[speedIndex];
+    audio.playbackRate = speedAtIndex(speedIndex);
     audio.muted = isMuted;
   };
 
@@ -214,17 +320,48 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
   const handleTimeUpdate = () => {
     const audio = audioRef.current;
     if (!audio) return;
-    setCurrentTime(Number.isFinite(audio.currentTime) ? audio.currentTime : 0);
+    const position = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+    setCurrentTime(position);
+    // Scrubbing back into a finished track makes it unfinished again. Done here
+    // rather than in an effect so the flag changes with the playhead that caused
+    // it, instead of a render later.
+    if (position > 0 && hasCompleted) setHasCompleted(false);
     // Safety net: if the metadata events were missed entirely (see
     // `attachAudioElement`), the first `timeupdate` still repairs the duration.
-    if (!hasDuration && Number.isFinite(audio.duration) && audio.duration > 0) {
+    if (!hasDuration && hasUsableDuration(audio.duration)) {
       setDuration(audio.duration);
     }
   };
 
+  /** Persists position, completion and rate so a navigation does not lose the place. */
+  const persistMemory = useCallback(
+    (overrides?: Partial<PlaybackMemory>) => {
+      const storage = getSessionStorage();
+      if (!storage) return;
+      try {
+        const memory: PlaybackMemory = {
+          ...emptyPlaybackMemory(),
+          currentTime,
+          completed: hasCompleted,
+          speedIndex,
+          ...overrides,
+        };
+        storage.setItem(
+          playbackStorageKey(primarySrc),
+          serializePlaybackMemory(memory),
+        );
+      } catch {
+        // A full or blocked quota must never interrupt playback.
+      }
+    },
+    [currentTime, hasCompleted, primarySrc, speedIndex],
+  );
+
   const handleEnded = () => {
     setIsPlaying(false);
     setCurrentTime(0);
+    setHasCompleted(true);
+    persistMemory({ currentTime: 0, completed: true });
   };
 
   /**
@@ -258,6 +395,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
     setDuration(0);
     setHasError(true);
     setUsingFallback(false);
+    setIsAutoplayBlocked(false);
   };
 
   /** Promise-safe play/pause with a defensive reload-and-retry recovery pass. */
@@ -283,7 +421,18 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
       await audio.play();
       setIsPlaying(true);
       setHasError(false);
+      setIsAutoplayBlocked(false);
     } catch (err: unknown) {
+      // The autoplay policy is a *policy*, not a fault: the track is fine and the
+      // reader simply has not interacted yet. Surfacing it as an error badge
+      // would tell them the audio is broken when one more tap fixes it.
+      if (isAutoplayRejection(err)) {
+        setIsAutoplayBlocked(true);
+        setIsPlaying(false);
+        setHasError(false);
+        return;
+      }
+
       console.warn(
         "Primary audio play blocked or failed, retrying reload:",
         err,
@@ -294,6 +443,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
         await audio.play();
         setIsPlaying(true);
         setHasError(false);
+        setIsAutoplayBlocked(false);
       } catch (finalErr: unknown) {
         console.error("Audio playback fully rejected:", finalErr, {
           primarySrc,
@@ -321,17 +471,73 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
     const audio = audioRef.current;
     const next = Number(event.target.value);
     if (!Number.isFinite(next)) return;
+    const clamped = clampSeekTime(next, duration);
+    setCurrentTime(clamped);
+    if (audio && hasDuration) audio.currentTime = clamped;
+  };
+
+  /**
+   * Click-to-seek on the waveform itself.
+   *
+   * The slider below already covers keyboard and drag; this is the affordance
+   * for pointing at a moment, which is how people actually navigate audio. The
+   * fraction is measured against the element's own box and clamped in
+   * `seekTimeFromFraction`, because a pointer that leaves the window mid-press
+   * can report a coordinate outside it.
+   */
+  const handleWaveformClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const audio = audioRef.current;
+    if (!audio || !hasDuration) return;
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (bounds.width <= 0) return;
+
+    const fraction = (event.clientX - bounds.left) / bounds.width;
+    const next = seekTimeFromFraction(fraction, duration);
+    audio.currentTime = next;
     setCurrentTime(next);
-    if (audio && hasDuration)
-      audio.currentTime = Math.min(Math.max(next, 0), duration);
+    persistMemory({ currentTime: next });
+  };
+
+  /**
+   * Returns the playhead to the start and clears the completed flag.
+   *
+   * Seeking to zero is not enough on its own: a finished track is stored as
+   * complete, and the next mount would treat that as "already done". Clearing
+   * the flag is what makes restart stick.
+   */
+  const handleRestart = () => {
+    const audio = audioRef.current;
+    if (audio) audio.currentTime = 0;
+    setCurrentTime(0);
+    setHasCompleted(false);
+    persistMemory({ currentTime: 0, completed: false });
   };
 
   /** Applies a speed preset and mirrors it onto the live media element. */
   const setSpeed = (index: number) => {
     const audio = audioRef.current;
-    setSpeedIndex(index);
-    if (audio) audio.playbackRate = SPEEDS[index];
+    const safeIndex = normalizeSpeedIndex(index);
+    setSpeedIndex(safeIndex);
+    if (audio) audio.playbackRate = speedAtIndex(safeIndex);
+    persistMemory({ speedIndex: safeIndex });
   };
+
+  /** Reports the active cue upward, but only when it actually changes. */
+  useEffect(() => {
+    if (lastCueIdRef.current === activeCueId) return;
+    lastCueIdRef.current = activeCueId;
+    cueCallbackRef.current?.(activeCueId);
+  }, [activeCueId]);
+
+  /** Persists the playhead periodically so a nav loses at most a few seconds. */
+  useEffect(() => {
+    if (!hasDuration || currentTime <= 0) return;
+    const timer = window.setInterval(() => {
+      persistMemory();
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [currentTime, hasDuration, persistMemory]);
 
   const toggleMute = () => {
     const audio = audioRef.current;
@@ -358,14 +564,19 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
     if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
       const audio = audioRef.current;
       const mediaDuration = audio?.duration ?? 0;
-      if (!audio || !Number.isFinite(mediaDuration) || mediaDuration <= 0)
-        return;
+      if (!audio || !hasUsableDuration(mediaDuration)) return;
 
       event.preventDefault();
       const offset =
         event.key === "ArrowLeft" ? -SCRUB_STEP_SECONDS : SCRUB_STEP_SECONDS;
-      const next = Math.min(
-        Math.max(audio.currentTime + offset, 0),
+      // Arrow-left from the very start restarts, matching every other player:
+      // holding rewind should not be the only way back to zero.
+      if (event.key === "ArrowLeft" && audio.currentTime <= 0) {
+        handleRestart();
+        return;
+      }
+      const next = clampSeekTime(
+        audio.currentTime + offset,
         mediaDuration,
       );
       audio.currentTime = next;
@@ -381,7 +592,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
         aria-label={
           hasError
             ? "Reflection audio player unavailable"
-            : `Reflection audio player. Space to ${showPlaying ? "pause" : "play"}, left and right arrows to scrub`
+            : `Reflection audio player. Space to ${showPlaying ? "pause" : "play"}, left and right arrows to scrub, left arrow at the start to restart`
         }
         className="group rounded-2xl border border-white/10 bg-pill/70 p-4 shadow-md outline-none backdrop-blur-xl transition-shadow duration-300 focus-visible:ring-2 focus-visible:ring-gold/70 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas hover:shadow-lg"
       >
@@ -430,20 +641,43 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
             )}
           </motion.button>
 
+          <motion.button
+            type="button"
+            onClick={handleRestart}
+            disabled={hasError}
+            whileTap={hasError ? undefined : { scale: 0.95 }}
+            aria-label="Restart the reflection from the beginning"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sand bg-pill/80 p-2.5 text-muted transition-colors duration-200 hover:border-gold hover:text-espresso focus-visible:ring-2 focus-visible:ring-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <RestartIcon className="h-4 w-4" />
+          </motion.button>
+
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between gap-3">
               <p className="truncate text-sm font-bold text-espresso">
                 {title ?? "Reflection audio"}
               </p>
               <p className="shrink-0 text-xs font-medium tabular-nums text-muted">
-                {formatTime(currentTime)} / {formatTime(duration || 0)}
+                {formatTimestamp(currentTime)} /{" "}
+                {formatTimestamp(duration || 0)}
               </p>
             </div>
 
-            {/* Waveform visualizer — deterministic heights, springs settle when paused */}
+            {/*
+              Waveform: a real seek target, not decoration.
+              `aria-hidden` stays because the range input below is the
+              accessible control -- exposing a second, redundant seek surface
+              to assistive tech would mean two controls for one job. The
+              cursor and hover affordances tell sighted users it is clickable.
+            */}
             <div
               aria-hidden="true"
-              className="mt-2.5 flex h-9 items-center justify-between gap-[3px]"
+              onClick={handleWaveformClick}
+              className={`mt-2.5 flex h-9 items-center justify-between gap-[3px] ${
+                hasDuration
+                  ? "cursor-pointer rounded-md"
+                  : "cursor-default"
+              }`}
             >
               {WAVEFORM_BAR_HEIGHTS.map((height, index) => {
                 const played = hasDuration
@@ -501,7 +735,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
                 onMouseLeave={() => setIsScrubTrackHovered(false)}
                 disabled={!hasDuration}
                 aria-label="Seek through the reflection"
-                aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration || 0)}`}
+                aria-valuetext={`${formatTimestamp(currentTime)} of ${formatTimestamp(duration || 0)}`}
                 className="absolute inset-0 h-4 w-full cursor-pointer appearance-none rounded-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:cursor-not-allowed [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-gold [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gold"
               />
             </div>
@@ -530,7 +764,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
                 aria-label="Playback speed"
                 className="flex items-center gap-0.5 rounded-full border border-sand bg-pill/70 p-0.5"
               >
-                {SPEEDS.map((speed, index) => {
+                {PLAYBACK_SPEEDS.map((speed, index) => {
                   const isActive = speedIndex === index;
                   return (
                     <button
@@ -538,7 +772,7 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
                       type="button"
                       onClick={() => setSpeed(index)}
                       aria-pressed={isActive}
-                      aria-label={`Playback speed ${speed}x${isActive ? " (active)" : ""}`}
+                      aria-label={`Playback speed ${formatSpeedLabel(speed)}${isActive ? " (active)" : ""}`}
                       className={`relative rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums transition-colors duration-200 ${
                         isActive
                           ? "text-espresso"
@@ -556,16 +790,36 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
                           }}
                         />
                       )}
-                      <span className="relative">{speed}x</span>
+                      <span className="relative">
+                        {formatSpeedLabel(speed)}
+                      </span>
                     </button>
                   );
                 })}
               </div>
+
+              {remainingLabel ? (
+                <p className="shrink-0 text-[11px] font-medium tabular-nums text-muted/80">
+                  {hasListenedToEnd ? "Listened to the end" : remainingLabel}
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
 
-        {hasError ? (
+        {isAutoplayBlocked ? (
+          // A policy pause, not a fault: the track is fine, the browser just
+          // wants a gesture first. Inviting the tap instead of showing the
+          // "unavailable" badge keeps the two very different states distinct.
+          <p
+            role="status"
+            aria-live="polite"
+            className="mt-3 inline-flex flex-wrap items-center gap-2 rounded-full border border-sand bg-pill px-3 py-1.5 text-xs font-bold text-espresso/80"
+          >
+            <span aria-hidden="true" className="h-2 w-2 rounded-full bg-gold" />
+            Tap play to start the reflection
+          </p>
+        ) : hasError ? (
           <p
             role="status"
             aria-live="polite"
