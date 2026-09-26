@@ -1,5 +1,5 @@
-import { createClient } from '@/lib/supabaseBrowser';
-import type { AltarCompletion, HabitEntry } from '@/lib/types';
+import { createClient } from "@/lib/supabaseBrowser";
+import type { AltarCompletion, HabitEntry } from "@/lib/types";
 
 /**
  * Altar OS v1 data access layer.
@@ -25,7 +25,7 @@ export interface AltarDayState {
   habits: HabitMinutes;
 }
 
-export type AltarPersistMode = 'cloud' | 'guest';
+export type AltarPersistMode = "cloud" | "guest";
 
 export interface AltarPersistResult {
   ok: boolean;
@@ -42,20 +42,20 @@ export const EMPTY_HABITS: HabitMinutes = {
 export const EMPTY_ALTAR_DAY: AltarDayState = {
   morningCompleted: false,
   eveningCompleted: false,
-  eveningJournal: '',
+  eveningJournal: "",
   habits: { ...EMPTY_HABITS },
 };
 
 export const HABIT_STEP = 5;
 export const HABIT_MAX = 600;
 
-const STORAGE_KEY = 'jesusunited:altar-os:v1';
+const STORAGE_KEY = "jesusunited:altar-os:v1";
 
 /** Today's local date as `YYYY-MM-DD` (client-side only; do not SSR this). */
 export function todayLocalDate(): string {
   const now = new Date();
-  const month = `${now.getMonth() + 1}`.padStart(2, '0');
-  const day = `${now.getDate()}`.padStart(2, '0');
+  const month = `${now.getMonth() + 1}`.padStart(2, "0");
+  const day = `${now.getDate()}`.padStart(2, "0");
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
@@ -70,14 +70,14 @@ function emptyDay(): AltarDayState {
 }
 
 function readLocalStore(): Record<string, AltarDayState> {
-  if (typeof window === 'undefined') return {};
+  if (typeof window === "undefined") return {};
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
     const parsed: unknown = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object' && 'days' in parsed) {
+    if (parsed && typeof parsed === "object" && "days" in parsed) {
       const days = (parsed as { days?: Record<string, AltarDayState> }).days;
-      return days && typeof days === 'object' ? days : {};
+      return days && typeof days === "object" ? days : {};
     }
     return {};
   } catch {
@@ -87,7 +87,7 @@ function readLocalStore(): Record<string, AltarDayState> {
 }
 
 function writeLocalDay(date: string, state: AltarDayState): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   try {
     const days = readLocalStore();
     days[date] = state;
@@ -115,28 +115,38 @@ export async function getCurrentUserId(): Promise<string | null> {
  * on-device copy so the UI is never empty or broken.
  */
 export async function loadAltarDay(
-  date: string
-): Promise<{ state: AltarDayState; mode: AltarPersistMode; userId: string | null }> {
+  date: string,
+): Promise<{
+  state: AltarDayState;
+  mode: AltarPersistMode;
+  userId: string | null;
+}> {
   const userId = await getCurrentUserId();
 
   if (!userId) {
-    return { state: readLocalStore()[date] ?? emptyDay(), mode: 'guest', userId: null };
+    return {
+      state: readLocalStore()[date] ?? emptyDay(),
+      mode: "guest",
+      userId: null,
+    };
   }
 
   try {
     const supabase = createClient();
     const [altarResult, habitsResult] = await Promise.all([
       supabase
-        .from('altar_completions')
-        .select('morning_completed, evening_completed, evening_journal')
-        .eq('user_id', userId)
-        .eq('date', date)
+        .from("altar_completions")
+        .select("morning_completed, evening_completed, evening_journal")
+        .eq("user_id", userId)
+        .eq("date", date)
         .maybeSingle(),
       supabase
-        .from('habits')
-        .select('prayer_minutes, bible_reading_minutes, worship_minutes, service_minutes')
-        .eq('user_id', userId)
-        .eq('date', date)
+        .from("habits")
+        .select(
+          "prayer_minutes, bible_reading_minutes, worship_minutes, service_minutes",
+        )
+        .eq("user_id", userId)
+        .eq("date", date)
         .maybeSingle(),
     ]);
 
@@ -145,17 +155,20 @@ export async function loadAltarDay(
 
     const altar = (altarResult.data ?? null) as Pick<
       AltarCompletion,
-      'morning_completed' | 'evening_completed' | 'evening_journal'
+      "morning_completed" | "evening_completed" | "evening_journal"
     > | null;
     const habits = (habitsResult.data ?? null) as Pick<
       HabitEntry,
-      'prayer_minutes' | 'bible_reading_minutes' | 'worship_minutes' | 'service_minutes'
+      | "prayer_minutes"
+      | "bible_reading_minutes"
+      | "worship_minutes"
+      | "service_minutes"
     > | null;
 
     const state: AltarDayState = {
       morningCompleted: altar?.morning_completed ?? false,
       eveningCompleted: altar?.evening_completed ?? false,
-      eveningJournal: altar?.evening_journal ?? '',
+      eveningJournal: altar?.evening_journal ?? "",
       habits: {
         prayer: habits?.prayer_minutes ?? 0,
         scripture: habits?.bible_reading_minutes ?? 0,
@@ -164,10 +177,14 @@ export async function loadAltarDay(
       },
     };
 
-    return { state, mode: 'cloud', userId };
+    return { state, mode: "cloud", userId };
   } catch (error) {
-    console.warn('Altar OS: cloud read failed, using on-device state:', error);
-    return { state: readLocalStore()[date] ?? emptyDay(), mode: 'cloud', userId };
+    console.warn("Altar OS: cloud read failed, using on-device state:", error);
+    return {
+      state: readLocalStore()[date] ?? emptyDay(),
+      mode: "cloud",
+      userId,
+    };
   }
 }
 
@@ -179,11 +196,11 @@ export async function loadAltarDay(
 export async function persistAltarDay(
   date: string,
   state: AltarDayState,
-  userId: string | null
+  userId: string | null,
 ): Promise<AltarPersistResult> {
   if (!userId) {
     writeLocalDay(date, state);
-    return { ok: true, mode: 'guest' };
+    return { ok: true, mode: "guest" };
   }
 
   try {
@@ -205,17 +222,19 @@ export async function persistAltarDay(
     };
 
     const [altarResult, habitsResult] = await Promise.all([
-      supabase.from('altar_completions').upsert(altarRow, { onConflict: 'user_id,date' }),
-      supabase.from('habits').upsert(habitsRow, { onConflict: 'user_id,date' }),
+      supabase
+        .from("altar_completions")
+        .upsert(altarRow, { onConflict: "user_id,date" }),
+      supabase.from("habits").upsert(habitsRow, { onConflict: "user_id,date" }),
     ]);
 
     if (altarResult.error) throw altarResult.error;
     if (habitsResult.error) throw habitsResult.error;
 
-    return { ok: true, mode: 'cloud' };
+    return { ok: true, mode: "cloud" };
   } catch (error) {
-    console.warn('Altar OS: cloud save failed, keeping local backup:', error);
+    console.warn("Altar OS: cloud save failed, keeping local backup:", error);
     writeLocalDay(date, state);
-    return { ok: false, mode: 'cloud' };
+    return { ok: false, mode: "cloud" };
   }
 }
