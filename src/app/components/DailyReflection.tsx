@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
-import type { Reflection } from '@/lib/types';
-import AudioPlayer from '@/app/components/AudioPlayer';
-import PrayerWatchModal from '@/app/components/PrayerWatchModal';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, MotionConfig } from "framer-motion";
+import type { Reflection } from "@/lib/types";
+import AudioPlayer from "@/app/components/AudioPlayer";
+import PrayerWatchModal from "@/app/components/PrayerWatchModal";
 import PrayerSubmissionModal, {
   type PrayerSubmissionSeed,
-} from '@/app/components/PrayerSubmissionModal';
-import AvatarCanvas from '@/app/components/3d/AvatarCanvas';
+} from "@/app/components/PrayerSubmissionModal";
+import AvatarCanvas from "@/app/components/3d/AvatarCanvas";
 import {
   BellIcon,
   CheckIcon,
@@ -17,7 +17,7 @@ import {
   HandHeartIcon,
   HeartIcon,
   ShareIcon,
-} from '@/app/components/icons';
+} from "@/app/components/icons";
 
 interface DailyReflectionProps {
   reflection: Reflection | null;
@@ -36,7 +36,7 @@ interface ExamenEntry {
   notes: Record<string, string>;
 }
 
-const EXAMEN_STORAGE_KEY = 'jesusunited:daily-reflection-examen:v1';
+const EXAMEN_STORAGE_KEY = "jesusunited:daily-reflection-examen:v1";
 
 /** Guest-first, per-day Amen lock so one heart offers one amen per day. */
 interface AmenPulseEntry {
@@ -44,13 +44,13 @@ interface AmenPulseEntry {
   hasAmen: boolean;
 }
 
-const AMEN_STORAGE_KEY = 'jesusunited:amen-pulse:v1';
+const AMEN_STORAGE_KEY = "jesusunited:amen-pulse:v1";
 
 /** Examen prompt that carries a shareable conviction (Prompt 3: One Small Step). */
-const STEP_PROMPT_ID = 'one-small-step';
+const STEP_PROMPT_ID = "one-small-step";
 
 /** Wall category the bridge files a Morning Reflection under. */
-const BRIDGE_TOPIC = 'Guidance';
+const BRIDGE_TOPIC = "Guidance";
 
 /** Minimum reflection length before an intercession share is offered. */
 const BRIDGE_MIN_LENGTH = 10;
@@ -58,8 +58,8 @@ const BRIDGE_MIN_LENGTH = 10;
 /** Local calendar date (YYYY-MM-DD) so the Amen lock rolls over at local midnight. */
 function todayKey(): string {
   const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
@@ -77,14 +77,14 @@ function regionBaselineFor(dateKey: string): number {
 
 /** Reads today's Amen lock; corrupt or blocked storage degrades to not-offered. */
 function readAmenPulse(dateKey: string): boolean {
-  if (!dateKey || typeof window === 'undefined') return false;
+  if (!dateKey || typeof window === "undefined") return false;
 
   try {
     const raw = window.localStorage.getItem(AMEN_STORAGE_KEY);
     if (!raw) return false;
 
     const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return false;
+    if (!parsed || typeof parsed !== "object") return false;
 
     const entry = parsed as Partial<AmenPulseEntry>;
     return entry.date === dateKey && entry.hasAmen === true;
@@ -95,7 +95,7 @@ function readAmenPulse(dateKey: string): boolean {
 
 /** Persists the Amen lock; quota or privacy failures stay non-fatal. */
 function writeAmenPulse(dateKey: string): void {
-  if (!dateKey || typeof window === 'undefined') return;
+  if (!dateKey || typeof window === "undefined") return;
 
   const entry: AmenPulseEntry = { date: dateKey, hasAmen: true };
   try {
@@ -111,8 +111,8 @@ function writeAmenPulse(dateKey: string): void {
  */
 function scriptureAnchor(reference: string): string {
   const trimmed = reference.trim();
-  if (!trimmed) return 'the Word';
-  const passage = trimmed.split(':')[0]?.trim() ?? '';
+  if (!trimmed) return "the Word";
+  const passage = trimmed.split(":")[0]?.trim() ?? "";
   return passage || trimmed;
 }
 
@@ -121,24 +121,24 @@ function scriptureAnchor(reference: string): string {
  * the day's scripture reference where one exists.
  */
 function buildExamenPrompts(reference: string): ExamenPrompt[] {
-  const anchor = reference.trim() || 'the passage';
+  const anchor = reference.trim() || "the passage";
   return [
     {
-      id: 'anchor-word',
-      label: 'Anchor Word',
+      id: "anchor-word",
+      label: "Anchor Word",
       prompt: `What word or phrase from ${anchor} rose above the rest as you listened? Sit with it for a moment before moving on.`,
     },
     {
-      id: 'grace-noticed',
-      label: 'Grace Noticed',
+      id: "grace-noticed",
+      label: "Grace Noticed",
       prompt:
-        'Where did you sense God at work in the last 24 hours — a kindness, a provision, a quiet answer?',
+        "Where did you sense God at work in the last 24 hours — a kindness, a provision, a quiet answer?",
     },
     {
-      id: 'one-small-step',
-      label: 'One Small Step',
+      id: "one-small-step",
+      label: "One Small Step",
       prompt:
-        'What is one humble act of obedience you can carry into tomorrow because of this passage?',
+        "What is one humble act of obedience you can carry into tomorrow because of this passage?",
     },
   ];
 }
@@ -149,47 +149,48 @@ function buildExamenPrompts(reference: string): ExamenPrompt[] {
  * displayed day does not shift backwards in negative UTC offsets.
  */
 function formatReflectionDate(value: string): string {
-  if (!value) return '';
+  if (!value) return "";
 
   const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
   const date = new Date(isDateOnly ? `${value}T00:00:00` : value);
 
   if (Number.isNaN(date.getTime())) return value;
 
-  return date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
   });
 }
 
 /** Reads the stored Examen entry for a date; corrupt or blocked storage degrades to empty. */
 function readExamenStore(date: string): ExamenEntry {
   const empty: ExamenEntry = { completed: {}, notes: {} };
-  if (!date || typeof window === 'undefined') return empty;
+  if (!date || typeof window === "undefined") return empty;
 
   try {
     const raw = window.localStorage.getItem(EXAMEN_STORAGE_KEY);
     if (!raw) return empty;
 
     const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || !(date in parsed)) return empty;
+    if (!parsed || typeof parsed !== "object" || !(date in parsed))
+      return empty;
 
     const entry = (parsed as Record<string, unknown>)[date];
-    if (!entry || typeof entry !== 'object') return empty;
+    if (!entry || typeof entry !== "object") return empty;
 
     const { completed, notes } = entry as Partial<ExamenEntry>;
     const safeCompleted: Record<string, boolean> = {};
-    if (completed && typeof completed === 'object') {
+    if (completed && typeof completed === "object") {
       for (const [key, value] of Object.entries(completed)) {
-        if (typeof value === 'boolean') safeCompleted[key] = value;
+        if (typeof value === "boolean") safeCompleted[key] = value;
       }
     }
     const safeNotes: Record<string, string> = {};
-    if (notes && typeof notes === 'object') {
+    if (notes && typeof notes === "object") {
       for (const [key, value] of Object.entries(notes)) {
-        if (typeof value === 'string') safeNotes[key] = value;
+        if (typeof value === "string") safeNotes[key] = value;
       }
     }
     return { completed: safeCompleted, notes: safeNotes };
@@ -201,14 +202,14 @@ function readExamenStore(date: string): ExamenEntry {
 
 /** Persists one date's Examen entry; quota or privacy failures stay non-fatal. */
 function writeExamenEntry(date: string, entry: ExamenEntry): void {
-  if (!date || typeof window === 'undefined') return;
+  if (!date || typeof window === "undefined") return;
 
   try {
     let store: Record<string, unknown> = {};
     const raw = window.localStorage.getItem(EXAMEN_STORAGE_KEY);
     if (raw) {
       const parsed: unknown = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
+      if (parsed && typeof parsed === "object") {
         store = parsed as Record<string, unknown>;
       }
     }
@@ -220,9 +221,9 @@ function writeExamenEntry(date: string, entry: ExamenEntry): void {
 }
 
 export default function DailyReflection({ reflection }: DailyReflectionProps) {
-  const reflectionDate = reflection?.reflection_date ?? '';
+  const reflectionDate = reflection?.reflection_date ?? "";
   const prompts = useMemo(
-    () => buildExamenPrompts(reflection?.scripture_reference ?? ''),
+    () => buildExamenPrompts(reflection?.scripture_reference ?? ""),
     [reflection?.scripture_reference],
   );
 
@@ -246,7 +247,7 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
   /** Monotonic Amen counter — each increment lights the Watchman's ember core. */
   const [amenPulseCount, setAmenPulseCount] = useState(0);
   const amenBase = useMemo(
-    () => regionBaselineFor(reflectionDate || 'daily'),
+    () => regionBaselineFor(reflectionDate || "daily"),
     [reflectionDate],
   );
 
@@ -339,7 +340,7 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
   // ---------------------------------------------------------------------
 
   /** True when Prompt 3 carries something worth sharing. */
-  const stepNote = notes[STEP_PROMPT_ID] ?? '';
+  const stepNote = notes[STEP_PROMPT_ID] ?? "";
   const canShareStep = stepNote.trim().length >= BRIDGE_MIN_LENGTH;
 
   /** Opens the pre-filled intercession dialog (anonymous by default). */
@@ -355,12 +356,14 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
   /** Modal seed: title from the day's theme, body from the typed reflection. */
   const bridgeSeed = useMemo<PrayerSubmissionSeed>(
     () => ({
-      title: reflection ? `Morning Reflection: ${reflection.title}` : 'Morning Reflection',
+      title: reflection
+        ? `Morning Reflection: ${reflection.title}`
+        : "Morning Reflection",
       body: stepNote.trim(),
       topics: [BRIDGE_TOPIC],
       anonymous: true,
     }),
-    [reflection, stepNote]
+    [reflection, stepNote],
   );
 
   /** Optimistic confirmation: the wall reflects the share on its own. */
@@ -371,12 +374,15 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
 
   /** Smooth handoff: carry the believer from the Examen card to the live wall. */
   const scrollToWall = () => {
-    const wall = document.getElementById('prayer-wall-section');
+    const wall = document.getElementById("prayer-wall-section");
     if (!wall) return;
     const reduceMotion =
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    wall.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    wall.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "start",
+    });
   };
 
   /** Removes a finished radial gold pulse ring from the Animate-free ring stack. */
@@ -391,9 +397,9 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
     const text = [
       reflection.title,
       reflection.scripture_reference,
-      '',
+      "",
       reflection.reflection_text,
-    ].join('\n');
+    ].join("\n");
 
     let ok = false;
     try {
@@ -408,14 +414,14 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
     if (!ok) {
       // Legacy path for non-secure contexts where the async clipboard is absent.
       try {
-        const helper = document.createElement('textarea');
+        const helper = document.createElement("textarea");
         helper.value = text;
-        helper.setAttribute('readonly', '');
-        helper.style.position = 'fixed';
-        helper.style.opacity = '0';
+        helper.setAttribute("readonly", "");
+        helper.style.position = "fixed";
+        helper.style.opacity = "0";
         document.body.appendChild(helper);
         helper.select();
-        ok = document.execCommand('copy');
+        ok = document.execCommand("copy");
         document.body.removeChild(helper);
       } catch {
         ok = false;
@@ -438,7 +444,7 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
             className="pointer-events-none absolute -inset-6 -z-10 rounded-[3rem] blur-3xl"
             style={{
               background:
-                'radial-gradient(ellipse at 50% 0%, rgba(245, 158, 11, 0.14), transparent 70%)',
+                "radial-gradient(ellipse at 50% 0%, rgba(245, 158, 11, 0.14), transparent 70%)",
             }}
           />
           <div className="relative rounded-[2.25rem] border border-white/10 bg-pill/75 p-6 text-center shadow-[0_20px_60px_-15px_rgba(2,8,18,0.55)] backdrop-blur-2xl sm:p-8">
@@ -449,8 +455,8 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
               No reflection available today
             </h2>
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted">
-              Today&apos;s reflection has not been published yet. Please check back soon and keep
-              abiding in His word.
+              Today&apos;s reflection has not been published yet. Please check
+              back soon and keep abiding in His word.
             </p>
           </div>
         </section>
@@ -458,7 +464,9 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
     );
   }
 
-  const completedCount = prompts.filter((prompt) => completed[prompt.id]).length;
+  const completedCount = prompts.filter(
+    (prompt) => completed[prompt.id],
+  ).length;
   const amenCount = amenBase + amenDrift + (hasAmenToday ? 1 : 0);
 
   return (
@@ -470,7 +478,7 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
           className="pointer-events-none absolute -inset-6 -z-10 rounded-[3rem] blur-3xl"
           style={{
             background:
-              'radial-gradient(ellipse at 50% 0%, rgba(245, 158, 11, 0.14), transparent 70%)',
+              "radial-gradient(ellipse at 50% 0%, rgba(245, 158, 11, 0.14), transparent 70%)",
           }}
         />
 
@@ -486,7 +494,7 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
             <div className="flex flex-wrap items-center gap-3">
               <motion.span
                 whileHover={{ y: -2 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                transition={{ type: "spring", stiffness: 400, damping: 22 }}
                 className="inline-flex items-center rounded-full bg-pill px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-pill-ink shadow-sm"
               >
                 Daily Bread
@@ -502,7 +510,7 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
                 onClick={() => setIsWatchModalOpen(true)}
                 whileTap={{ scale: 0.96 }}
                 whileHover={{ y: -1 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                transition={{ type: "spring", stiffness: 400, damping: 22 }}
                 aria-haspopup="dialog"
                 aria-expanded={isWatchModalOpen}
                 className="ml-auto inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-sand bg-pill px-3 text-xs font-bold text-espresso shadow-soft transition-colors duration-200 hover:border-gold hover:text-pill-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 sm:px-4"
@@ -548,7 +556,10 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
             {/* Synchronous Amen Resonance — communal presence + tactile Amen */}
             <div className="mt-3 rounded-2xl border border-sand/80 bg-pill/85 p-4">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <span className="relative flex h-2.5 w-2.5 shrink-0" aria-hidden="true">
+                <span
+                  className="relative flex h-2.5 w-2.5 shrink-0"
+                  aria-hidden="true"
+                >
                   <span className="amen-breath absolute inline-flex h-full w-full rounded-full bg-gold opacity-60" />
                   <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-gold" />
                 </span>
@@ -556,9 +567,13 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
                   aria-live="polite"
                   className="min-w-0 flex-1 text-sm leading-6 text-espresso/85"
                 >
-                  <span className="font-bold tabular-nums">{amenCount}</span>{' '}
-                  {'believers in your region are consecrating their morning with'}{' '}
-                  <span className="font-bold">{scriptureAnchor(reflection.scripture_reference)}</span>{' '}
+                  <span className="font-bold tabular-nums">{amenCount}</span>{" "}
+                  {
+                    "believers in your region are consecrating their morning with"
+                  }{" "}
+                  <span className="font-bold">
+                    {scriptureAnchor(reflection.scripture_reference)}
+                  </span>{" "}
                   right now.
                 </p>
               </div>
@@ -569,25 +584,25 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
                   disabled={hasAmenToday}
                   whileTap={{ scale: 0.95 }}
                   whileHover={{ y: -1 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 22 }}
                   aria-label={
                     hasAmenToday
-                      ? 'Amen offered today'
-                      : 'Say Amen to this scripture anchor'
+                      ? "Amen offered today"
+                      : "Say Amen to this scripture anchor"
                   }
                   className={`relative inline-flex min-h-[44px] items-center gap-2 overflow-visible rounded-full px-5 text-sm font-bold shadow-soft transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 ${
                     hasAmenToday
-                      ? 'bg-pill text-pill-ink'
-                      : 'bg-gold text-canvas hover:bg-gold-deep'
+                      ? "bg-pill text-pill-ink"
+                      : "bg-gold text-canvas hover:bg-gold-deep"
                   }`}
                 >
                   <HeartIcon
-                    className={`h-4 w-4 ${hasAmenToday ? 'fill-current' : ''}`}
+                    className={`h-4 w-4 ${hasAmenToday ? "fill-current" : ""}`}
                   />
-                  {hasAmenToday ? 'Amen Offered' : 'Say Amen'}
+                  {hasAmenToday ? "Amen Offered" : "Say Amen"}
                 </motion.button>
                 <span role="status" aria-live="polite" className="sr-only">
-                  {hasAmenToday ? 'Your amen has been offered today.' : ''}
+                  {hasAmenToday ? "Your amen has been offered today." : ""}
                 </span>
                 {/* Expanding radial gold pulse rings */}
                 <div className="relative" aria-hidden="true">
@@ -596,7 +611,7 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
                       key={id}
                       initial={{ opacity: 0.55, scale: 0.35 }}
                       animate={{ opacity: 0, scale: 2.4 }}
-                      transition={{ duration: 1.1, ease: 'easeOut' }}
+                      transition={{ duration: 1.1, ease: "easeOut" }}
                       onAnimationComplete={() => dismissAmenRing(id)}
                       className="pointer-events-none absolute -top-11 right-0 block h-24 w-24 rounded-full border-2 border-gold"
                     />
@@ -610,13 +625,18 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
             </p>
 
             <div className="mt-6">
-              <p className="mb-3 text-sm font-bold text-espresso">Listen to the reflection</p>
+              <p className="mb-3 text-sm font-bold text-espresso">
+                Listen to the reflection
+              </p>
               {/*
                 Always rendered: the data layer normalises `audio_url` to the bundled
                 MP3, and an empty value would still resolve to it inside the player -
                 so a missing URL can never remove the player itself.
               */}
-              <AudioPlayer src={reflection.audio_url ?? ''} title={reflection.title} />
+              <AudioPlayer
+                src={reflection.audio_url ?? ""}
+                title={reflection.title}
+              />
             </div>
 
             {/* Reflective Examen */}
@@ -628,8 +648,8 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
                 Reflective Examen
               </h3>
               <p className="mt-1 text-sm leading-6 text-muted">
-                Open a prompt, jot a thought, and mark it reflected — three small steps of
-                examen.
+                Open a prompt, jot a thought, and mark it reflected — three
+                small steps of examen.
               </p>
               <ul className="mt-4 space-y-3">
                 {prompts.map((prompt, index) => (
@@ -639,15 +659,19 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
                     index={index}
                     isExpanded={expandedId === prompt.id}
                     isCompleted={Boolean(completed[prompt.id])}
-                    note={notes[prompt.id] ?? ''}
+                    note={notes[prompt.id] ?? ""}
                     onToggleExpanded={() =>
-                      setExpandedId((current) => (current === prompt.id ? null : prompt.id))
+                      setExpandedId((current) =>
+                        current === prompt.id ? null : prompt.id,
+                      )
                     }
                     onToggleCompleted={() => toggleCompleted(prompt.id)}
                     onNoteChange={(value) => updateNote(prompt.id, value)}
                     canBridge={prompt.id === STEP_PROMPT_ID}
                     shared={prompt.id === STEP_PROMPT_ID && sharedToWall}
-                    hintVisible={prompt.id === STEP_PROMPT_ID && shareHintVisible}
+                    hintVisible={
+                      prompt.id === STEP_PROMPT_ID && shareHintVisible
+                    }
                     shareHintId="examen-share-hint"
                     bridgeRings={bridgeRings}
                     onShareToWall={openIntercessionBridge}
@@ -659,7 +683,10 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
 
             {/* Footer: progress + tactile copy action */}
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-sand/70 pt-5">
-              <p aria-live="polite" className="text-xs font-semibold tabular-nums text-muted">
+              <p
+                aria-live="polite"
+                className="text-xs font-semibold tabular-nums text-muted"
+              >
                 {completedCount} of {prompts.length} prompts reflected
               </p>
               <div className="flex items-center gap-2">
@@ -668,11 +695,11 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
                   onClick={() => void copyReflection()}
                   whileTap={{ scale: 0.96 }}
                   whileHover={{ y: -1 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 22 }}
                   className={`inline-flex min-h-[44px] items-center gap-2 rounded-full px-4 text-sm font-bold shadow-soft transition-colors duration-200 ${
                     copied
-                      ? 'bg-gold text-canvas hover:bg-gold-deep'
-                      : 'border border-sand bg-pill text-espresso hover:border-gold hover:text-pill-ink'
+                      ? "bg-gold text-canvas hover:bg-gold-deep"
+                      : "border border-sand bg-pill text-espresso hover:border-gold hover:text-pill-ink"
                   }`}
                 >
                   {copied ? (
@@ -680,14 +707,13 @@ export default function DailyReflection({ reflection }: DailyReflectionProps) {
                   ) : (
                     <CopyIcon className="h-4 w-4 text-muted" />
                   )}
-                  {copied ? 'Copied!' : 'Copy Reflection'}
+                  {copied ? "Copied!" : "Copy Reflection"}
                 </motion.button>
                 <span role="status" aria-live="polite" className="sr-only">
-                  {copied ? 'Reflection copied to clipboard' : ''}
+                  {copied ? "Reflection copied to clipboard" : ""}
                 </span>
               </div>
             </div>
-
           </div>
         </article>
       </div>
@@ -753,16 +779,16 @@ function ExamenCard({
   return (
     <motion.li
       layout
-      transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+      transition={{ type: "spring", stiffness: 320, damping: 30 }}
       className="list-none"
     >
       <motion.div
         whileHover={{ y: -2 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
         className={`overflow-hidden rounded-2xl border transition-colors duration-200 ${
           isCompleted
-            ? 'border-gold/50 bg-pill/60 shadow-sm'
-            : 'border-sand bg-pill/80 hover:border-gold/40 hover:shadow-sm'
+            ? "border-gold/50 bg-pill/60 shadow-sm"
+            : "border-sand bg-pill/80 hover:border-gold/40 hover:shadow-sm"
         }`}
       >
         <button
@@ -776,14 +802,18 @@ function ExamenCard({
           <span
             aria-hidden="true"
             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-              isCompleted ? 'bg-gold text-canvas' : 'bg-pill text-pill-ink'
+              isCompleted ? "bg-gold text-canvas" : "bg-pill text-pill-ink"
             }`}
           >
             {isCompleted ? <CheckIcon className="h-4 w-4" /> : index + 1}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-bold text-espresso">{prompt.label}</span>
-            <span className="block truncate text-xs text-muted">{prompt.prompt}</span>
+            <span className="block text-sm font-bold text-espresso">
+              {prompt.label}
+            </span>
+            <span className="block truncate text-xs text-muted">
+              {prompt.prompt}
+            </span>
           </span>
           {isCompleted && (
             <span className="hidden shrink-0 items-center rounded-full bg-pill px-2.5 py-1 text-[11px] font-bold text-pill-ink sm:inline-flex">
@@ -793,7 +823,7 @@ function ExamenCard({
           <motion.span
             aria-hidden="true"
             animate={{ rotate: isExpanded ? 180 : 0 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
             className="shrink-0 text-muted"
           >
             <ChevronDownIcon className="h-4 w-4" />
@@ -808,13 +838,15 @@ function ExamenCard({
               role="region"
               aria-labelledby={headerId}
               initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
+              animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+              transition={{ type: "spring", stiffness: 280, damping: 30 }}
               className="overflow-hidden"
             >
               <div className="border-t border-sand/70 px-4 pb-4 pt-3">
-                <p className="text-sm leading-6 text-espresso/80">{prompt.prompt}</p>
+                <p className="text-sm leading-6 text-espresso/80">
+                  {prompt.prompt}
+                </p>
                 <label
                   htmlFor={noteId}
                   className="mt-3 block text-xs font-bold uppercase tracking-wide text-muted"
@@ -836,12 +868,12 @@ function ExamenCard({
                   aria-pressed={isCompleted}
                   className={`mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-full px-4 text-sm font-bold transition-colors duration-200 ${
                     isCompleted
-                      ? 'bg-gold text-canvas shadow-sm hover:bg-gold-deep'
-                      : 'border border-sand bg-pill text-espresso hover:border-gold hover:text-pill-ink'
+                      ? "bg-gold text-canvas shadow-sm hover:bg-gold-deep"
+                      : "border border-sand bg-pill text-espresso hover:border-gold hover:text-pill-ink"
                   }`}
                 >
                   <CheckIcon className="h-4 w-4" />
-                  {isCompleted ? 'Completed' : 'Mark Reflected'}
+                  {isCompleted ? "Completed" : "Mark Reflected"}
                 </motion.button>
 
                 {/* Examen-to-intercession bridge (Prompt 3 only). */}
@@ -853,7 +885,11 @@ function ExamenCard({
                         onClick={onShareToWall}
                         whileTap={{ scale: 0.95 }}
                         whileHover={{ y: -1 }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 400,
+                          damping: 30,
+                        }}
                         aria-describedby={hintVisible ? shareHintId : undefined}
                         className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/10 bg-pill/60 px-3.5 py-2 text-xs font-medium text-slate-300 transition hover:bg-gold/15 hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                       >
@@ -870,7 +906,11 @@ function ExamenCard({
                             initial={{ opacity: 0, scale: 0.9, y: 4 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 420,
+                              damping: 30,
+                            }}
                             className="relative inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/15 px-3 py-1.5 text-[11px] font-semibold text-gold shadow-[0_0_16px_rgba(245,158,11,0.28)]"
                           >
                             <span
@@ -884,8 +924,10 @@ function ExamenCard({
                                 key={ringId}
                                 initial={{ opacity: 0.5, scale: 0.4 }}
                                 animate={{ opacity: 0, scale: 2.2 }}
-                                transition={{ duration: 1, ease: 'easeOut' }}
-                                onAnimationComplete={() => onDismissRing(ringId)}
+                                transition={{ duration: 1, ease: "easeOut" }}
+                                onAnimationComplete={() =>
+                                  onDismissRing(ringId)
+                                }
                                 className="pointer-events-none absolute inset-0 block rounded-full border-2 border-gold"
                               />
                             ))}
@@ -901,12 +943,18 @@ function ExamenCard({
                           id={shareHintId}
                           role="status"
                           initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
+                          animate={{ opacity: 1, height: "auto" }}
                           exit={{ opacity: 0, height: 0 }}
-                          transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+                          transition={{
+                            type: "spring",
+                            stiffness: 320,
+                            damping: 30,
+                          }}
                           className="overflow-hidden text-xs font-medium text-gold/90"
                         >
-                          <span className="mt-2 block">Write a short reflection first to share.</span>
+                          <span className="mt-2 block">
+                            Write a short reflection first to share.
+                          </span>
                         </motion.p>
                       ) : null}
                     </AnimatePresence>
@@ -920,4 +968,3 @@ function ExamenCard({
     </motion.li>
   );
 }
-

@@ -1,6 +1,9 @@
-import { FALLBACK_REFLECTION, FALLBACK_REFLECTION_AUDIO_URL } from '@/lib/reflectionFallback';
-import { supabase } from '@/lib/supabase';
-import type { Reflection } from '@/lib/types';
+import {
+  FALLBACK_REFLECTION,
+  FALLBACK_REFLECTION_AUDIO_URL,
+} from "@/lib/reflectionFallback";
+import { supabase } from "@/lib/supabase";
+import type { Reflection } from "@/lib/types";
 
 /**
  * Containers that WebKit/Safari cannot decode (the retired Google Actions sound
@@ -24,11 +27,12 @@ function stripQuery(value: string): string {
  *   verbatim, so real hosted audio still plays as the primary source.
  */
 export function normalizeReflectionAudioUrl(value: unknown): string {
-  if (typeof value !== 'string') return FALLBACK_REFLECTION_AUDIO_URL;
+  if (typeof value !== "string") return FALLBACK_REFLECTION_AUDIO_URL;
 
   const url = value.trim();
-  if (url === '') return FALLBACK_REFLECTION_AUDIO_URL;
-  if (UNSUPPORTED_AUDIO_PATTERN.test(stripQuery(url))) return FALLBACK_REFLECTION_AUDIO_URL;
+  if (url === "") return FALLBACK_REFLECTION_AUDIO_URL;
+  if (UNSUPPORTED_AUDIO_PATTERN.test(stripQuery(url)))
+    return FALLBACK_REFLECTION_AUDIO_URL;
 
   return url;
 }
@@ -52,25 +56,33 @@ function withNormalizedAudio(reflection: Reflection): Reflection {
 export async function getDailyReflection(): Promise<Reflection | null> {
   try {
     const { data, error } = await supabase
-      .from('reflections')
-      .select('*')
-      .order('reflection_date', { ascending: false })
+      .from("reflections")
+      .select("*")
+      .order("reflection_date", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (error) {
-      console.error('Error fetching daily reflection, using local fallback reflection:', error.message);
+      console.error(
+        "Error fetching daily reflection, using local fallback reflection:",
+        error.message,
+      );
       return FALLBACK_REFLECTION;
     }
 
-    if (!data || typeof data !== 'object') {
-      console.error('No daily reflection returned, using local fallback reflection.');
+    if (!data || typeof data !== "object") {
+      console.error(
+        "No daily reflection returned, using local fallback reflection.",
+      );
       return FALLBACK_REFLECTION;
     }
 
     return withNormalizedAudio(data as Reflection);
   } catch (error) {
-    console.error('Unexpected error fetching daily reflection, using local fallback reflection:', error);
+    console.error(
+      "Unexpected error fetching daily reflection, using local fallback reflection:",
+      error,
+    );
     return FALLBACK_REFLECTION;
   }
 }
