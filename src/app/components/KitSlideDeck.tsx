@@ -1,9 +1,13 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from '@/app/components/icons';
-import type { PulpitKit } from '@/lib/types';
+import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CloseIcon,
+} from "@/app/components/icons";
+import type { PulpitKit } from "@/lib/types";
 
 interface KitSlideDeckProps {
   kit: PulpitKit;
@@ -21,24 +25,24 @@ interface SlidePreview {
 function buildSlides(kit: PulpitKit): SlidePreview[] {
   const slides: SlidePreview[] = [
     {
-      label: 'Theme Slide',
+      label: "Theme Slide",
       title: kit.title,
-      body: kit.theme || kit.series_name || 'Sunday Gathering',
+      body: kit.theme || kit.series_name || "Sunday Gathering",
       notes: kit.key_quote
         ? `Anchor the room on the key quote before the message: \u201c${kit.key_quote}\u201d`
-        : 'Open with the sermon title and the one-sentence theme while people settle.',
+        : "Open with the sermon title and the one-sentence theme while people settle.",
     },
   ];
 
   if (kit.scripture_passages.length > 0) {
     slides.push({
-      label: 'Core Scripture',
+      label: "Core Scripture",
       title: kit.scripture_passages[0],
-      body: kit.key_quote ?? 'Read the passage together before the message.',
-      footnote: kit.scripture_passages.slice(1).join('  ·  ') || undefined,
+      body: kit.key_quote ?? "Read the passage together before the message.",
+      footnote: kit.scripture_passages.slice(1).join("  ·  ") || undefined,
       notes: kit.key_quote
-        ? 'Let the quote breathe on screen for ten seconds before teaching.'
-        : 'Invite a volunteer to read the passage aloud while the congregation follows along.',
+        ? "Let the quote breathe on screen for ten seconds before teaching."
+        : "Invite a volunteer to read the passage aloud while the congregation follows along.",
     });
   }
 
@@ -46,21 +50,21 @@ function buildSlides(kit: PulpitKit): SlidePreview[] {
     slides.push({
       label: `Point ${index + 1}`,
       title: point.section,
-      body: point.subtext || 'Walking through this movement of the text.',
+      body: point.subtext || "Walking through this movement of the text.",
       notes:
         kit.talking_points[index] ??
-        'Walk the congregation through this movement slowly, anchoring each claim in the text.',
+        "Walk the congregation through this movement slowly, anchoring each claim in the text.",
     });
   });
 
   slides.push({
-    label: 'Application Challenge',
-    title: 'This Week',
+    label: "Application Challenge",
+    title: "This Week",
     body:
       kit.call_to_action ??
       kit.talking_points[kit.talking_points.length - 1] ??
-      'Invite the congregation to put the passage into practice.',
-    notes: 'Close with prayer and one concrete next step for the week ahead.',
+      "Invite the congregation to put the passage into practice.",
+    notes: "Close with prayer and one concrete next step for the week ahead.",
   });
 
   return slides;
@@ -75,21 +79,23 @@ export default function KitSlideDeck({ kit }: KitSlideDeckProps) {
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         setActiveIndex(null);
-      } else if (event.key === 'ArrowLeft') {
+      } else if (event.key === "ArrowLeft") {
         setActiveIndex((prev) =>
           prev === null ? null : (prev - 1 + slides.length) % slides.length,
         );
-      } else if (event.key === 'ArrowRight') {
-        setActiveIndex((prev) => (prev === null ? null : (prev + 1) % slides.length));
+      } else if (event.key === "ArrowRight") {
+        setActiveIndex((prev) =>
+          prev === null ? null : (prev + 1) % slides.length,
+        );
       }
     };
-    document.addEventListener('keydown', handleKeyDown);
-    document.body.style.overflow = 'hidden';
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
     };
   }, [isOpen, slides.length]);
 
@@ -114,8 +120,12 @@ export default function KitSlideDeck({ kit }: KitSlideDeckProps) {
               </span>
             </div>
             <div className="flex aspect-video flex-1 flex-col justify-center gap-1.5 p-4">
-              <p className="text-sm font-bold leading-5 text-espresso">{slide.title}</p>
-              <p className="line-clamp-3 text-xs leading-5 text-muted">{slide.body}</p>
+              <p className="text-sm font-bold leading-5 text-espresso">
+                {slide.title}
+              </p>
+              <p className="line-clamp-3 text-xs leading-5 text-muted">
+                {slide.body}
+              </p>
             </div>
             <div className="flex items-center justify-between border-t border-sand/50 px-4 py-2">
               <span className="text-[10px] font-medium text-muted">
@@ -148,7 +158,7 @@ export default function KitSlideDeck({ kit }: KitSlideDeckProps) {
               initial={{ opacity: 0, scale: 0.94, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 12 }}
-              transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+              transition={{ type: "spring", stiffness: 380, damping: 32 }}
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center justify-between gap-3">
@@ -186,7 +196,9 @@ export default function KitSlideDeck({ kit }: KitSlideDeckProps) {
                 <p className="text-[11px] font-bold uppercase tracking-wider text-gold">
                   Presenter Notes
                 </p>
-                <p className="mt-1 text-xs leading-5 text-slate-200">{activeSlide.notes}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-200">
+                  {activeSlide.notes}
+                </p>
               </div>
 
               <div className="mt-4 flex items-center justify-between gap-3">
@@ -194,7 +206,9 @@ export default function KitSlideDeck({ kit }: KitSlideDeckProps) {
                   type="button"
                   onClick={() =>
                     setActiveIndex((prev) =>
-                      prev === null ? null : (prev - 1 + slides.length) % slides.length,
+                      prev === null
+                        ? null
+                        : (prev - 1 + slides.length) % slides.length,
                     )
                   }
                   className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white transition-all duration-200 hover:border-gold/50 hover:bg-white/20 hover:text-gold active:scale-[0.98]"
@@ -211,7 +225,9 @@ export default function KitSlideDeck({ kit }: KitSlideDeckProps) {
                       aria-current={index === activeIndex}
                       onClick={() => setActiveIndex(index)}
                       className={`h-1.5 rounded-full transition-all duration-200 ${
-                        index === activeIndex ? 'w-6 bg-gold' : 'w-1.5 bg-white/25 hover:bg-white/50'
+                        index === activeIndex
+                          ? "w-6 bg-gold"
+                          : "w-1.5 bg-white/25 hover:bg-white/50"
                       }`}
                     />
                   ))}
@@ -219,7 +235,9 @@ export default function KitSlideDeck({ kit }: KitSlideDeckProps) {
                 <button
                   type="button"
                   onClick={() =>
-                    setActiveIndex((prev) => (prev === null ? null : (prev + 1) % slides.length))
+                    setActiveIndex((prev) =>
+                      prev === null ? null : (prev + 1) % slides.length,
+                    )
                   }
                   className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white transition-all duration-200 hover:border-gold/50 hover:bg-white/20 hover:text-gold active:scale-[0.98]"
                 >

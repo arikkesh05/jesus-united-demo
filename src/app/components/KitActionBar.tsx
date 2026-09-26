@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import { CheckIcon, CopyIcon, PrinterIcon } from '@/app/components/icons';
-import { buildPulpitKitMarkdown } from '@/lib/pulpitKitMarkdown';
-import type { PulpitKit } from '@/lib/types';
+import { useEffect, useRef, useState } from "react";
+import { CheckIcon, CopyIcon, PrinterIcon } from "@/app/components/icons";
+import { buildPulpitKitMarkdown } from "@/lib/pulpitKitMarkdown";
+import type { PulpitKit } from "@/lib/types";
 
 interface KitActionBarProps {
   kit: PulpitKit;
 }
 
-type CopyStatus = 'idle' | 'copied' | 'error';
+type CopyStatus = "idle" | "copied" | "error";
 
 export default function KitActionBar({ kit }: KitActionBarProps) {
-  const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle');
+  const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -25,30 +25,30 @@ export default function KitActionBar({ kit }: KitActionBarProps) {
     const markdown = buildPulpitKitMarkdown(kit);
 
     try {
-      if (typeof navigator === 'undefined' || !navigator.clipboard) {
-        setCopyStatus('error');
+      if (typeof navigator === "undefined" || !navigator.clipboard) {
+        setCopyStatus("error");
         return;
       }
       await navigator.clipboard.writeText(markdown);
-      setCopyStatus('copied');
+      setCopyStatus("copied");
     } catch {
-      setCopyStatus('error');
+      setCopyStatus("error");
     } finally {
       if (resetTimer.current) clearTimeout(resetTimer.current);
-      resetTimer.current = setTimeout(() => setCopyStatus('idle'), 2400);
+      resetTimer.current = setTimeout(() => setCopyStatus("idle"), 2400);
     }
   };
 
   const handlePrint = () => {
-    if (typeof window !== 'undefined') window.print();
+    if (typeof window !== "undefined") window.print();
   };
 
   const copyLabel =
-    copyStatus === 'copied'
-      ? 'Copied!'
-      : copyStatus === 'error'
-        ? 'Copy unavailable'
-        : 'Copy Markdown Kit';
+    copyStatus === "copied"
+      ? "Copied!"
+      : copyStatus === "error"
+        ? "Copy unavailable"
+        : "Copy Markdown Kit";
 
   return (
     <>
@@ -57,12 +57,12 @@ export default function KitActionBar({ kit }: KitActionBarProps) {
           type="button"
           onClick={handleCopy}
           className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold text-canvas transition-all duration-200 active:scale-[0.98] ${
-            copyStatus === 'copied'
-              ? 'bg-espresso text-canvas shadow-lg'
-              : 'bg-gold hover:bg-gold-deep hover:shadow-md'
+            copyStatus === "copied"
+              ? "bg-espresso text-canvas shadow-lg"
+              : "bg-gold hover:bg-gold-deep hover:shadow-md"
           }`}
         >
-          {copyStatus === 'copied' ? (
+          {copyStatus === "copied" ? (
             <CheckIcon className="h-4 w-4" />
           ) : (
             <CopyIcon className="h-4 w-4" />
@@ -85,11 +85,11 @@ export default function KitActionBar({ kit }: KitActionBarProps) {
       </div>
 
       <p role="status" aria-live="polite" className="sr-only">
-        {copyStatus === 'copied'
-          ? 'Pulpit kit copied to the clipboard as Markdown.'
-          : copyStatus === 'error'
-            ? 'Clipboard access is unavailable in this browser.'
-            : ''}
+        {copyStatus === "copied"
+          ? "Pulpit kit copied to the clipboard as Markdown."
+          : copyStatus === "error"
+            ? "Clipboard access is unavailable in this browser."
+            : ""}
       </p>
     </>
   );
