@@ -11,8 +11,12 @@
  * `+Y` (the North Pole), so `phi = PI / 2` puts the camera on the Equator.
  */
 
-import { latLngToVector3, type GlobeLatLng, type GlobeVector3 } from '@/lib/globe';
-import type { GlobeMarker } from '@/lib/types';
+import {
+  latLngToVector3,
+  type GlobeLatLng,
+  type GlobeVector3,
+} from "@/lib/globe";
+import type { GlobeMarker } from "@/lib/types";
 
 /** A camera/orbit snapshot: azimuth, polar angle and radial distance. */
 export interface GlobeOrbitState {
@@ -104,7 +108,8 @@ export function dampValue(
   if (!Number.isFinite(current)) return target;
   if (!Number.isFinite(target)) return current;
   if (!Number.isFinite(dtSeconds) || dtSeconds <= 0) return current;
-  const rate = Number.isFinite(lambda) && lambda > 0 ? lambda : GLOBE_DAMPING_LAMBDA;
+  const rate =
+    Number.isFinite(lambda) && lambda > 0 ? lambda : GLOBE_DAMPING_LAMBDA;
   return current + (target - current) * (1 - Math.exp(-rate * dtSeconds));
 }
 
@@ -115,9 +120,23 @@ export function stepOrbit(
   dtSeconds: number,
 ): GlobeOrbitState {
   return {
-    theta: dampValue(current.theta, target.theta, GLOBE_DAMPING_LAMBDA, dtSeconds),
-    phi: clampPitch(dampValue(current.phi, target.phi, GLOBE_DAMPING_LAMBDA, dtSeconds)),
-    distance: clampZoom(dampValue(current.distance, target.distance, GLOBE_ZOOM_LAMBDA, dtSeconds)),
+    theta: dampValue(
+      current.theta,
+      target.theta,
+      GLOBE_DAMPING_LAMBDA,
+      dtSeconds,
+    ),
+    phi: clampPitch(
+      dampValue(current.phi, target.phi, GLOBE_DAMPING_LAMBDA, dtSeconds),
+    ),
+    distance: clampZoom(
+      dampValue(
+        current.distance,
+        target.distance,
+        GLOBE_ZOOM_LAMBDA,
+        dtSeconds,
+      ),
+    ),
   };
 }
 
@@ -147,7 +166,9 @@ export function applyOrbitDrag(
  * This is a pure projection: callers clamp pitch/zoom before calling it.
  */
 export function orbitToPosition(orbit: GlobeOrbitState): GlobeVector3 {
-  const distance = Number.isFinite(orbit.distance) ? orbit.distance : GLOBE_DEFAULT_DISTANCE;
+  const distance = Number.isFinite(orbit.distance)
+    ? orbit.distance
+    : GLOBE_DEFAULT_DISTANCE;
   const phi = Number.isFinite(orbit.phi) ? orbit.phi : Math.PI / 2;
   const theta = Number.isFinite(orbit.theta) ? orbit.theta : 0;
   const ring = distance * Math.sin(phi);
@@ -178,7 +199,11 @@ export function initialOrbitForMarkers(
 
   for (const marker of markers) {
     const point = latLngToVector3(marker.lat, marker.lng, 1);
-    if (!Number.isFinite(point.x) || !Number.isFinite(point.y) || !Number.isFinite(point.z)) {
+    if (
+      !Number.isFinite(point.x) ||
+      !Number.isFinite(point.y) ||
+      !Number.isFinite(point.z)
+    ) {
       continue;
     }
     x += point.x;
@@ -213,8 +238,12 @@ export const GLOBE_FLY_TO_TILT = 0.14;
  * circle, returned as an absolute theta the damped orbit can chase without
  * ever taking the long way around (or multi-turn spinning after drags).
  */
-export function shortestOrbitTheta(currentTheta: number, targetTheta: number): number {
-  if (!Number.isFinite(currentTheta) || !Number.isFinite(targetTheta)) return targetTheta;
+export function shortestOrbitTheta(
+  currentTheta: number,
+  targetTheta: number,
+): number {
+  if (!Number.isFinite(currentTheta) || !Number.isFinite(targetTheta))
+    return targetTheta;
   let delta = (targetTheta - currentTheta) % (Math.PI * 2);
   if (delta > Math.PI) delta -= Math.PI * 2;
   if (delta < -Math.PI) delta += Math.PI * 2;
@@ -234,7 +263,9 @@ export function flyToMarker(
   const point = latLngToVector3(marker.lat, marker.lng, 1);
   const phi = Math.acos(clamp(point.y, -1, 1)) - GLOBE_FLY_TO_TILT;
   // Zoom in for focus, but never zoom out if the user is already closer.
-  const distance = clampZoom(Math.min(clampZoom(currentDistance), GLOBE_FLY_TO_DISTANCE));
+  const distance = clampZoom(
+    Math.min(clampZoom(currentDistance), GLOBE_FLY_TO_DISTANCE),
+  );
   return {
     theta: Math.atan2(point.x, point.z),
     phi: clampPitch(phi),
@@ -252,10 +283,14 @@ export function flyToMarker(
 export function markerScaleForDistance(distance: number): number {
   const safeDistance = clampZoom(distance);
   if (safeDistance <= GLOBE_DEFAULT_DISTANCE) {
-    const t = (GLOBE_DEFAULT_DISTANCE - safeDistance) / (GLOBE_DEFAULT_DISTANCE - GLOBE_ZOOM_MIN);
+    const t =
+      (GLOBE_DEFAULT_DISTANCE - safeDistance) /
+      (GLOBE_DEFAULT_DISTANCE - GLOBE_ZOOM_MIN);
     return 1 - t * (1 - MARKER_SCALE_NEAR);
   }
-  const t = (safeDistance - GLOBE_DEFAULT_DISTANCE) / (GLOBE_ZOOM_MAX - GLOBE_DEFAULT_DISTANCE);
+  const t =
+    (safeDistance - GLOBE_DEFAULT_DISTANCE) /
+    (GLOBE_ZOOM_MAX - GLOBE_DEFAULT_DISTANCE);
   return 1 + t * (MARKER_SCALE_FAR - 1);
 }
 
@@ -291,11 +326,17 @@ export interface ScreenBadgeBox {
  * of one another. Non-finite input never reports a collision (nothing is
  * hidden on degenerate projections).
  */
-export function badgeBoxesCollide(a: ScreenBadgeBox, b: ScreenBadgeBox): boolean {
-  const horizontalOverlapPx = a.halfWidthPx + b.halfWidthPx - Math.abs(a.x - b.x);
+export function badgeBoxesCollide(
+  a: ScreenBadgeBox,
+  b: ScreenBadgeBox,
+): boolean {
+  const horizontalOverlapPx =
+    a.halfWidthPx + b.halfWidthPx - Math.abs(a.x - b.x);
   const verticalGapPx = Math.abs(a.y - b.y);
-  return horizontalOverlapPx > BADGE_CULL_OVERLAP_PX
-    && verticalGapPx < BADGE_CULL_VERTICAL_PX;
+  return (
+    horizontalOverlapPx > BADGE_CULL_OVERLAP_PX &&
+    verticalGapPx < BADGE_CULL_VERTICAL_PX
+  );
 }
 
 /** Applies a wheel event to the camera distance (positive delta pulls back). */
@@ -312,7 +353,10 @@ export function applyPinchZoom(distance: number, ratio: number): number {
 }
 
 /** True when a pointer gesture travelled far enough to be an orbit, not a tap. */
-export function pointerTravelExceeded(dxPixels: number, dyPixels: number): boolean {
+export function pointerTravelExceeded(
+  dxPixels: number,
+  dyPixels: number,
+): boolean {
   const dx = Number.isFinite(dxPixels) ? dxPixels : 0;
   const dy = Number.isFinite(dyPixels) ? dyPixels : 0;
   return Math.hypot(dx, dy) > CLICK_SLOP_PX;
@@ -320,14 +364,21 @@ export function pointerTravelExceeded(dxPixels: number, dyPixels: number): boole
 
 /** Width of a marker's name pill, bounded so long names stay on the globe. */
 export function labelWidthForText(text: string): number {
-  const length = typeof text === 'string' ? text.length : 0;
-  return clamp(length * MARKER_LABEL_CHAR_WIDTH, MARKER_LABEL_MIN_WIDTH, MARKER_LABEL_MAX_WIDTH);
+  const length = typeof text === "string" ? text.length : 0;
+  return clamp(
+    length * MARKER_LABEL_CHAR_WIDTH,
+    MARKER_LABEL_MIN_WIDTH,
+    MARKER_LABEL_MAX_WIDTH,
+  );
 }
 
 /** Angles within +/- PI, used to keep idle-drift accumulation well conditioned. */
 export function wrapAngle(angle: number): number {
   if (!Number.isFinite(angle)) return 0;
-  return ((((angle + Math.PI) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) - Math.PI;
+  return (
+    ((((angle + Math.PI) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) -
+    Math.PI
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -401,7 +452,9 @@ export function smoothRamp(value: number, start: number, end: number): number {
  * follow, and the summary pill fades in last. A standalone marker never
  * aggregates, so callers pass `0` for it and keep every layer fully visible.
  */
-export function clusterLayerOpacities(aggregation: number): ClusterLayerOpacities {
+export function clusterLayerOpacities(
+  aggregation: number,
+): ClusterLayerOpacities {
   const value = Number.isFinite(aggregation) ? clamp(aggregation, 0, 1) : 0;
   return {
     badge: 1 - smoothRamp(value, 0.02, 0.35),
@@ -423,7 +476,11 @@ export const CLUSTER_PILL_SCREEN_MIN_PX = 18;
 export const CLUSTER_PILL_SCREEN_MAX_PX = 30;
 
 /** One de-stacking cluster: its running centroid and member payload indexes. */
-interface Cluster { lat: number; lng: number; members: number[] }
+interface Cluster {
+  lat: number;
+  lng: number;
+  members: number[];
+}
 
 /**
  * Approximate ground distance in degrees between two coordinates on the
@@ -433,7 +490,10 @@ interface Cluster { lat: number; lng: number; members: number[] }
  */
 export function markerGroundDistance(a: GlobeLatLng, b: GlobeLatLng): number {
   const latMid = ((a.lat + b.lat) / 2) * (Math.PI / 180);
-  return Math.hypot(a.lat - b.lat, (a.lng - b.lng) * Math.max(0.1, Math.cos(latMid)));
+  return Math.hypot(
+    a.lat - b.lat,
+    (a.lng - b.lng) * Math.max(0.1, Math.cos(latMid)),
+  );
 }
 
 /**
@@ -444,9 +504,11 @@ function buildClusters(markers: readonly GlobeMarker[]): Cluster[] {
   const clusters: Cluster[] = [];
   for (let index = 0; index < markers.length; index += 1) {
     const marker = markers[index];
-    const cluster = clusters.find((candidate) => (
-      markerGroundDistance(candidate, marker) <= MARKER_JITTER_CLUSTER_DEGREES
-    ));
+    const cluster = clusters.find(
+      (candidate) =>
+        markerGroundDistance(candidate, marker) <=
+        MARKER_JITTER_CLUSTER_DEGREES,
+    );
     if (cluster) {
       const size = cluster.members.length;
       cluster.lat = (cluster.lat * size + marker.lat) / (size + 1);
@@ -463,9 +525,13 @@ function buildClusters(markers: readonly GlobeMarker[]): Cluster[] {
  * Rank a cluster's members by hashed id so payload order can never change who
  * stands where; the tiebreak keeps the sort totally deterministic.
  */
-function orderedClusterMembers(markers: readonly GlobeMarker[], cluster: Cluster): number[] {
+function orderedClusterMembers(
+  markers: readonly GlobeMarker[],
+  cluster: Cluster,
+): number[] {
   return [...cluster.members].sort((a, b) => {
-    const byHash = markerHashForId(markers[a].id) - markerHashForId(markers[b].id);
+    const byHash =
+      markerHashForId(markers[a].id) - markerHashForId(markers[b].id);
     return byHash !== 0 ? byHash : markers[a].id.localeCompare(markers[b].id);
   });
 }
@@ -473,7 +539,7 @@ function orderedClusterMembers(markers: readonly GlobeMarker[], cluster: Cluster
 /** FNV-1a 32-bit hash of a marker id — stable across sessions and processes. */
 export function markerHashForId(id: string): number {
   let hash = 0x811c9dc5;
-  const text = typeof id === 'string' ? id : '';
+  const text = typeof id === "string" ? id : "";
   for (let index = 0; index < text.length; index += 1) {
     hash ^= text.charCodeAt(index);
     hash = Math.imul(hash, 0x01000193);
@@ -487,9 +553,9 @@ export function avatarSpriteVariantForId(id: string): 0 | 1 | 2 | 3 {
 }
 
 /** Lower-case substrings in a marker role/title that pin the pastor sheet. */
-const PASTOR_ROLE_KEYWORDS = ['pastor', 'father', 'priest'] as const;
+const PASTOR_ROLE_KEYWORDS = ["pastor", "father", "priest"] as const;
 /** Lower-case substrings in a marker role/title that pin the kid sheet. */
-const KID_ROLE_KEYWORDS = ['kid', 'child', 'youth'] as const;
+const KID_ROLE_KEYWORDS = ["kid", "child", "youth"] as const;
 
 /**
  * Known female first names that pin the female sprite sheet. Matched exactly
@@ -497,11 +563,42 @@ const KID_ROLE_KEYWORDS = ['kid', 'child', 'youth'] as const;
  * never collide with "Sarah").
  */
 const FEMALE_NAME_CUES = new Set([
-  'sarah', 'mary', 'ruth', 'esther', 'deborah', 'hannah', 'abigail', 'naomi',
-  'grace', 'faith', 'joy', 'mercy', 'lydia', 'priscilla', 'phoebe', 'tabitha',
-  'anna', 'elizabeth', 'miriam', 'rachel', 'rebecca', 'leah', 'martha',
-  'joanna', 'susanna', 'eunice', 'emma', 'olivia', 'sophia', 'isabella',
-  'charlotte', 'amelia', 'zuri', 'adaeze', 'chidinma', 'ana',
+  "sarah",
+  "mary",
+  "ruth",
+  "esther",
+  "deborah",
+  "hannah",
+  "abigail",
+  "naomi",
+  "grace",
+  "faith",
+  "joy",
+  "mercy",
+  "lydia",
+  "priscilla",
+  "phoebe",
+  "tabitha",
+  "anna",
+  "elizabeth",
+  "miriam",
+  "rachel",
+  "rebecca",
+  "leah",
+  "martha",
+  "joanna",
+  "susanna",
+  "eunice",
+  "emma",
+  "olivia",
+  "sophia",
+  "isabella",
+  "charlotte",
+  "amelia",
+  "zuri",
+  "adaeze",
+  "chidinma",
+  "ana",
 ]);
 
 /**
@@ -509,18 +606,60 @@ const FEMALE_NAME_CUES = new Set([
  * `FEMALE_NAME_CUES`).
  */
 const MALE_NAME_CUES = new Set([
-  'marcus', 'david', 'john', 'james', 'joseph', 'peter', 'paul', 'andrew',
-  'philip', 'thomas', 'matthew', 'simon', 'stephen', 'nathaniel', 'samuel',
-  'elijah', 'elias', 'isaiah', 'jeremiah', 'joshua', 'caleb', 'gideon',
-  'moses', 'aaron', 'abraham', 'isaac', 'jacob', 'daniel', 'micah', 'jonah',
-  'noah', 'ethan', 'lucas', 'luke', 'timothy', 'titus', 'silas', 'felix',
-  'cornelius', 'victor', 'gabriel', 'michael', 'elisha', 'amos', 'joel',
-  'malachi', 'ezra', 'nehemiah', 'mordecai',
+  "marcus",
+  "david",
+  "john",
+  "james",
+  "joseph",
+  "peter",
+  "paul",
+  "andrew",
+  "philip",
+  "thomas",
+  "matthew",
+  "simon",
+  "stephen",
+  "nathaniel",
+  "samuel",
+  "elijah",
+  "elias",
+  "isaiah",
+  "jeremiah",
+  "joshua",
+  "caleb",
+  "gideon",
+  "moses",
+  "aaron",
+  "abraham",
+  "isaac",
+  "jacob",
+  "daniel",
+  "micah",
+  "jonah",
+  "noah",
+  "ethan",
+  "lucas",
+  "luke",
+  "timothy",
+  "titus",
+  "silas",
+  "felix",
+  "cornelius",
+  "victor",
+  "gabriel",
+  "michael",
+  "elisha",
+  "amos",
+  "joel",
+  "malachi",
+  "ezra",
+  "nehemiah",
+  "mordecai",
 ]);
 
 /** Normalises a first name for gender-cue lookup: trimmed, lower-cased. */
 function normalizeNameCue(firstName: string | null | undefined): string {
-  return typeof firstName === 'string' ? firstName.trim().toLowerCase() : '';
+  return typeof firstName === "string" ? firstName.trim().toLowerCase() : "";
 }
 
 /**
@@ -541,7 +680,7 @@ export function avatarVariantForMarker(
   role: string | null | undefined,
   firstName?: string | null,
 ): 0 | 1 | 2 | 3 {
-  const text = typeof role === 'string' ? role.toLowerCase() : '';
+  const text = typeof role === "string" ? role.toLowerCase() : "";
   const nameCue = normalizeNameCue(firstName);
   const isKnownFemale = FEMALE_NAME_CUES.has(nameCue);
   const isKnownMale = MALE_NAME_CUES.has(nameCue);
@@ -611,11 +750,13 @@ export function clusterAngleForSlot(
 }
 
 /** Every slot angle of an N-member formation, uniformly spaced by `2π / N`. */
-export function clusterDistributionAngles(count: number, phaseRadians = 0): number[] {
+export function clusterDistributionAngles(
+  count: number,
+  phaseRadians = 0,
+): number[] {
   const total = Math.max(1, Math.floor(Number.isFinite(count) ? count : 1));
-  return Array.from(
-    { length: total },
-    (_, slot) => clusterAngleForSlot(total, slot, phaseRadians),
+  return Array.from({ length: total }, (_, slot) =>
+    clusterAngleForSlot(total, slot, phaseRadians),
   );
 }
 
@@ -629,7 +770,8 @@ export function clusterDistributionAngles(count: number, phaseRadians = 0): numb
 export function clusterFanRadiusDegrees(count: number): number {
   if (!Number.isFinite(count) || count < 2) return 0;
   if (count === 2) return MARKER_PAIR_LINE_DEGREES / 2;
-  const needed = MARKER_CLUSTER_MIN_CHORD_DEGREES / (2 * Math.sin(Math.PI / count));
+  const needed =
+    MARKER_CLUSTER_MIN_CHORD_DEGREES / (2 * Math.sin(Math.PI / count));
   return Math.min(
     Math.max(needed, MARKER_CLUSTER_FAN_RADIUS_DEGREES),
     MARKER_CLUSTER_MAX_FAN_RADIUS_DEGREES,
@@ -661,7 +803,9 @@ export function polygonSlotLatLng(
 
 /** Normalises a marker's city into a non-empty pill headline. */
 function cityLabel(city: string | null | undefined): string {
-  return typeof city === 'string' && city.trim() !== '' ? city.trim() : 'This city';
+  return typeof city === "string" && city.trim() !== ""
+    ? city.trim()
+    : "This city";
 }
 
 /** Total a count resolves to for display purposes (never below one). */
@@ -674,9 +818,14 @@ function countableTotal(count: number): number {
  * (singular for a lone gathering). A missing city falls back to a neutral
  * phrase so the pill is never blank. Used as the single-line accessible name.
  */
-export function clusterSummaryLabel(city: string | null | undefined, count: number): string {
+export function clusterSummaryLabel(
+  city: string | null | undefined,
+  count: number,
+): string {
   const total = countableTotal(count);
-  return cityLabel(city) + ' • ' + total + ' Gathering' + (total === 1 ? '' : 's');
+  return (
+    cityLabel(city) + " • " + total + " Gathering" + (total === 1 ? "" : "s")
+  );
 }
 
 /** The two lines of an aggregated summary pill (headline + count). */
@@ -699,14 +848,18 @@ export function clusterPillLines(
   const total = countableTotal(count);
   return {
     headline: cityLabel(city),
-    subline: total + ' Gathering' + (total === 1 ? '' : 's'),
+    subline: total + " Gathering" + (total === 1 ? "" : "s"),
   };
 }
 
 /** Pill width (world units) for a summary label, bounded like the name tags. */
 export function clusterLabelWidthForText(text: string): number {
-  const length = typeof text === 'string' ? text.length : 0;
-  return clamp(length * CLUSTER_LABEL_CHAR_WIDTH, CLUSTER_LABEL_MIN_WIDTH, CLUSTER_LABEL_MAX_WIDTH);
+  const length = typeof text === "string" ? text.length : 0;
+  return clamp(
+    length * CLUSTER_LABEL_CHAR_WIDTH,
+    CLUSTER_LABEL_MIN_WIDTH,
+    CLUSTER_LABEL_MAX_WIDTH,
+  );
 }
 
 /**
@@ -715,8 +868,8 @@ export function clusterLabelWidthForText(text: string): number {
  * squeezing either line horizontally.
  */
 export function clusterPillWidth(lines: ClusterPillLines): number {
-  const headline = typeof lines?.headline === 'string' ? lines.headline : '';
-  const subline = typeof lines?.subline === 'string' ? lines.subline : '';
+  const headline = typeof lines?.headline === "string" ? lines.headline : "";
+  const subline = typeof lines?.subline === "string" ? lines.subline : "";
   return clusterLabelWidthForText(
     headline.length >= subline.length ? headline : subline,
   );
@@ -732,8 +885,13 @@ export function clusterPillWidth(lines: ClusterPillLines): number {
 export function clusterAggregationForDistance(distance: number): number {
   const safeDistance = clampZoom(distance);
   const span = CLUSTER_AGGREGATE_FAR_DISTANCE - CLUSTER_AGGREGATE_NEAR_DISTANCE;
-  if (!(span > 0)) return safeDistance >= CLUSTER_AGGREGATE_FAR_DISTANCE ? 1 : 0;
-  const t = clamp((safeDistance - CLUSTER_AGGREGATE_NEAR_DISTANCE) / span, 0, 1);
+  if (!(span > 0))
+    return safeDistance >= CLUSTER_AGGREGATE_FAR_DISTANCE ? 1 : 0;
+  const t = clamp(
+    (safeDistance - CLUSTER_AGGREGATE_NEAR_DISTANCE) / span,
+    0,
+    1,
+  );
   return t * t * (3 - 2 * t);
 }
 
@@ -776,7 +934,6 @@ export function groupMarkerClusters(
     };
   });
 }
-
 
 /**
  * Fans out ambassadors that share (or nearly share) a location so storybook

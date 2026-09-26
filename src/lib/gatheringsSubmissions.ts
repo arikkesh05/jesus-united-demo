@@ -1,6 +1,9 @@
-import { getCurrentUserId } from '@/lib/altar';
-import { createClient } from '@/lib/supabaseBrowser';
-import type { GatheringSubmission, GatheringSubmissionStatus } from '@/lib/types';
+import { getCurrentUserId } from "@/lib/altar";
+import { createClient } from "@/lib/supabaseBrowser";
+import type {
+  GatheringSubmission,
+  GatheringSubmissionStatus,
+} from "@/lib/types";
 
 /**
  * Gatherings community data access layer (Phase 1 — Task 3).
@@ -16,7 +19,7 @@ import type { GatheringSubmission, GatheringSubmissionStatus } from '@/lib/types
 
 export type GatheringSubmissionInsert = Omit<
   GatheringSubmission,
-  'id' | 'status' | 'created_at'
+  "id" | "status" | "created_at"
 >;
 
 export interface SubmitGatheringResult {
@@ -24,7 +27,7 @@ export interface SubmitGatheringResult {
   error: string | null;
 }
 
-export type AttendanceMode = 'cloud' | 'guest';
+export type AttendanceMode = "cloud" | "guest";
 
 export interface RecordAttendanceResult {
   ok: boolean;
@@ -32,7 +35,7 @@ export interface RecordAttendanceResult {
   error: string | null;
 }
 
-const ATTENDANCE_STORAGE_KEY = 'jesusunited:gathering-attendance:v1';
+const ATTENDANCE_STORAGE_KEY = "jesusunited:gathering-attendance:v1";
 
 /** On-device check-in mirror shaped like a minimal `GatheringAttendance` row. */
 export interface LocalAttendanceRecord {
@@ -57,22 +60,23 @@ function emptyLocalStore(): LocalAttendanceStore {
 }
 
 function readLocalStore(): LocalAttendanceStore {
-  if (typeof window === 'undefined') return emptyLocalStore();
+  if (typeof window === "undefined") return emptyLocalStore();
   try {
     const raw = window.localStorage.getItem(ATTENDANCE_STORAGE_KEY);
     if (!raw) return emptyLocalStore();
     const parsed: unknown = JSON.parse(raw);
     if (
       parsed &&
-      typeof parsed === 'object' &&
+      typeof parsed === "object" &&
       Array.isArray((parsed as { records?: unknown }).records)
     ) {
       const records = (parsed as { records: unknown[] }).records.filter(
         (record): record is LocalAttendanceRecord =>
-          typeof record === 'object' &&
+          typeof record === "object" &&
           record !== null &&
-          typeof (record as { gathering_id?: unknown }).gathering_id === 'string' &&
-          typeof (record as { attended_at?: unknown }).attended_at === 'string'
+          typeof (record as { gathering_id?: unknown }).gathering_id ===
+            "string" &&
+          typeof (record as { attended_at?: unknown }).attended_at === "string",
       );
       return { records };
     }
@@ -84,7 +88,7 @@ function readLocalStore(): LocalAttendanceStore {
 }
 
 function writeLocalStore(store: LocalAttendanceStore): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(ATTENDANCE_STORAGE_KEY, JSON.stringify(store));
   } catch {
@@ -98,17 +102,25 @@ interface LocalAttendanceStore {
 
 /** Persists the guest check-in locally. Returns `false` only if storage is blocked. */
 export function markLocalAttendance(gatheringId: string): boolean {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === "undefined") return false;
   const store = readLocalStore();
-  if (store.records.some((record) => record.gathering_id === gatheringId)) return true;
-  store.records.push({ gathering_id: gatheringId, attended_at: new Date().toISOString() });
+  if (store.records.some((record) => record.gathering_id === gatheringId))
+    return true;
+  store.records.push({
+    gathering_id: gatheringId,
+    attended_at: new Date().toISOString(),
+  });
   writeLocalStore(store);
   return true;
 }
 
 /** Whether this device already recorded a check-in for the gathering. */
-export async function hasLocalAttendance(gatheringId: string): Promise<boolean> {
-  return readLocalStore().records.some((record) => record.gathering_id === gatheringId);
+export async function hasLocalAttendance(
+  gatheringId: string,
+): Promise<boolean> {
+  return readLocalStore().records.some(
+    (record) => record.gathering_id === gatheringId,
+  );
 }
 
 /**
@@ -117,24 +129,31 @@ export async function hasLocalAttendance(gatheringId: string): Promise<boolean> 
  * editor (never from the client).
  */
 export async function submitGathering(
-  submission: GatheringSubmissionInsert
+  submission: GatheringSubmissionInsert,
 ): Promise<SubmitGatheringResult> {
-  const payload: GatheringSubmissionInsert & { status: GatheringSubmissionStatus } = {
+  const payload: GatheringSubmissionInsert & {
+    status: GatheringSubmissionStatus;
+  } = {
     ...submission,
-    status: 'pending',
+    status: "pending",
   };
 
   try {
     const supabase = createClient();
-    const { error } = await supabase.from('gathering_submissions').insert(payload);
+    const { error } = await supabase
+      .from("gathering_submissions")
+      .insert(payload);
     if (error) {
-      console.error('Gathering submission rejected:', error.message);
+      console.error("Gathering submission rejected:", error.message);
       return { ok: false, error: error.message };
     }
     return { ok: true, error: null };
   } catch (error) {
-    console.error('Gathering submission failed:', error);
-    return { ok: false, error: 'The submission service is unavailable. Please try again.' };
+    console.error("Gathering submission failed:", error);
+    return {
+      ok: false,
+      error: "The submission service is unavailable. Please try again.",
+    };
   }
 }
 
@@ -143,24 +162,31 @@ export async function submitGathering(
  * `gathering_attendances` row; guests (or any failed cloud write) persist the
  * check-in to localStorage so the counter still reflects them.
  */
-export async function recordAttendance(gatheringId: string): Promise<RecordAttendanceResult> {
+export async function recordAttendance(
+  gatheringId: string,
+): Promise<RecordAttendanceResult> {
   const userId = await resolveUserId();
 
   if (userId) {
     try {
       const supabase = createClient();
       const { error } = await supabase
-        .from('gathering_attendances')
+        .from("gathering_attendances")
         .insert({ gathering_id: gatheringId, user_id: userId });
       if (error) throw error;
-      return { ok: true, mode: 'cloud', error: null };
+      return { ok: true, mode: "cloud", error: null };
     } catch (error) {
-      console.warn('Attendance cloud write failed, keeping an on-device record:', error);
+      console.warn(
+        "Attendance cloud write failed, keeping an on-device record:",
+        error,
+      );
       const persisted = markLocalAttendance(gatheringId);
       return {
         ok: persisted,
-        mode: 'guest',
-        error: persisted ? null : 'We could not save your check-in. Please try again.',
+        mode: "guest",
+        error: persisted
+          ? null
+          : "We could not save your check-in. Please try again.",
       };
     }
   }
@@ -168,8 +194,8 @@ export async function recordAttendance(gatheringId: string): Promise<RecordAtten
   const persisted = markLocalAttendance(gatheringId);
   return {
     ok: persisted,
-    mode: 'guest',
-    error: persisted ? null : 'We could not save your check-in on this device.',
+    mode: "guest",
+    error: persisted ? null : "We could not save your check-in on this device.",
   };
 }
 
@@ -185,9 +211,9 @@ export async function getAttendanceCount(gatheringId: string): Promise<number> {
   try {
     const supabase = createClient();
     const { count, error } = await supabase
-      .from('gathering_attendances')
-      .select('id', { count: 'exact', head: true })
-      .eq('gathering_id', gatheringId);
+      .from("gathering_attendances")
+      .select("id", { count: "exact", head: true })
+      .eq("gathering_id", gatheringId);
     if (error) throw error;
 
     const cloudCount = count ?? 0;
@@ -199,7 +225,7 @@ export async function getAttendanceCount(gatheringId: string): Promise<number> {
     }
     return cloudCount;
   } catch (error) {
-    console.warn('Attendance count unavailable, using on-device data:', error);
+    console.warn("Attendance count unavailable, using on-device data:", error);
     return localAttended ? 1 : 0;
   }
 }

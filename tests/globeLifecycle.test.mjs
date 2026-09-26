@@ -2,11 +2,29 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 test('event handlers attach/detach on canvas lifecycle', () => {
   let attached = false; let removed = false;
-  const ref = { addEventListener: () => attached = true, removeEventListener: () => removed = true };
+  let attachedHandler = null; let removedHandler = null;
+  // The doubles assert a real function handler was handed over, so the unused-parameter pattern
+  // never arises and the test covers more than a bare call count.
+  const ref = {
+    addEventListener: (type, handler) => {
+      assert.equal(typeof handler, 'function');
+      assert.equal(type, 'webglcontextlost');
+      attached = true; attachedHandler = handler;
+    },
+    removeEventListener: (type, handler) => {
+      assert.equal(typeof handler, 'function');
+      assert.equal(type, 'webglcontextlost');
+      removed = true; removedHandler = handler;
+    },
+  };
   // Simulate mount/unmount
-  ref.addEventListener('webglcontextlost', () => {});
-  ref.removeEventListener('webglcontextlost', () => {});
+  const onLost = () => {};
+  ref.addEventListener('webglcontextlost', onLost);
+  ref.removeEventListener('webglcontextlost', onLost);
   assert.ok(attached); assert.ok(removed);
+  // The teardown must unregister the very listener the mount registered, or the handler leaks and
+  // fires against a dead GL context.
+  assert.equal(attachedHandler, removedHandler);
 });
 test('contextlost: preventDefault + lost flag', () => {
   let defaulted = false; let lostFlag = false;

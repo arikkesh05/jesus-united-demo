@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import { motion, MotionConfig } from 'framer-motion';
+import { useEffect, useRef, useState } from "react";
+import { motion, MotionConfig } from "framer-motion";
 import {
   CalendarIcon,
   ChatIcon,
@@ -11,13 +11,13 @@ import {
   MapPinIcon,
   UserIcon,
   UsersIcon,
-} from '@/app/components/icons';
+} from "@/app/components/icons";
 import {
   getAttendanceCount,
   hasLocalAttendance,
   recordAttendance,
-} from '@/lib/gatheringsSubmissions';
-import type { Gathering } from '@/lib/types';
+} from "@/lib/gatheringsSubmissions";
+import type { Gathering } from "@/lib/types";
 
 interface GatheringCardProps {
   gathering: Gathering;
@@ -45,20 +45,20 @@ function buildEmailHref(gathering: Gathering): string | null {
 }
 
 const secondaryLinkClass =
-  'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full border border-white/10 bg-pill/70 px-3 py-2 text-xs font-bold text-slate-200 outline-none transition hover:border-gold/50 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-gold/50';
+  "inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full border border-white/10 bg-pill/70 px-3 py-2 text-xs font-bold text-slate-200 outline-none transition hover:border-gold/50 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-gold/50";
 
 /** Formats a PostGIS-computed `distance_meters` into a short imperial badge. */
 function formatDistance(meters: number): string {
-  if (!Number.isFinite(meters) || meters < 0) return '';
+  if (!Number.isFinite(meters) || meters < 0) return "";
   return `${(meters / 1609.34).toFixed(1)} mi away`;
 }
 
 /** Weekly-cadence gatherings read as fellowship; anything else is a micro-church. */
 function resolveStatus(meetingTime: string): { label: string; tone: string } {
   if (/week|sun|mon|tue|wed|thu|fri|sat/i.test(meetingTime)) {
-    return { label: 'Weekly Fellowship', tone: 'bg-emerald-400' };
+    return { label: "Weekly Fellowship", tone: "bg-emerald-400" };
   }
-  return { label: 'Active Micro-Church', tone: 'bg-gold' };
+  return { label: "Active Micro-Church", tone: "bg-gold" };
 }
 
 const PULSE_DURATION_MS = 900;
@@ -66,7 +66,9 @@ const PULSE_DURATION_MS = 900;
 export default function GatheringCard({ gathering }: GatheringCardProps) {
   const emailHref = buildEmailHref(gathering);
   const distanceLabel =
-    gathering.distance_meters !== undefined ? formatDistance(gathering.distance_meters) : '';
+    gathering.distance_meters !== undefined
+      ? formatDistance(gathering.distance_meters)
+      : "";
 
   const [attendanceCount, setAttendanceCount] = useState<number | null>(null);
   const [attended, setAttended] = useState(false);
@@ -95,14 +97,17 @@ export default function GatheringCard({ gathering }: GatheringCardProps) {
     () => () => {
       if (pulseTimer.current !== null) window.clearTimeout(pulseTimer.current);
     },
-    []
+    [],
   );
 
   const triggerPulse = () => {
     setPulsing(true);
     setPulseKey((key) => key + 1);
     if (pulseTimer.current !== null) window.clearTimeout(pulseTimer.current);
-    pulseTimer.current = window.setTimeout(() => setPulsing(false), PULSE_DURATION_MS);
+    pulseTimer.current = window.setTimeout(
+      () => setPulsing(false),
+      PULSE_DURATION_MS,
+    );
   };
 
   const handleAttendance = async () => {
@@ -115,12 +120,16 @@ export default function GatheringCard({ gathering }: GatheringCardProps) {
     const result = await recordAttendance(gathering.id);
     if (result.ok) {
       setNotice(
-        result.mode === 'cloud' ? 'You are counted — see you there!' : 'Counted on this device.'
+        result.mode === "cloud"
+          ? "You are counted — see you there!"
+          : "Counted on this device.",
       );
     } else {
       setAttended(false);
-      setAttendanceCount((value) => (value === null ? null : Math.max(0, value - 1)));
-      setNotice('We could not count you just now — please try again.');
+      setAttendanceCount((value) =>
+        value === null ? null : Math.max(0, value - 1),
+      );
+      setNotice("We could not count you just now — please try again.");
     }
     setBusy(false);
   };
@@ -132,7 +141,7 @@ export default function GatheringCard({ gathering }: GatheringCardProps) {
     <MotionConfig reducedMotion="user">
       <motion.article
         whileHover={{ y: -4 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+        transition={{ type: "spring", stiffness: 400, damping: 30 }}
         className="relative flex w-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-pill/75 p-6 shadow-xl backdrop-blur-2xl"
       >
         {/* Specular edge highlight — Layers-style glass rim light */}
@@ -147,7 +156,9 @@ export default function GatheringCard({ gathering }: GatheringCardProps) {
               <span
                 className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-60 motion-reduce:animate-none ${status.tone}`}
               />
-              <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${status.tone}`} />
+              <span
+                className={`relative inline-flex h-1.5 w-1.5 rounded-full ${status.tone}`}
+              />
             </span>
             {status.label}
           </span>
@@ -157,7 +168,9 @@ export default function GatheringCard({ gathering }: GatheringCardProps) {
           </span>
         </div>
 
-        <h3 className="mt-3 text-base font-bold leading-6 text-espresso">{gathering.name}</h3>
+        <h3 className="mt-3 text-base font-bold leading-6 text-espresso">
+          {gathering.name}
+        </h3>
 
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-pill/70 px-2.5 py-1 text-xs font-bold text-slate-200">
@@ -173,7 +186,9 @@ export default function GatheringCard({ gathering }: GatheringCardProps) {
         </div>
 
         {gathering.description ? (
-          <p className="mt-3 text-sm leading-6 text-muted">{gathering.description}</p>
+          <p className="mt-3 text-sm leading-6 text-muted">
+            {gathering.description}
+          </p>
         ) : null}
 
         <dl className="mt-3 space-y-1.5 text-sm text-slate-200">
@@ -198,17 +213,17 @@ export default function GatheringCard({ gathering }: GatheringCardProps) {
             aria-label={
               attended
                 ? `You attended ${gathering.name} — ${countLabel} ${
-                    countLabel === 1 ? 'person' : 'people'
+                    countLabel === 1 ? "person" : "people"
                   } counted`
                 : `Count me as attending ${gathering.name}`
             }
             whileTap={attended ? undefined : { scale: 0.96 }}
             whileHover={attended ? undefined : { y: -1 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+            transition={{ type: "spring", stiffness: 420, damping: 30 }}
             className={
               attended
-                ? 'relative inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full border border-gold/60 bg-gold/10 px-4 py-2.5 text-sm font-bold text-gold'
-                : 'relative inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-espresso outline-none transition hover:border-gold/50 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-gold/50 disabled:cursor-not-allowed disabled:opacity-70'
+                ? "relative inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full border border-gold/60 bg-gold/10 px-4 py-2.5 text-sm font-bold text-gold"
+                : "relative inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-espresso outline-none transition hover:border-gold/50 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-gold/50 disabled:cursor-not-allowed disabled:opacity-70"
             }
           >
             {pulsing ? (
@@ -219,25 +234,29 @@ export default function GatheringCard({ gathering }: GatheringCardProps) {
               />
             ) : null}
             <motion.span
-              key={attended ? 'attended' : 'idle'}
+              key={attended ? "attended" : "idle"}
               initial={{ scale: 0.6, rotate: attended ? -12 : 0 }}
               animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+              transition={{ type: "spring", stiffness: 500, damping: 18 }}
               className="inline-flex"
               aria-hidden
             >
-              {attended ? <CheckIcon className="h-4 w-4" /> : <UsersIcon className="h-4 w-4" />}
+              {attended ? (
+                <CheckIcon className="h-4 w-4" />
+              ) : (
+                <UsersIcon className="h-4 w-4" />
+              )}
             </motion.span>
-            {attended ? 'You attended' : 'I attended'}
+            {attended ? "You attended" : "I attended"}
             <span
               aria-hidden
               className="ml-1 rounded-full bg-white/10 px-2 py-0.5 text-xs font-extrabold tabular-nums text-pill-ink"
             >
-              {attendanceCount === null ? '—' : countLabel}
+              {attendanceCount === null ? "—" : countLabel}
             </span>
           </motion.button>
           <p role="status" className="h-4 text-center text-xs text-muted">
-            {notice ?? ''}
+            {notice ?? ""}
           </p>
 
           <motion.a
@@ -246,7 +265,7 @@ export default function GatheringCard({ gathering }: GatheringCardProps) {
             rel="noopener noreferrer"
             whileTap={{ scale: 0.96 }}
             whileHover={{ y: -1 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+            transition={{ type: "spring", stiffness: 420, damping: 30 }}
             className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-gold px-4 py-2.5 text-sm font-bold text-canvas shadow-lg shadow-gold/20 outline-none transition hover:bg-gold-deep focus-visible:ring-2 focus-visible:ring-gold/50"
           >
             <ChatIcon className="h-4 w-4" />

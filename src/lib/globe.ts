@@ -47,7 +47,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function toFiniteNumber(value: number, fallback = 0): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 function round(value: number, digits: number): number {
@@ -98,7 +98,11 @@ function cross(left: GlobeVector3, right: GlobeVector3): GlobeVector3 {
 }
 
 /** Rodrigues rotation of a vector around a unit axis (used for antipodes). */
-function rotateAroundAxis(vector: GlobeVector3, axis: GlobeVector3, angle: number): GlobeVector3 {
+function rotateAroundAxis(
+  vector: GlobeVector3,
+  axis: GlobeVector3,
+  angle: number,
+): GlobeVector3 {
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
   const dot = vector.x * axis.x + vector.y * axis.y + vector.z * axis.z;
@@ -137,7 +141,10 @@ export function calculateGreatCircleSpline(
   const antipodal = dot < 0 && sinOmega < EPSILON;
   const spinAxis = antipodal
     ? normalize(
-        cross(start, Math.abs(start.y) < 0.9 ? { x: 0, y: 1, z: 0 } : { x: 1, y: 0, z: 0 }),
+        cross(
+          start,
+          Math.abs(start.y) < 0.9 ? { x: 0, y: 1, z: 0 } : { x: 1, y: 0, z: 0 },
+        ),
       )
     : null;
 
@@ -202,14 +209,20 @@ export function sanitizeToCentroidWithJitter(
 ): GlobeLatLng {
   const latitude = clamp(toFiniteNumber(lat), -90, 90);
   const longitude = toFiniteNumber(lng);
-  const seed = typeof seedString === 'string' ? seedString : String(seedString ?? '');
+  const seed =
+    typeof seedString === "string" ? seedString : String(seedString ?? "");
   const hash = stableHashSeed(seed);
 
-  const latitudeOffset = signedUnit(hash & 0xffff) * MAX_CENTROID_JITTER_DEGREES;
-  const longitudeOffset = signedUnit((hash >>> 16) & 0xffff) * MAX_CENTROID_JITTER_DEGREES;
+  const latitudeOffset =
+    signedUnit(hash & 0xffff) * MAX_CENTROID_JITTER_DEGREES;
+  const longitudeOffset =
+    signedUnit((hash >>> 16) & 0xffff) * MAX_CENTROID_JITTER_DEGREES;
 
   return {
     lat: round(clamp(latitude + latitudeOffset, -90, 90), COORDINATE_PRECISION),
-    lng: round(wrapLongitude(longitude + longitudeOffset), COORDINATE_PRECISION),
+    lng: round(
+      wrapLongitude(longitude + longitudeOffset),
+      COORDINATE_PRECISION,
+    ),
   };
 }

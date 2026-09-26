@@ -1,11 +1,11 @@
-import { sanitizeToCentroidWithJitter } from '@/lib/globe';
-import { supabase } from '@/lib/supabase';
+import { sanitizeToCentroidWithJitter } from "@/lib/globe";
+import { supabase } from "@/lib/supabase";
 import type {
   Gathering,
   GatheringInquiryPayload,
   GatheringInquiryResult,
   GlobeMarker,
-} from '@/lib/types';
+} from "@/lib/types";
 
 /**
  * A row as returned by PostgREST before it is normalised into a `Gathering`.
@@ -24,23 +24,24 @@ interface Coordinates {
 const MAX_PARSE_DEPTH = 4;
 const MIN_WKB_HEX_LENGTH = 42; // 21 bytes: byte order + geometry type + X + Y
 const COORDINATE_KEYS = [
-  'location',
-  'geography',
-  'geom',
-  'geometry',
-  'coordinates',
-  'point',
-  'coords',
-  'the_geom',
+  "location",
+  "geography",
+  "geom",
+  "geometry",
+  "coordinates",
+  "point",
+  "coords",
+  "the_geom",
 ];
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function toFiniteNumber(value: unknown): number | undefined {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
-  if (typeof value === 'string' && value.trim() !== '') {
+  if (typeof value === "number")
+    return Number.isFinite(value) ? value : undefined;
+  if (typeof value === "string" && value.trim() !== "") {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
   }
@@ -56,19 +57,24 @@ function firstFinite(...values: unknown[]): number | undefined {
 }
 
 function toStringValue(value: unknown): string {
-  if (typeof value === 'string') return value;
-  if (value === null || value === undefined) return '';
+  if (typeof value === "string") return value;
+  if (value === null || value === undefined) return "";
   return String(value);
 }
 
 function toNullableString(value: unknown): string | null {
   const text = toStringValue(value);
-  return text === '' ? null : text;
+  return text === "" ? null : text;
 }
 
 function readNamedCoordinates(record: RawRow): Coordinates | undefined {
   const latitude = firstFinite(record.latitude, record.lat, record.y);
-  const longitude = firstFinite(record.longitude, record.lng, record.lon, record.x);
+  const longitude = firstFinite(
+    record.longitude,
+    record.lng,
+    record.lon,
+    record.x,
+  );
   if (latitude === undefined || longitude === undefined) return undefined;
   return { latitude, longitude };
 }
@@ -109,22 +115,23 @@ function parseWkbPoint(hex: string): Coordinates | undefined {
 
   const longitude = view.getFloat64(offset, littleEndian);
   const latitude = view.getFloat64(offset + 8, littleEndian);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return undefined;
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude))
+    return undefined;
 
   return { latitude, longitude };
 }
 
 function parseCoordinateString(text: string): Coordinates | undefined {
   const trimmed = text.trim();
-  if (trimmed === '') return undefined;
+  if (trimmed === "") return undefined;
 
-  const hex = trimmed.replace(/^\\x/i, '');
+  const hex = trimmed.replace(/^\\x/i, "");
   if (hex.length >= MIN_WKB_HEX_LENGTH && /^[0-9a-f]+$/i.test(hex)) {
     const decoded = parseWkbPoint(hex);
     if (decoded) return decoded;
   }
 
-  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
     try {
       return parseCoordinates(JSON.parse(trimmed) as unknown, 1);
     } catch {
@@ -132,11 +139,14 @@ function parseCoordinateString(text: string): Coordinates | undefined {
     }
   }
 
-  const wkt = /POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/i.exec(trimmed);
+  const wkt = /POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/i.exec(
+    trimmed,
+  );
   if (wkt) {
     const longitude = toFiniteNumber(wkt[1]);
     const latitude = toFiniteNumber(wkt[2]);
-    if (latitude !== undefined && longitude !== undefined) return { latitude, longitude };
+    if (latitude !== undefined && longitude !== undefined)
+      return { latitude, longitude };
   }
 
   return undefined;
@@ -147,14 +157,16 @@ function parseCoordinateString(text: string): Coordinates | undefined {
  * objects, JSON strings, WKB hex, and WKT strings without ever throwing.
  */
 function parseCoordinates(value: unknown, depth = 0): Coordinates | undefined {
-  if (value === null || value === undefined || depth > MAX_PARSE_DEPTH) return undefined;
+  if (value === null || value === undefined || depth > MAX_PARSE_DEPTH)
+    return undefined;
 
-  if (typeof value === 'string') return parseCoordinateString(value);
+  if (typeof value === "string") return parseCoordinateString(value);
 
   if (Array.isArray(value)) {
     const longitude = value.length > 0 ? toFiniteNumber(value[0]) : undefined;
     const latitude = value.length > 1 ? toFiniteNumber(value[1]) : undefined;
-    if (latitude !== undefined && longitude !== undefined) return { latitude, longitude };
+    if (latitude !== undefined && longitude !== undefined)
+      return { latitude, longitude };
 
     for (const item of value) {
       const nested = parseCoordinates(item, depth + 1);
@@ -203,7 +215,7 @@ function parseGatheringRow(raw: unknown): Gathering | null {
   if (!isPlainObject(raw)) return null;
 
   const id = toStringValue(raw.id);
-  if (id === '') return null;
+  if (id === "") return null;
 
   const { latitude, longitude } = extractCoordinates(raw);
   const distanceMeters = toFiniteNumber(raw.distance_meters);
@@ -232,12 +244,12 @@ function parseGatheringRow(raw: unknown): Gathering | null {
  */
 export async function getGatherings(): Promise<Gathering[]> {
   const { data, error } = await supabase
-    .from('gatherings')
-    .select('*')
-    .order('name', { ascending: true });
+    .from("gatherings")
+    .select("*")
+    .order("name", { ascending: true });
 
   if (error) {
-    console.error('Error fetching gatherings:', error.message);
+    console.error("Error fetching gatherings:", error.message);
     return [];
   }
 
@@ -249,7 +261,7 @@ export async function getGatherings(): Promise<Gathering[]> {
       const gathering = parseGatheringRow(row);
       if (gathering) gatherings.push(gathering);
     } catch (parseError) {
-      console.error('Skipping unparseable gathering row:', parseError);
+      console.error("Skipping unparseable gathering row:", parseError);
     }
   }
 
@@ -265,38 +277,37 @@ export async function getGatherings(): Promise<Gathering[]> {
  * thrown) so the globe can render an error state instead of crashing.
  */
 export type PublicGatheringMarkersResult =
-  | { ok: true; data: GlobeMarker[] }
-  | { ok: false; data: []; error: string };
+  { ok: true; data: GlobeMarker[] } | { ok: false; data: []; error: string };
 
 /** Upper bound on the public marker payload (keeps the WebGL scene bounded). */
 const PUBLIC_MARKER_LIMIT = 500;
 
 /** Titles stripped from `leader_name` so only a first name is published. */
 const NAME_HONORIFICS = new Set([
-  'apostle',
-  'bishop',
-  'bro',
-  'brother',
-  'deacon',
-  'dr',
-  'elder',
-  'evangelist',
-  'father',
-  'fr',
-  'minister',
-  'miss',
-  'mr',
-  'mrs',
-  'ms',
-  'pastor',
-  'prophet',
-  'ps',
-  'rev',
-  'reverend',
-  'saint',
-  'sis',
-  'sister',
-  'st',
+  "apostle",
+  "bishop",
+  "bro",
+  "brother",
+  "deacon",
+  "dr",
+  "elder",
+  "evangelist",
+  "father",
+  "fr",
+  "minister",
+  "miss",
+  "mr",
+  "mrs",
+  "ms",
+  "pastor",
+  "prophet",
+  "ps",
+  "rev",
+  "reverend",
+  "saint",
+  "sis",
+  "sister",
+  "st",
 ]);
 
 const POSTAL_CODE_PATTERN = /\b\d{4,}(?:-\d{4})?\b/g;
@@ -312,40 +323,49 @@ const POSTAL_CODE_PATTERN = /\b\d{4,}(?:-\d{4})?\b/g;
  */
 function derivePublicCity(raw: RawRow): string {
   const explicit =
-    toNullableString(raw.city) ?? toNullableString(raw.town) ?? toNullableString(raw.locality);
-  if (explicit !== null && explicit.trim() !== '') return explicit.trim();
+    toNullableString(raw.city) ??
+    toNullableString(raw.town) ??
+    toNullableString(raw.locality);
+  if (explicit !== null && explicit.trim() !== "") return explicit.trim();
 
   const address = toStringValue(raw.address);
-  if (address === '') return '';
+  if (address === "") return "";
 
   const segments = address
-    .split(',')
+    .split(",")
     .map((segment) => segment.trim())
-    .filter((segment) => segment !== '');
+    .filter((segment) => segment !== "");
 
   for (let index = 1; index < segments.length; index += 1) {
-    const candidate = segments[index].replace(POSTAL_CODE_PATTERN, '').replace(/\s+/g, ' ').trim();
-    if (candidate !== '' && !/\d/.test(candidate)) return candidate;
+    const candidate = segments[index]
+      .replace(POSTAL_CODE_PATTERN, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (candidate !== "" && !/\d/.test(candidate)) return candidate;
   }
 
-  return '';
+  return "";
 }
 
 /** Publishes only the leader's first name (honorifics and surnames removed). */
 function parsePublicFirstName(leaderName: string): string {
   const tokens = leaderName
-    .replace(/[.,;:()]/g, ' ')
+    .replace(/[.,;:()]/g, " ")
     .split(/\s+/)
-    .filter((token) => token !== '');
-  if (tokens.length === 0) return '';
-  if (tokens.length === 1 && NAME_HONORIFICS.has(tokens[0].toLowerCase())) return '';
+    .filter((token) => token !== "");
+  if (tokens.length === 0) return "";
+  if (tokens.length === 1 && NAME_HONORIFICS.has(tokens[0].toLowerCase()))
+    return "";
 
   let index = 0;
-  while (index < tokens.length - 1 && NAME_HONORIFICS.has(tokens[index].toLowerCase())) {
+  while (
+    index < tokens.length - 1 &&
+    NAME_HONORIFICS.has(tokens[index].toLowerCase())
+  ) {
     index += 1;
   }
 
-  return (tokens[index] ?? '').replace(/[^A-Za-z'’-]/g, '');
+  return (tokens[index] ?? "").replace(/[^A-Za-z'’-]/g, "");
 }
 
 /** Community size for the marker, falling back to a single believer. */
@@ -369,12 +389,13 @@ function parsePublicMarkerRow(raw: unknown): GlobeMarker | null {
   if (!isPlainObject(raw)) return null;
 
   const id = toStringValue(raw.id);
-  if (id === '') return null;
+  if (id === "") return null;
 
   // `gatherings` only ever receives moderator-approved rows today; this gate
   // protects a future schema where a status column exists.
   const status = toNullableString(raw.status);
-  if (status !== null && status.trim().toLowerCase() !== 'approved') return null;
+  if (status !== null && status.trim().toLowerCase() !== "approved")
+    return null;
 
   const { latitude, longitude } = extractCoordinates(raw);
   if (latitude === undefined || longitude === undefined) return null;
@@ -397,13 +418,16 @@ interface PublicRowsResult {
 }
 
 /** PostgREST/Postgres `undefined_column` SQLSTATE (42703). */
-const UNDEFINED_COLUMN_CODE = '42703';
+const UNDEFINED_COLUMN_CODE = "42703";
 
 /** True when the error is Postgres reporting an unknown column (SQLSTATE 42703). */
-function isMissingColumnError(error: { code?: string | null; message?: string | null }): boolean {
+function isMissingColumnError(error: {
+  code?: string | null;
+  message?: string | null;
+}): boolean {
   if (error.code === UNDEFINED_COLUMN_CODE) return true;
-  const message = (error.message ?? '').toLowerCase();
-  return message.includes('column') && message.includes('does not exist');
+  const message = (error.message ?? "").toLowerCase();
+  return message.includes("column") && message.includes("does not exist");
 }
 
 /**
@@ -414,8 +438,8 @@ function isMissingColumnError(error: { code?: string | null; message?: string | 
  * about on every read: the homepage calls this during static prerender, so an
  * unconditional warning printed on every build.
  */
-type StatusColumnSupport = 'unknown' | 'supported' | 'absent';
-let statusColumnSupport: StatusColumnSupport = 'unknown';
+type StatusColumnSupport = "unknown" | "supported" | "absent";
+let statusColumnSupport: StatusColumnSupport = "unknown";
 
 /**
  * Reads published gatherings, newest first and bounded.
@@ -430,34 +454,37 @@ let statusColumnSupport: StatusColumnSupport = 'unknown';
  * the fallback can never publish a non-approved row.
  */
 async function fetchPublishedRows(): Promise<PublicRowsResult> {
-  const selectGatherings = () => supabase.from('gatherings').select('*');
+  const selectGatherings = () => supabase.from("gatherings").select("*");
 
   const readUnfiltered = async (): Promise<PublicRowsResult> => {
     const result = await selectGatherings()
-      .order('created_at', { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(PUBLIC_MARKER_LIMIT);
     if (result.error) return { rows: [], error: result.error.message };
     return { rows: Array.isArray(result.data) ? result.data : [], error: null };
   };
 
   // The capability is already known to be absent: skip the doomed probe.
-  if (statusColumnSupport === 'absent') return readUnfiltered();
+  if (statusColumnSupport === "absent") return readUnfiltered();
 
   const primary = await selectGatherings()
-    .eq('status', 'approved')
-    .order('created_at', { ascending: false })
+    .eq("status", "approved")
+    .order("created_at", { ascending: false })
     .limit(PUBLIC_MARKER_LIMIT);
   if (!primary.error) {
-    statusColumnSupport = 'supported';
-    return { rows: Array.isArray(primary.data) ? primary.data : [], error: null };
+    statusColumnSupport = "supported";
+    return {
+      rows: Array.isArray(primary.data) ? primary.data : [],
+      error: null,
+    };
   }
 
   if (isMissingColumnError(primary.error)) {
     // Expected on the deployed schema: remember it and stay quiet.
-    statusColumnSupport = 'absent';
+    statusColumnSupport = "absent";
   } else {
     console.warn(
-      'Status-filtered gathering read failed, retrying without the filter:',
+      "Status-filtered gathering read failed, retrying without the filter:",
       primary.error.message,
     );
   }
@@ -477,7 +504,7 @@ export async function getPublicGatheringMarkers(): Promise<PublicGatheringMarker
   try {
     const { rows, error } = await fetchPublishedRows();
     if (error !== null) {
-      console.error('Error fetching public gathering markers:', error);
+      console.error("Error fetching public gathering markers:", error);
       return { ok: false, data: [], error };
     }
 
@@ -487,14 +514,17 @@ export async function getPublicGatheringMarkers(): Promise<PublicGatheringMarker
         const marker = parsePublicMarkerRow(row);
         if (marker) markers.push(marker);
       } catch (parseError) {
-        console.error('Skipping unparseable public marker row:', parseError);
+        console.error("Skipping unparseable public marker row:", parseError);
       }
     }
 
     return { ok: true, data: markers };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'The gathering feed is unavailable.';
-    console.error('Public gathering marker read failed:', message);
+    const message =
+      error instanceof Error
+        ? error.message
+        : "The gathering feed is unavailable.";
+    console.error("Public gathering marker read failed:", message);
     return { ok: false, data: [], error: message };
   }
 }
@@ -516,27 +546,35 @@ const INQUIRY_MESSAGE_MIN_CHARS = 10;
 const INQUIRY_MESSAGE_MAX_CHARS = 1000;
 
 /** Postgres `undefined_table` SQLSTATE (42P01). */
-const UNDEFINED_TABLE_CODE = '42P01';
+const UNDEFINED_TABLE_CODE = "42P01";
 /** PostgREST schema-cache miss when the remote table has never been created. */
-const SCHEMA_CACHE_MISS_CODE = 'PGRST205';
+const SCHEMA_CACHE_MISS_CODE = "PGRST205";
 
 /**
  * True when the error is the remote schema reporting that the
  * `gathering_inquiries` table itself does not exist (as opposed to a genuine
  * insert failure such as an RLS rejection).
  */
-function isMissingTableError(error: { code?: string | null; message?: string | null }): boolean {
-  if (error.code === UNDEFINED_TABLE_CODE || error.code === SCHEMA_CACHE_MISS_CODE) return true;
-  const message = (error.message ?? '').toLowerCase();
+function isMissingTableError(error: {
+  code?: string | null;
+  message?: string | null;
+}): boolean {
+  if (
+    error.code === UNDEFINED_TABLE_CODE ||
+    error.code === SCHEMA_CACHE_MISS_CODE
+  )
+    return true;
+  const message = (error.message ?? "").toLowerCase();
   return (
-    message.includes('does not exist') || message.includes('could not find the table')
+    message.includes("does not exist") ||
+    message.includes("could not find the table")
   );
 }
 
 /** A reply-to channel is either a plausible email or a phone number (≥7 digits). */
 function isValidInquiryContact(contact: string): boolean {
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const digitCount = contact.replace(/\D/g, '').length;
+  const digitCount = contact.replace(/\D/g, "").length;
   return emailPattern.test(contact) || digitCount >= 7;
 }
 
@@ -550,17 +588,17 @@ export function validateGatheringInquiryInput(input: {
   message: string;
 }): GatheringInquiryFieldErrors {
   const errors: GatheringInquiryFieldErrors = {};
-  if (typeof input.name !== 'string' || input.name.trim() === '') {
-    errors.name = 'Please share your name.';
+  if (typeof input.name !== "string" || input.name.trim() === "") {
+    errors.name = "Please share your name.";
   }
-  const contact = typeof input.contact === 'string' ? input.contact.trim() : '';
-  if (contact === '' || !isValidInquiryContact(contact)) {
-    errors.contact = 'Enter an email address or a WhatsApp phone number.';
+  const contact = typeof input.contact === "string" ? input.contact.trim() : "";
+  if (contact === "" || !isValidInquiryContact(contact)) {
+    errors.contact = "Enter an email address or a WhatsApp phone number.";
   }
-  const message = typeof input.message === 'string' ? input.message.trim() : '';
-  if (message !== '' && message.length < INQUIRY_MESSAGE_MIN_CHARS) {
+  const message = typeof input.message === "string" ? input.message.trim() : "";
+  if (message !== "" && message.length < INQUIRY_MESSAGE_MIN_CHARS) {
     errors.message =
-      'Add a little more detail — at least 10 characters, or leave this empty.';
+      "Add a little more detail — at least 10 characters, or leave this empty.";
   }
   return errors;
 }
@@ -581,47 +619,62 @@ export async function submitGatheringInquiry(
   payload: GatheringInquiryPayload,
 ): Promise<GatheringInquiryResult> {
   const gatheringId =
-    typeof payload?.gathering_id === 'string' ? payload.gathering_id.trim() : '';
+    typeof payload?.gathering_id === "string"
+      ? payload.gathering_id.trim()
+      : "";
   const visitorName =
-    typeof payload?.visitor_name === 'string' ? payload.visitor_name.trim() : '';
-  const contact = typeof payload?.contact === 'string' ? payload.contact.trim() : '';
-  const message = typeof payload?.message === 'string' ? payload.message.trim() : '';
+    typeof payload?.visitor_name === "string"
+      ? payload.visitor_name.trim()
+      : "";
+  const contact =
+    typeof payload?.contact === "string" ? payload.contact.trim() : "";
+  const message =
+    typeof payload?.message === "string" ? payload.message.trim() : "";
 
   // Defence in depth: the form validates these too, but the data layer never
   // trusts its caller and rejects invalid input before any network call.
   if (
-    gatheringId === '' ||
-    visitorName === '' ||
-    contact === '' ||
+    gatheringId === "" ||
+    visitorName === "" ||
+    contact === "" ||
     !isValidInquiryContact(contact) ||
-    (message !== '' && message.length < INQUIRY_MESSAGE_MIN_CHARS)
+    (message !== "" && message.length < INQUIRY_MESSAGE_MIN_CHARS)
   ) {
-    return { ok: false, error: 'The inquiry is incomplete. Please review the form and try again.' };
+    return {
+      ok: false,
+      error: "The inquiry is incomplete. Please review the form and try again.",
+    };
   }
 
   const row = {
     gathering_id: gatheringId,
     visitor_name: visitorName.slice(0, INQUIRY_NAME_MAX_CHARS),
     contact: contact.slice(0, INQUIRY_CONTACT_MAX_CHARS),
-    message: message === '' ? null : message.slice(0, INQUIRY_MESSAGE_MAX_CHARS),
+    message:
+      message === "" ? null : message.slice(0, INQUIRY_MESSAGE_MAX_CHARS),
   };
 
   try {
-    const result = await supabase.from('gathering_inquiries').insert(row);
+    const result = await supabase.from("gathering_inquiries").insert(row);
     if (result.error) {
       if (isMissingTableError(result.error)) {
         // The remote table does not exist yet: fail open so the visitor flow
         // still completes while the schema catches up.
-        return { ok: true, delivered: 'simulated' };
+        return { ok: true, delivered: "simulated" };
       }
-      console.error('Gathering inquiry submission failed:', result.error.message);
+      console.error(
+        "Gathering inquiry submission failed:",
+        result.error.message,
+      );
       return { ok: false, error: result.error.message };
     }
-    return { ok: true, delivered: 'remote' };
+    return { ok: true, delivered: "remote" };
   } catch (error) {
     const messageText =
-      error instanceof Error ? error.message : 'The inquiry could not be sent just now.';
-    console.error('Gathering inquiry submission failed:', messageText);
+      error instanceof Error
+        ? error.message
+        : "The inquiry could not be sent just now.";
+    console.error("Gathering inquiry submission failed:", messageText);
     return { ok: false, error: messageText };
   }
 }

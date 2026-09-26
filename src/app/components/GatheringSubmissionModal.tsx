@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import { CheckIcon, CloseIcon } from '@/app/components/icons';
-import { submitGathering } from '@/lib/gatheringsSubmissions';
-import type { GatheringSubmissionData } from '@/lib/types';
+import { useEffect, useRef, useState } from "react";
+import { CheckIcon, CloseIcon } from "@/app/components/icons";
+import { submitGathering } from "@/lib/gatheringsSubmissions";
+import type { GatheringSubmissionData } from "@/lib/types";
 
 interface GatheringSubmissionModalProps {
   open: boolean;
@@ -25,15 +25,15 @@ interface FormValues {
 type FormErrors = Partial<Record<keyof FormValues, string>>;
 
 const EMPTY_FORM: FormValues = {
-  name: '',
-  city: '',
-  country: '',
-  denomination: '',
-  meetingTimes: '',
-  address: '',
-  coordinates: '',
-  submitterName: '',
-  submitterEmail: '',
+  name: "",
+  city: "",
+  country: "",
+  denomination: "",
+  meetingTimes: "",
+  address: "",
+  coordinates: "",
+  submitterName: "",
+  submitterEmail: "",
 };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -41,44 +41,55 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-const LABEL_CLASS = 'text-xs font-bold uppercase tracking-[0.14em] text-muted';
+const LABEL_CLASS = "text-xs font-bold uppercase tracking-[0.14em] text-muted";
 const FIELD_CLASS =
-  'mt-1.5 min-h-[44px] w-full rounded-full border border-white/10 bg-canvas/60 px-4 py-2.5 text-sm text-espresso outline-none transition placeholder:text-muted/80 focus:border-gold focus:ring-2 focus:ring-gold/25';
-const ERROR_TEXT_CLASS = 'mt-1 text-xs font-medium text-red-300';
+  "mt-1.5 min-h-[44px] w-full rounded-full border border-white/10 bg-canvas/60 px-4 py-2.5 text-sm text-espresso outline-none transition placeholder:text-muted/80 focus:border-gold focus:ring-2 focus:ring-gold/25";
+const ERROR_TEXT_CLASS = "mt-1 text-xs font-medium text-red-300";
 
 /** Parses an optional "latitude, longitude" input; `null` when not usable. */
-function parseCoordinates(value: string): { latitude: number; longitude: number } | null {
-  const parts = value.split(',');
+function parseCoordinates(
+  value: string,
+): { latitude: number; longitude: number } | null {
+  const parts = value.split(",");
   if (parts.length !== 2) return null;
   const latitude = Number(parts[0].trim());
   const longitude = Number(parts[1].trim());
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180)
+    return null;
   return { latitude, longitude };
 }
 
 function validate(values: FormValues): FormErrors {
   const errors: FormErrors = {};
 
-  if (values.name.trim() === '') errors.name = 'Gathering name is required.';
-  if (values.city.trim() === '') errors.city = 'City is required.';
-  if (values.country.trim() === '') errors.country = 'Country is required.';
-  if (values.meetingTimes.trim() === '') errors.meetingTimes = 'Meeting times are required.';
-  if (values.address.trim() === '') errors.address = 'An address is required.';
-  if (values.coordinates.trim() !== '' && parseCoordinates(values.coordinates) === null) {
+  if (values.name.trim() === "") errors.name = "Gathering name is required.";
+  if (values.city.trim() === "") errors.city = "City is required.";
+  if (values.country.trim() === "") errors.country = "Country is required.";
+  if (values.meetingTimes.trim() === "")
+    errors.meetingTimes = "Meeting times are required.";
+  if (values.address.trim() === "") errors.address = "An address is required.";
+  if (
+    values.coordinates.trim() !== "" &&
+    parseCoordinates(values.coordinates) === null
+  ) {
     errors.coordinates = 'Use "latitude, longitude" — e.g. 30.2672, -97.7431.';
   }
-  if (values.submitterName.trim() === '') errors.submitterName = 'Your name is required.';
-  if (values.submitterEmail.trim() === '') {
-    errors.submitterEmail = 'Your email is required.';
+  if (values.submitterName.trim() === "")
+    errors.submitterName = "Your name is required.";
+  if (values.submitterEmail.trim() === "") {
+    errors.submitterEmail = "Your email is required.";
   } else if (!EMAIL_PATTERN.test(values.submitterEmail.trim())) {
-    errors.submitterEmail = 'Enter a valid email address.';
+    errors.submitterEmail = "Enter a valid email address.";
   }
 
   return errors;
 }
 
-export default function GatheringSubmissionModal({ open, onClose }: GatheringSubmissionModalProps) {
+export default function GatheringSubmissionModal({
+  open,
+  onClose,
+}: GatheringSubmissionModalProps) {
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -96,28 +107,33 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
     if (!open) return;
 
     const previouslyFocused =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
     firstFieldRef.current?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         event.preventDefault();
         onClose();
         return;
       }
-      if (event.key !== 'Tab') return;
+      if (event.key !== "Tab") return;
 
       const container = dialogRef.current;
       if (!container) return;
-      const focusables = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+      const focusables = Array.from(
+        container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      );
       if (focusables.length === 0) return;
 
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
       const active = document.activeElement;
-      const inside = active instanceof HTMLElement && container.contains(active);
+      const inside =
+        active instanceof HTMLElement && container.contains(active);
 
       if (event.shiftKey) {
         if (!inside || active === first) {
@@ -130,9 +146,9 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
       previouslyFocused?.focus();
     };
@@ -154,7 +170,9 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const value = event.target.value;
       setValues((current) => ({ ...current, [field]: value }));
-      setErrors((current) => (current[field] ? { ...current, [field]: undefined } : current));
+      setErrors((current) =>
+        current[field] ? { ...current, [field]: undefined } : current,
+      );
     };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -163,16 +181,23 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
 
     const nextErrors = validate(values);
     setErrors(nextErrors);
-    if (Object.values(nextErrors).some((message) => message !== undefined)) return;
+    if (Object.values(nextErrors).some((message) => message !== undefined))
+      return;
 
     setSubmitting(true);
     setSubmitError(null);
 
     const coordinates =
-      values.coordinates.trim() === '' ? null : parseCoordinates(values.coordinates);
-    const address = [values.address.trim(), values.city.trim(), values.country.trim()]
+      values.coordinates.trim() === ""
+        ? null
+        : parseCoordinates(values.coordinates);
+    const address = [
+      values.address.trim(),
+      values.city.trim(),
+      values.country.trim(),
+    ]
       .filter(Boolean)
-      .join(', ');
+      .join(", ");
     const submitterName = values.submitterName.trim();
     const submitterEmail = values.submitterEmail.trim();
 
@@ -182,7 +207,7 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
       address,
       leader_name: submitterName,
       description:
-        values.denomination.trim() === ''
+        values.denomination.trim() === ""
           ? null
           : `Denomination / type: ${values.denomination.trim()}`,
       contact_email: submitterEmail,
@@ -199,7 +224,10 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
     if (result.ok) {
       setSubmitted(true);
     } else {
-      setSubmitError(result.error ?? 'The submission service is unavailable. Please try again.');
+      setSubmitError(
+        result.error ??
+          "The submission service is unavailable. Please try again.",
+      );
     }
     setSubmitting(false);
   };
@@ -239,8 +267,9 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
               id="gathering-submission-description"
               className="mt-1 text-sm leading-6 text-muted"
             >
-              Tell us about a church or fellowship so believers near you can find it. Our team
-              reviews every submission before it appears on the map.
+              Tell us about a church or fellowship so believers near you can
+              find it. Our team reviews every submission before it appears on
+              the map.
             </p>
           </div>
           <button
@@ -258,11 +287,18 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gold text-canvas shadow-soft">
               <CheckIcon className="h-6 w-6" />
             </span>
-            <h3 className="mt-4 text-lg font-extrabold text-espresso">Submission received</h3>
+            <h3 className="mt-4 text-lg font-extrabold text-espresso">
+              Submission received
+            </h3>
             <p className="mt-2 max-w-sm text-sm leading-6 text-muted">
-              Thank you for helping believers gather. We will review{' '}
-              <strong className="font-bold text-espresso">{values.name.trim()}</strong> and email
-              you at <strong className="font-bold text-espresso">{values.submitterEmail.trim()}</strong>{' '}
+              Thank you for helping believers gather. We will review{" "}
+              <strong className="font-bold text-espresso">
+                {values.name.trim()}
+              </strong>{" "}
+              and email you at{" "}
+              <strong className="font-bold text-espresso">
+                {values.submitterEmail.trim()}
+              </strong>{" "}
               once it is approved.
             </p>
             <button
@@ -274,7 +310,11 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
             </button>
           </div>
         ) : (
-          <form noValidate onSubmit={handleSubmit} className="overflow-y-auto px-6 py-5">
+          <form
+            noValidate
+            onSubmit={handleSubmit}
+            className="overflow-y-auto px-6 py-5"
+          >
             <div className="grid gap-4">
               <SubmissionField
                 id="gs-name"
@@ -282,8 +322,8 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
                 required
                 placeholder="e.g. Grace Fellowship Austin"
                 value={values.name}
-                onChange={updateField('name')}
-                error={fieldError('name')}
+                onChange={updateField("name")}
+                error={fieldError("name")}
                 inputRef={firstFieldRef}
               />
 
@@ -295,8 +335,8 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
                   placeholder="Austin"
                   autoComplete="address-level2"
                   value={values.city}
-                  onChange={updateField('city')}
-                  error={fieldError('city')}
+                  onChange={updateField("city")}
+                  error={fieldError("city")}
                 />
                 <SubmissionField
                   id="gs-country"
@@ -305,8 +345,8 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
                   placeholder="United States"
                   autoComplete="country-name"
                   value={values.country}
-                  onChange={updateField('country')}
-                  error={fieldError('country')}
+                  onChange={updateField("country")}
+                  error={fieldError("country")}
                 />
               </div>
 
@@ -315,7 +355,7 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
                 label="Denomination / type"
                 placeholder="e.g. Non-denominational, Baptist, Charismatic"
                 value={values.denomination}
-                onChange={updateField('denomination')}
+                onChange={updateField("denomination")}
               />
 
               <SubmissionField
@@ -324,8 +364,8 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
                 required
                 placeholder="e.g. Sundays at 10:00 AM"
                 value={values.meetingTimes}
-                onChange={updateField('meetingTimes')}
-                error={fieldError('meetingTimes')}
+                onChange={updateField("meetingTimes")}
+                error={fieldError("meetingTimes")}
               />
 
               <SubmissionField
@@ -335,8 +375,8 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
                 placeholder="123 Main Street"
                 autoComplete="street-address"
                 value={values.address}
-                onChange={updateField('address')}
-                error={fieldError('address')}
+                onChange={updateField("address")}
+                error={fieldError("address")}
               />
 
               <SubmissionField
@@ -344,8 +384,8 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
                 label="Coordinates"
                 placeholder="e.g. 30.2672, -97.7431"
                 value={values.coordinates}
-                onChange={updateField('coordinates')}
-                error={fieldError('coordinates')}
+                onChange={updateField("coordinates")}
+                error={fieldError("coordinates")}
               />
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -355,8 +395,8 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
                   required
                   autoComplete="name"
                   value={values.submitterName}
-                  onChange={updateField('submitterName')}
-                  error={fieldError('submitterName')}
+                  onChange={updateField("submitterName")}
+                  error={fieldError("submitterName")}
                 />
                 <SubmissionField
                   id="gs-submitter-email"
@@ -365,8 +405,8 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
                   type="email"
                   autoComplete="email"
                   value={values.submitterEmail}
-                  onChange={updateField('submitterEmail')}
-                  error={fieldError('submitterEmail')}
+                  onChange={updateField("submitterEmail")}
+                  error={fieldError("submitterEmail")}
                 />
               </div>
 
@@ -392,7 +432,7 @@ export default function GatheringSubmissionModal({ open, onClose }: GatheringSub
                   disabled={submitting}
                   className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-canvas shadow-lg shadow-gold/20 outline-none transition hover:bg-gold-deep focus-visible:ring-2 focus-visible:ring-gold/50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {submitting ? 'Submitting…' : 'Submit for review'}
+                  {submitting ? "Submitting…" : "Submit for review"}
                 </button>
               </div>
             </div>
@@ -424,7 +464,7 @@ function SubmissionField({
   error,
   required,
   placeholder,
-  type = 'text',
+  type = "text",
   autoComplete,
   inputRef,
 }: SubmissionFieldProps) {
@@ -434,7 +474,8 @@ function SubmissionField({
         {label}
         {required ? (
           <span aria-hidden className="text-gold-deep">
-            {' '}*
+            {" "}
+            *
           </span>
         ) : null}
       </label>

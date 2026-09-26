@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   useEffect,
@@ -7,17 +7,17 @@ import {
   useState,
   type ChangeEvent,
   type KeyboardEvent,
-} from 'react';
+} from "react";
 
 import {
   buildSearchIndex,
   moveSearchSelection,
   searchGlobeMarkers,
   searchStatusMessage,
-} from '@/lib/globeSearch';
-import type { GlobeSearchEntry, GlobeSearchResult } from '@/lib/globeSearch';
-import { avatarStyleForSeed } from '@/lib/globeAvatars';
-import type { GlobeMarker } from '@/lib/types';
+} from "@/lib/globeSearch";
+import type { GlobeSearchEntry, GlobeSearchResult } from "@/lib/globeSearch";
+import { avatarStyleForSeed } from "@/lib/globeAvatars";
+import type { GlobeMarker } from "@/lib/types";
 
 /** A 16×16 magnifying-glass icon (no shared icon component is required). */
 function SearchIcon({ className }: { className?: string }) {
@@ -53,10 +53,10 @@ const INPUT_DEBOUNCE_MS = 96;
 
 /** Frosted-glass input, shared with the Refero motion-spec HUD tokens. */
 const INPUT_CLASS =
-  'peer w-full rounded-xl border border-white/15 bg-white/10 px-4 py-2.5 pl-9 text-sm text-white placeholder-white/50 outline-none transition focus:border-cyan-300/60 focus:bg-white/15';
+  "peer w-full rounded-xl border border-white/15 bg-white/10 px-4 py-2.5 pl-9 text-sm text-white placeholder-white/50 outline-none transition focus:border-cyan-300/60 focus:bg-white/15";
 
 const TRIGGER_CLASS =
-  'inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold text-white backdrop-blur-xl transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300';
+  "inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold text-white backdrop-blur-xl transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300";
 
 /**
  * A frosted-glass search overlay for the Mission Globe. Always shows a compact
@@ -65,9 +65,13 @@ const TRIGGER_CLASS =
  * Escape closes it, and the up/down arrows + Enter mirror the globe's existing
  * keyboard navigation style.
  */
-export default function GlobeSearch({ markers, onSelect, disabled }: GlobeSearchProps) {
+export default function GlobeSearch({
+  markers,
+  onSelect,
+  disabled,
+}: GlobeSearchProps) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [highlighted, setHighlighted] = useState(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -94,53 +98,54 @@ export default function GlobeSearch({ markers, onSelect, disabled }: GlobeSearch
   // Global Cmd+K / Ctrl+K to toggle, Escape to close — independent of focus.
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         if (open) {
           event.preventDefault();
           setOpen(false);
         }
         return;
       }
-      if (event.key === 'k' && (event.metaKey || event.ctrlKey)) {
+      if (event.key === "k" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         if (disabled) return;
         setOpen((was) => !was);
       }
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, disabled]);
 
   const commit = (entry: GlobeSearchEntry) => {
     const marker = markers.find((m) => m.id === entry.id);
     if (marker) onSelect(marker);
     setOpen(false);
-    setQuery('');
+    setQuery("");
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (!open) return;
     switch (event.key) {
-      case 'ArrowDown':
+      case "ArrowDown":
         event.preventDefault();
         setHighlighted((prev) => moveSearchSelection(prev, 1, count));
         break;
-      case 'ArrowUp':
+      case "ArrowUp":
         event.preventDefault();
         setHighlighted((prev) => moveSearchSelection(prev, -1, count));
         break;
-      case 'Enter':
+      case "Enter":
         event.preventDefault();
-        if (highlighted >= 0 && highlighted < count) commit(results[highlighted]);
+        if (highlighted >= 0 && highlighted < count)
+          commit(results[highlighted]);
         break;
-      case 'Escape':
+      case "Escape":
         // Stop the event from bubbling to the stage container, whose own
         // Escape handler deselects the current ambassador — closing the search
         // should never change the selection.
         event.stopPropagation();
         event.preventDefault();
         if (query) {
-          setQuery('');
+          setQuery("");
         } else {
           setOpen(false);
         }
@@ -168,10 +173,12 @@ export default function GlobeSearch({ markers, onSelect, disabled }: GlobeSearch
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-controls={open ? 'globe-search-list' : undefined}
+        aria-controls={open ? "globe-search-list" : undefined}
         disabled={disabled}
-        onClick={() => { if (!disabled) setOpen((was) => !was); }}
-        className={[TRIGGER_CLASS, open ? 'bg-white/15' : ''].join(' ')}
+        onClick={() => {
+          if (!disabled) setOpen((was) => !was);
+        }}
+        className={[TRIGGER_CLASS, open ? "bg-white/15" : ""].join(" ")}
       >
         <SearchIcon className="h-3.5 w-3.5 text-cyan-300" />
         <span>Search</span>
@@ -194,10 +201,10 @@ export default function GlobeSearch({ markers, onSelect, disabled }: GlobeSearch
               value={query}
               onChange={onChange}
               onKeyDown={onKeyDown}
-              placeholder={prompt ? 'Name, city, or count…' : undefined}
+              placeholder={prompt ? "Name, city, or count…" : undefined}
               aria-label="Search gatherings by name, city, or gathering count"
               aria-autocomplete="list"
-              aria-controls={count > 0 ? 'globe-search-list' : undefined}
+              aria-controls={count > 0 ? "globe-search-list" : undefined}
               className={INPUT_CLASS}
             />
             <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -224,12 +231,12 @@ export default function GlobeSearch({ markers, onSelect, disabled }: GlobeSearch
                       onMouseEnter={() => setHighlighted(index)}
                       onClick={() => commit(entry)}
                       className={[
-                        'flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-white',
-                        'focus-visible:outline-none focus-visible:bg-white/5',
+                        "flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-white",
+                        "focus-visible:outline-none focus-visible:bg-white/5",
                         active
-                          ? 'bg-cyan-300/15 font-medium text-cyan-50'
-                          : 'hover:bg-white/5',
-                      ].join(' ')}
+                          ? "bg-cyan-300/15 font-medium text-cyan-50"
+                          : "hover:bg-white/5",
+                      ].join(" ")}
                     >
                       <span
                         aria-hidden="true"
@@ -237,8 +244,12 @@ export default function GlobeSearch({ markers, onSelect, disabled }: GlobeSearch
                         style={{ backgroundImage: `url(${avatar.file})` }}
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">{entry.name}</p>
-                        <p className="truncate text-xs text-slate-300">{entry.city}</p>
+                        <p className="truncate text-sm font-semibold">
+                          {entry.name}
+                        </p>
+                        <p className="truncate text-xs text-slate-300">
+                          {entry.city}
+                        </p>
                       </div>
                       <span
                         aria-hidden="true"
@@ -261,4 +272,3 @@ export default function GlobeSearch({ markers, onSelect, disabled }: GlobeSearch
     </div>
   );
 }
-

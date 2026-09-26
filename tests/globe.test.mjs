@@ -682,7 +682,10 @@ test('an empty message is normalised to null and stored text is bounded', async 
 
 test('genuine insert failures surface an error, never throw, and never log visitor contact', async () => {
   const logs = [];
+  // Spread the real console so the double is a complete `Console`, matching the other
+  // doubles in this file — a partial literal would silently drop every other method.
   const consoleImpl = {
+    ...console,
     error: (...args) => logs.push(args.join(' ')),
     warn: (...args) => logs.push(args.join(' ')),
     log: (...args) => logs.push(args.join(' ')),

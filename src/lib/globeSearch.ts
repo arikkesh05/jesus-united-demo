@@ -7,20 +7,23 @@
  * and can be evaluated in the node:test sandbox exactly as written.
  */
 
-import type { GlobeMarker } from '@/lib/types';
+import type { GlobeMarker } from "@/lib/types";
 
 /** Maximum number of suggestions offered at once. */
 export const SEARCH_RESULT_LIMIT = 8;
 
 /** Fallback display name for a marker whose first name is missing/blank. */
-export const SEARCH_FALLBACK_NAME = 'Ambassador';
+export const SEARCH_FALLBACK_NAME = "Ambassador";
 
 /**
  * Generic words that describe the whole index rather than any one entry. They
  * are stripped from a query so "3 gatherings" narrows to a count of 3 instead of
  * matching every marker, and a lone "gatherings" query is treated as empty.
  */
-export const SEARCH_IGNORED_TOKENS: readonly string[] = ['gathering', 'gatherings'];
+export const SEARCH_IGNORED_TOKENS: readonly string[] = [
+  "gathering",
+  "gatherings",
+];
 
 /** One searchable ambassador, with its pre-folded fields ready for matching. */
 export interface GlobeSearchEntry {
@@ -62,13 +65,13 @@ export interface GlobeSearchResult {
  * and "san jose" therefore fold to the same string.
  */
 export function foldSearchText(value: unknown): string {
-  if (typeof value !== 'string') return '';
+  if (typeof value !== "string") return "";
   return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim()
-    .replace(/\s+/g, ' ');
+    .replace(/\s+/g, " ");
 }
 
 /**
@@ -78,11 +81,12 @@ export function foldSearchText(value: unknown): string {
  */
 export function tokenizeSearchQuery(query: unknown): string[] {
   const folded = foldSearchText(query);
-  if (folded === '') return [];
+  if (folded === "") return [];
   const seen = new Set<string>();
   const tokens: string[] = [];
   for (const raw of folded.split(/[\s,]+/)) {
-    if (raw === '' || SEARCH_IGNORED_TOKENS.includes(raw) || seen.has(raw)) continue;
+    if (raw === "" || SEARCH_IGNORED_TOKENS.includes(raw) || seen.has(raw))
+      continue;
     seen.add(raw);
     tokens.push(raw);
   }
@@ -90,21 +94,28 @@ export function tokenizeSearchQuery(query: unknown): string[] {
 }
 
 /** Display name for a marker, never blank. */
-export function searchEntryName(marker: Pick<GlobeMarker, 'first_name'>): string {
-  const name = typeof marker?.first_name === 'string' ? marker.first_name.trim() : '';
-  return name === '' ? SEARCH_FALLBACK_NAME : name;
+export function searchEntryName(
+  marker: Pick<GlobeMarker, "first_name">,
+): string {
+  const name =
+    typeof marker?.first_name === "string" ? marker.first_name.trim() : "";
+  return name === "" ? SEARCH_FALLBACK_NAME : name;
 }
 
 /**
  * Builds the index in payload order. Every entry is folded once here so a
  * keystroke only ever compares pre-folded strings.
  */
-export function buildSearchIndex(markers: readonly GlobeMarker[]): GlobeSearchEntry[] {
+export function buildSearchIndex(
+  markers: readonly GlobeMarker[],
+): GlobeSearchEntry[] {
   const list = Array.isArray(markers) ? markers : [];
   return list.map((marker) => {
     const name = searchEntryName(marker);
-    const city = typeof marker?.city === 'string' ? marker.city.trim() : '';
-    const memberCount = Number.isFinite(marker?.member_count) ? marker.member_count : 0;
+    const city = typeof marker?.city === "string" ? marker.city.trim() : "";
+    const memberCount = Number.isFinite(marker?.member_count)
+      ? marker.member_count
+      : 0;
     const foldedName = foldSearchText(name);
     const foldedCity = foldSearchText(city);
     return {
@@ -113,8 +124,8 @@ export function buildSearchIndex(markers: readonly GlobeMarker[]): GlobeSearchEn
       city,
       memberCount,
       haystack: `${foldedName} ${foldedCity} ${memberCount}`.trim(),
-      nameTokens: foldedName === '' ? [] : foldedName.split(' '),
-      cityTokens: foldedCity === '' ? [] : foldedCity.split(' '),
+      nameTokens: foldedName === "" ? [] : foldedName.split(" "),
+      cityTokens: foldedCity === "" ? [] : foldedCity.split(" "),
     };
   });
 }
@@ -134,7 +145,8 @@ function scoreSearchEntry(
     if (entry.nameTokens.some((word) => word.startsWith(token))) continue;
     score += entry.cityTokens.some((word) => word.startsWith(token)) ? 1 : 2;
   }
-  if (foldedQuery !== '' && entry.nameTokens.join(' ') === foldedQuery) score -= 1;
+  if (foldedQuery !== "" && entry.nameTokens.join(" ") === foldedQuery)
+    score -= 1;
   return score;
 }
 
@@ -152,9 +164,11 @@ export function searchGlobeMarkers(
   limit: number = SEARCH_RESULT_LIMIT,
 ): GlobeSearchResult {
   const list = Array.isArray(index) ? index : [];
-  const raw = typeof query === 'string' ? query : '';
+  const raw = typeof query === "string" ? query : "";
   const tokens = tokenizeSearchQuery(raw);
-  const max = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : SEARCH_RESULT_LIMIT;
+  const max = Number.isFinite(limit)
+    ? Math.max(1, Math.floor(limit))
+    : SEARCH_RESULT_LIMIT;
 
   if (tokens.length === 0) {
     return {
@@ -167,15 +181,20 @@ export function searchGlobeMarkers(
     };
   }
 
-  const foldedQuery = tokens.join(' ');
-  const matches: { entry: GlobeSearchEntry; score: number; order: number }[] = [];
+  const foldedQuery = tokens.join(" ");
+  const matches: { entry: GlobeSearchEntry; score: number; order: number }[] =
+    [];
   list.forEach((entry, order) => {
     if (!entry) return;
     if (!tokens.every((token) => entry.haystack.includes(token))) return;
-    matches.push({ entry, score: scoreSearchEntry(entry, tokens, foldedQuery), order });
+    matches.push({
+      entry,
+      score: scoreSearchEntry(entry, tokens, foldedQuery),
+      order,
+    });
   });
 
-  matches.sort((a, b) => (a.score - b.score) || (a.order - b.order));
+  matches.sort((a, b) => a.score - b.score || a.order - b.order);
 
   return {
     query: raw,
@@ -192,7 +211,11 @@ export function searchGlobeMarkers(
  * arrow keys cycle. A negative `current` (nothing highlighted yet) enters the
  * list from the appropriate end. Returns -1 when there is nothing to highlight.
  */
-export function moveSearchSelection(current: number, delta: number, count: number): number {
+export function moveSearchSelection(
+  current: number,
+  delta: number,
+  count: number,
+): number {
   const total = Number.isFinite(count) ? Math.floor(count) : 0;
   if (total <= 0) return -1;
   const step = Number.isFinite(delta) ? Math.trunc(delta) : 0;
@@ -203,10 +226,13 @@ export function moveSearchSelection(current: number, delta: number, count: numbe
 
 /** Human copy for a result row's secondary line, e.g. "Austin · 3 Gatherings". */
 export function formatSearchResultMeta(entry: GlobeSearchEntry): string {
-  const count = Math.max(0, Math.floor(Number.isFinite(entry?.memberCount) ? entry.memberCount : 0));
-  const plural = `${count} Gathering${count === 1 ? '' : 's'}`;
-  const city = typeof entry?.city === 'string' ? entry.city.trim() : '';
-  return city === '' ? plural : `${city} · ${plural}`;
+  const count = Math.max(
+    0,
+    Math.floor(Number.isFinite(entry?.memberCount) ? entry.memberCount : 0),
+  );
+  const plural = `${count} Gathering${count === 1 ? "" : "s"}`;
+  const city = typeof entry?.city === "string" ? entry.city.trim() : "";
+  return city === "" ? plural : `${city} · ${plural}`;
 }
 
 /**
@@ -214,10 +240,13 @@ export function formatSearchResultMeta(entry: GlobeSearchEntry): string {
  * no-match copy, or a result tally (noting when the list was capped).
  */
 export function searchStatusMessage(result: GlobeSearchResult): string {
-  if (!result || result.isEmptyQuery) return 'Type a name, city, or gathering count.';
-  if (result.total === 0) return `No ambassadors match "${result.query.trim()}".`;
-  if (result.truncated) return `${result.total} matches — showing the top ${result.results.length}.`;
-  return `${result.total} ${result.total === 1 ? 'match' : 'matches'}.`;
+  if (!result || result.isEmptyQuery)
+    return "Type a name, city, or gathering count.";
+  if (result.total === 0)
+    return `No ambassadors match "${result.query.trim()}".`;
+  if (result.truncated)
+    return `${result.total} matches — showing the top ${result.results.length}.`;
+  return `${result.total} ${result.total === 1 ? "match" : "matches"}.`;
 }
 
 /** Accessible label for one suggestion row. */

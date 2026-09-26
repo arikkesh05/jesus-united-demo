@@ -25,35 +25,63 @@
  * listeners, the ResizeObserver and the animation frame.
  */
 
-import * as THREE from 'three';
+import * as THREE from "three";
 
-import { GLOBE_BASE_RADIUS, latLngToVector3 } from '@/lib/globe';
-import { normalizeMarkerName } from '@/lib/globeAvatars';
+import { GLOBE_BASE_RADIUS, latLngToVector3 } from "@/lib/globe";
+import { normalizeMarkerName } from "@/lib/globeAvatars";
 import {
-  applyOrbitDrag, applyPinchZoom, applyWheelZoom, avatarVariantForMarker,
-  badgeBoxesCollide, CLUSTER_PILL_SCREEN_MAX_PX,
-  CLUSTER_PILL_SCREEN_MIN_PX, clusterAggregationForDistance, clusterLayerOpacities,
-  clampPitch, clampZoom, distributeMarkerPositions, flyToMarker,
-  GLOBE_FOV, GLOBE_IDLE_SPIN_SPEED, groupMarkerClusters, initialOrbitForMarkers,
-  labelWidthForText, MARKER_BASE_SIZE, MARKER_LABEL_HEIGHT,
-  markerHorizonOpacity, markerScaleForDistance, orbitToPosition,
-  pointerTravelExceeded, shortestOrbitTheta, stepOrbit,
-  type ClusterPillLines, type GlobeMarkerCluster, type GlobeOrbitState,
-} from '@/lib/globeCamera';
-import type { GlobeMarker } from '@/lib/types';
+  applyOrbitDrag,
+  applyPinchZoom,
+  applyWheelZoom,
+  avatarVariantForMarker,
+  badgeBoxesCollide,
+  CLUSTER_PILL_SCREEN_MAX_PX,
+  CLUSTER_PILL_SCREEN_MIN_PX,
+  clusterAggregationForDistance,
+  clusterLayerOpacities,
+  clampPitch,
+  clampZoom,
+  distributeMarkerPositions,
+  flyToMarker,
+  GLOBE_FOV,
+  GLOBE_IDLE_SPIN_SPEED,
+  groupMarkerClusters,
+  initialOrbitForMarkers,
+  labelWidthForText,
+  MARKER_BASE_SIZE,
+  MARKER_LABEL_HEIGHT,
+  markerHorizonOpacity,
+  markerScaleForDistance,
+  orbitToPosition,
+  pointerTravelExceeded,
+  shortestOrbitTheta,
+  stepOrbit,
+  type ClusterPillLines,
+  type GlobeMarkerCluster,
+  type GlobeOrbitState,
+} from "@/lib/globeCamera";
+import type { GlobeMarker } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Refero cinematic tokens
 // ---------------------------------------------------------------------------
 const REFERO = {
-  space: '#000000', sun: '#fff8e7', ambient: '#1e293b', ocean: '#163c58',
-  atmosNear: '#38bdf8', atmosFar: '#60a5fa',
-  starNear: '#ffffff', starFar: '#94a3b8',
+  space: "#000000",
+  sun: "#fff8e7",
+  ambient: "#1e293b",
+  ocean: "#163c58",
+  atmosNear: "#38bdf8",
+  atmosFar: "#60a5fa",
+  starNear: "#ffffff",
+  starFar: "#94a3b8",
   // JesusUnited map parity: high-contrast white speech pill, dark slate
   // typography (>= 4.5:1 on white), hairline border and one soft shadow.
-  badge: '#ffffff', badgeText: '#0F172A', badgeMuted: '#475569',
-  badgeBorder: 'rgba(0, 0, 0, 0.08)', badgeShadow: 'rgba(15, 23, 42, 0.18)',
-  accent: '#38bdf8',
+  badge: "#ffffff",
+  badgeText: "#0F172A",
+  badgeMuted: "#475569",
+  badgeBorder: "rgba(0, 0, 0, 0.08)",
+  badgeShadow: "rgba(15, 23, 42, 0.18)",
+  accent: "#38bdf8",
 } as const;
 
 const SUN_COLOR = 0xfff8e7;
@@ -73,16 +101,16 @@ const LABEL_CANVAS_HEIGHT = 112;
 /** Transparent PNG character sheets served from /public. Indexed by variant:
  *  0 male, 1 female, 2 pastor, 3 kid. */
 const AVATAR_SHEET_URLS: readonly [string, string, string, string] = [
-  '/assets/avatars/avatar-male.png',
-  '/assets/avatars/avatar-female.png',
-  '/assets/avatars/avatar-pastor.png',
-  '/assets/avatars/avatar-kid.png',
+  "/assets/avatars/avatar-male.png",
+  "/assets/avatars/avatar-female.png",
+  "/assets/avatars/avatar-pastor.png",
+  "/assets/avatars/avatar-kid.png",
 ];
 
-const TEXTURE_BASE = '/assets/globe/';
-const DAY_MAP_URL = TEXTURE_BASE + 'earth-blue-marble.jpg';
-const NIGHT_MAP_URL = TEXTURE_BASE + 'earth-night.jpg';
-const BUMP_MAP_URL = TEXTURE_BASE + 'earth-topology.png';
+const TEXTURE_BASE = "/assets/globe/";
+const DAY_MAP_URL = TEXTURE_BASE + "earth-blue-marble.jpg";
+const NIGHT_MAP_URL = TEXTURE_BASE + "earth-night.jpg";
+const BUMP_MAP_URL = TEXTURE_BASE + "earth-topology.png";
 
 const AVATAR_LIFT = 4.2;
 /** Uniform world-space clearance between the crown and the pill anchor. */
@@ -129,8 +157,15 @@ const MAX_FRAME_DELTA = 0.05;
 
 const FORWARD = new THREE.Vector3(0, 0, 1);
 const TEXTURE_MAP_KEYS = [
-  'map', 'alphaMap', 'emissiveMap', 'normalMap', 'displacementMap',
-  'roughnessMap', 'metalnessMap', 'aoMap', 'envMap',
+  "map",
+  "alphaMap",
+  "emissiveMap",
+  "normalMap",
+  "displacementMap",
+  "roughnessMap",
+  "metalnessMap",
+  "aoMap",
+  "envMap",
 ] as const;
 
 const SUN_INTENSITY = 2.2;
@@ -297,10 +332,10 @@ function roundRectPath(
  * Feet land on the canvas bottom edge to match the sprite's foot anchor.
  */
 function createSilhouetteCanvas(color: string): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = 64;
   canvas.height = 96;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   if (ctx) {
     ctx.fillStyle = color;
     ctx.beginPath();
@@ -357,7 +392,7 @@ function loadAvatarSprite(
 }
 
 /** Gold stroke used only for the selected marker's badge (active state). */
-const BADGE_BORDER_SELECTED = 'rgba(212, 163, 89, 0.95)';
+const BADGE_BORDER_SELECTED = "rgba(212, 163, 89, 0.95)";
 
 /**
  * Paints the shared white rounded-pill chrome — fill, hairline/active border and
@@ -381,12 +416,26 @@ function paintPillChrome(
   ctx.shadowColor = REFERO.badgeShadow;
   ctx.shadowBlur = h * 0.22;
   ctx.shadowOffsetY = h * 0.06;
-  roundRectPath(ctx, inset, inset, w - inset * 2, h - inset * 2, (h - inset * 2) / 2);
+  roundRectPath(
+    ctx,
+    inset,
+    inset,
+    w - inset * 2,
+    h - inset * 2,
+    (h - inset * 2) / 2,
+  );
   ctx.fillStyle = REFERO.badge;
   ctx.fill();
   ctx.restore();
 
-  roundRectPath(ctx, inset, inset, w - inset * 2, h - inset * 2, (h - inset * 2) / 2);
+  roundRectPath(
+    ctx,
+    inset,
+    inset,
+    w - inset * 2,
+    h - inset * 2,
+    (h - inset * 2) / 2,
+  );
   ctx.strokeStyle = border;
   ctx.lineWidth = borderWidth;
   ctx.stroke();
@@ -401,7 +450,7 @@ function drawSpeechBadge(
   fontFamily: string,
   selected = false,
 ): void {
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   if (!ctx) return;
   const w = canvas.width;
   const h = canvas.height;
@@ -421,15 +470,15 @@ function drawSpeechBadge(
   // First name — dark slate, bold (weight hierarchy: 700 headings). Compact
   // type so the pill reads crisp and unobtrusive at globe scale.
   ctx.fillStyle = REFERO.badgeText;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = '700 ' + Math.round(h * 0.3) + 'px ' + fontFamily;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "700 " + Math.round(h * 0.3) + "px " + fontFamily;
   ctx.fillText(text, w / 2, h * 0.36, w - inset * 4);
 
   // City — slate-600 secondary accent (>= 4.5:1 on white)
   ctx.fillStyle = REFERO.badgeMuted;
-  ctx.font = '500 ' + Math.round(h * 0.2) + 'px ' + fontFamily;
-  ctx.fillText(subtext || '', w / 2, h * 0.68, w - inset * 4);
+  ctx.font = "500 " + Math.round(h * 0.2) + "px " + fontFamily;
+  ctx.fillText(subtext || "", w / 2, h * 0.68, w - inset * 4);
 }
 
 /**
@@ -444,7 +493,7 @@ function drawClusterSummaryPill(
   fontFamily: string,
   selected = false,
 ): void {
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   if (!ctx) return;
   const w = canvas.width;
   const h = canvas.height;
@@ -459,13 +508,13 @@ function drawClusterSummaryPill(
   );
 
   ctx.fillStyle = REFERO.badgeText;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = '700 ' + Math.round(h * 0.3) + 'px ' + fontFamily;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "700 " + Math.round(h * 0.3) + "px " + fontFamily;
   ctx.fillText(lines.headline, w / 2, h * 0.36, w - inset * 4);
 
   ctx.fillStyle = REFERO.badgeMuted;
-  ctx.font = '500 ' + Math.round(h * 0.2) + 'px ' + fontFamily;
+  ctx.font = "500 " + Math.round(h * 0.2) + "px " + fontFamily;
   ctx.fillText(lines.subline, w / 2, h * 0.68, w - inset * 4);
 }
 
@@ -480,7 +529,8 @@ function drawClusterSummaryPill(
  */
 function pillWidthFractionFor(badgeWidth: number): number {
   const width = Math.max(badgeWidth, MARKER_LABEL_HEIGHT);
-  const fraction = 1 - 2 * BADGE_PILL_INSET_RATIO * (MARKER_LABEL_HEIGHT / width);
+  const fraction =
+    1 - 2 * BADGE_PILL_INSET_RATIO * (MARKER_LABEL_HEIGHT / width);
   return Math.min(1, Math.max(0.6, fraction));
 }
 
@@ -492,8 +542,11 @@ function createSpeechBadge(
   fontFamily: string,
 ): { texture: THREE.CanvasTexture; canvas: HTMLCanvasElement } {
   const height = LABEL_CANVAS_HEIGHT;
-  const width = Math.max(height, Math.round((widthUnits / MARKER_LABEL_HEIGHT) * height));
-  const canvas = document.createElement('canvas');
+  const width = Math.max(
+    height,
+    Math.round((widthUnits / MARKER_LABEL_HEIGHT) * height),
+  );
+  const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
   drawSpeechBadge(canvas, name, city, fontFamily);
@@ -513,8 +566,11 @@ function createClusterSummaryPill(
   fontFamily: string,
 ): { texture: THREE.CanvasTexture; canvas: HTMLCanvasElement } {
   const height = LABEL_CANVAS_HEIGHT;
-  const width = Math.max(height, Math.round((widthUnits / CLUSTER_PILL_HEIGHT) * height));
-  const canvas = document.createElement('canvas');
+  const width = Math.max(
+    height,
+    Math.round((widthUnits / CLUSTER_PILL_HEIGHT) * height),
+  );
+  const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
   drawClusterSummaryPill(canvas, lines, fontFamily);
@@ -537,9 +593,10 @@ function badgeScreenScaleFor(
   maxPx: number,
 ): number {
   const naturalPx = naturalHeightWorld * markerScale * pxPerWorldUnit;
-  const boost = naturalPx < minPx
-    ? Math.min(minPx / Math.max(naturalPx, 1e-6), BADGE_BOOST_MAX)
-    : 1;
+  const boost =
+    naturalPx < minPx
+      ? Math.min(minPx / Math.max(naturalPx, 1e-6), BADGE_BOOST_MAX)
+      : 1;
   const cap = naturalPx > maxPx ? maxPx / Math.max(naturalPx, 1e-6) : 1;
   return markerScale * boost * cap;
 }
@@ -561,7 +618,8 @@ function createStarGeometry(): THREE.BufferGeometry {
   };
 
   for (let i = 0; i < STAR_COUNT; i++) {
-    const radius = STAR_MIN_RADIUS + next() * (STAR_MAX_RADIUS - STAR_MIN_RADIUS);
+    const radius =
+      STAR_MIN_RADIUS + next() * (STAR_MAX_RADIUS - STAR_MIN_RADIUS);
     const cosPhi = next() * 2 - 1;
     const sinPhi = Math.sqrt(Math.max(0, 1 - cosPhi * cosPhi));
     const theta = next() * Math.PI * 2;
@@ -574,22 +632,30 @@ function createStarGeometry(): THREE.BufferGeometry {
   }
 
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-  geometry.setAttribute('phase', new THREE.BufferAttribute(phases, 1));
-  geometry.setAttribute('twinkle', new THREE.BufferAttribute(twinkles, 1));
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
+  geometry.setAttribute("phase", new THREE.BufferAttribute(phases, 1));
+  geometry.setAttribute("twinkle", new THREE.BufferAttribute(twinkles, 1));
   return geometry;
 }
 
 /** Reads the live brand font stack so canvas labels match the page typography. */
 function resolveFontFamily(container: HTMLElement): string {
   const computed = window.getComputedStyle(container).fontFamily;
-  return computed && computed.trim() !== '' ? computed : 'ui-sans-serif, system-ui, sans-serif';
+  return computed && computed.trim() !== ""
+    ? computed
+    : "ui-sans-serif, system-ui, sans-serif";
 }
 
-function measureContainer(container: HTMLElement): { width: number; height: number } {
+function measureContainer(container: HTMLElement): {
+  width: number;
+  height: number;
+} {
   const rect = container.getBoundingClientRect();
-  return { width: Math.max(1, Math.round(rect.width)), height: Math.max(1, Math.round(rect.height)) };
+  return {
+    width: Math.max(1, Math.round(rect.width)),
+    height: Math.max(1, Math.round(rect.height)),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -624,10 +690,13 @@ interface MarkerNode {
 // ---------------------------------------------------------------------------
 // Texture helpers
 /** Flat 2x2 placeholder shown only until (or instead of) a photographic map. */
-function createFlatTexture(color: string, colorSpace: THREE.ColorSpace): THREE.Texture {
-  const canvas = document.createElement('canvas');
+function createFlatTexture(
+  color: string,
+  colorSpace: THREE.ColorSpace,
+): THREE.Texture {
+  const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 2;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   if (ctx) {
     ctx.fillStyle = color;
     ctx.fillRect(0, 0, 2, 2);
@@ -645,19 +714,25 @@ function createFlatTexture(color: string, colorSpace: THREE.ColorSpace): THREE.T
  */
 function createSelectionDiscTexture(): THREE.Texture {
   const size = 256;
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   if (ctx) {
     const half = size / 2;
     const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
-    gradient.addColorStop(0, 'rgba(15, 23, 42, 0.55)');
-    gradient.addColorStop(SELECTION_DISC_SHADOW_STOP * 0.75, 'rgba(15, 23, 42, 0.26)');
-    gradient.addColorStop(SELECTION_DISC_SHADOW_STOP, 'rgba(15, 23, 42, 0)');
-    gradient.addColorStop(SELECTION_DISC_SHADOW_STOP + 0.1, 'rgba(212, 163, 89, 0)');
-    gradient.addColorStop(0.68, 'rgba(212, 163, 89, 0.72)');
-    gradient.addColorStop(0.82, 'rgba(196, 147, 72, 0.3)');
-    gradient.addColorStop(1, 'rgba(196, 147, 72, 0)');
+    gradient.addColorStop(0, "rgba(15, 23, 42, 0.55)");
+    gradient.addColorStop(
+      SELECTION_DISC_SHADOW_STOP * 0.75,
+      "rgba(15, 23, 42, 0.26)",
+    );
+    gradient.addColorStop(SELECTION_DISC_SHADOW_STOP, "rgba(15, 23, 42, 0)");
+    gradient.addColorStop(
+      SELECTION_DISC_SHADOW_STOP + 0.1,
+      "rgba(212, 163, 89, 0)",
+    );
+    gradient.addColorStop(0.68, "rgba(212, 163, 89, 0.72)");
+    gradient.addColorStop(0.82, "rgba(196, 147, 72, 0.3)");
+    gradient.addColorStop(1, "rgba(196, 147, 72, 0)");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, size, size);
   }
@@ -742,7 +817,7 @@ export function createGlobeScene(
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
     alpha: true,
-    powerPreference: 'high-performance',
+    powerPreference: "high-performance",
   });
   // three.js skill rule: never let DPR exceed 2.
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -755,14 +830,14 @@ export function createGlobeScene(
   const viewport = { width: initialSize.width, height: initialSize.height };
 
   const canvas = renderer.domElement;
-  canvas.setAttribute('aria-hidden', 'true');
-  canvas.style.display = 'block';
-  canvas.style.width = '100%';
-  canvas.style.height = '100%';
-  canvas.style.outline = 'none';
-  canvas.style.cursor = 'grab';
-  canvas.style.touchAction = 'none';
-  canvas.style.borderRadius = '1.5rem';
+  canvas.setAttribute("aria-hidden", "true");
+  canvas.style.display = "block";
+  canvas.style.width = "100%";
+  canvas.style.height = "100%";
+  canvas.style.outline = "none";
+  canvas.style.cursor = "grab";
+  canvas.style.touchAction = "none";
+  canvas.style.borderRadius = "1.5rem";
   container.appendChild(canvas);
 
   const maxAnisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
@@ -801,14 +876,30 @@ export function createGlobeScene(
 
   // --- Earth mesh (ShaderMaterial with day/night/bump) --------------------
   const earthGeometry = trackGeometry(
-    new THREE.SphereGeometry(GLOBE_BASE_RADIUS, EARTH_WIDTH_SEGMENTS, EARTH_HEIGHT_SEGMENTS),
+    new THREE.SphereGeometry(
+      GLOBE_BASE_RADIUS,
+      EARTH_WIDTH_SEGMENTS,
+      EARTH_HEIGHT_SEGMENTS,
+    ),
   );
   const earthMaterial = trackMaterial(
     new THREE.ShaderMaterial({
       uniforms: {
-        dayMap: { value: trackTexture(createFlatTexture(REFERO.ocean, THREE.SRGBColorSpace)) },
-        nightMap: { value: trackTexture(createFlatTexture(REFERO.space, THREE.SRGBColorSpace)) },
-        bumpMap: { value: trackTexture(createFlatTexture(REFERO.space, THREE.NoColorSpace)) },
+        dayMap: {
+          value: trackTexture(
+            createFlatTexture(REFERO.ocean, THREE.SRGBColorSpace),
+          ),
+        },
+        nightMap: {
+          value: trackTexture(
+            createFlatTexture(REFERO.space, THREE.SRGBColorSpace),
+          ),
+        },
+        bumpMap: {
+          value: trackTexture(
+            createFlatTexture(REFERO.space, THREE.NoColorSpace),
+          ),
+        },
         bumpScale: { value: BUMP_SCALE },
         sunDirection: { value: keyLight.position.clone().normalize() },
         sunIntensity: { value: keyLight.intensity },
@@ -832,20 +923,35 @@ export function createGlobeScene(
   const restoreBump = earthUniforms.bumpMap.value;
 
   const dayTexture = loadTexture(
-    textureLoader, DAY_MAP_URL, THREE.SRGBColorSpace, maxAnisotropy,
-    () => { earthUniforms.dayMap.value = restoreDay; },
+    textureLoader,
+    DAY_MAP_URL,
+    THREE.SRGBColorSpace,
+    maxAnisotropy,
+    () => {
+      earthUniforms.dayMap.value = restoreDay;
+    },
   );
   earthUniforms.dayMap.value = trackTexture(dayTexture);
 
   const nightTexture = loadTexture(
-    textureLoader, NIGHT_MAP_URL, THREE.SRGBColorSpace, maxAnisotropy,
-    () => { earthUniforms.nightMap.value = restoreNight; },
+    textureLoader,
+    NIGHT_MAP_URL,
+    THREE.SRGBColorSpace,
+    maxAnisotropy,
+    () => {
+      earthUniforms.nightMap.value = restoreNight;
+    },
   );
   earthUniforms.nightMap.value = trackTexture(nightTexture);
 
   const bumpTexture = loadTexture(
-    textureLoader, BUMP_MAP_URL, THREE.NoColorSpace, maxAnisotropy,
-    () => { earthUniforms.bumpMap.value = restoreBump; },
+    textureLoader,
+    BUMP_MAP_URL,
+    THREE.NoColorSpace,
+    maxAnisotropy,
+    () => {
+      earthUniforms.bumpMap.value = restoreBump;
+    },
   );
   earthUniforms.bumpMap.value = trackTexture(bumpTexture);
 
@@ -923,19 +1029,22 @@ export function createGlobeScene(
     spriteAspects.set(variant, AVATAR_FALLBACK_ASPECT);
     spriteTextures.set(
       variant,
-      trackTexture(loadAvatarSprite(
-        textureLoader,
-        AVATAR_SHEET_URLS[variant],
-        maxAnisotropy,
-        silhouetteCanvas,
-        () => disposed,
-        (texture) => {
-          const image = texture.image as { width?: number; height?: number } | undefined;
-          if (image?.width && image?.height) {
-            spriteAspects.set(variant, image.width / image.height);
-          }
-        },
-      )),
+      trackTexture(
+        loadAvatarSprite(
+          textureLoader,
+          AVATAR_SHEET_URLS[variant],
+          maxAnisotropy,
+          silhouetteCanvas,
+          () => disposed,
+          (texture) => {
+            const image = texture.image as
+              { width?: number; height?: number } | undefined;
+            if (image?.width && image?.height) {
+              spriteAspects.set(variant, image.width / image.height);
+            }
+          },
+        ),
+      ),
     );
   }
 
@@ -947,7 +1056,8 @@ export function createGlobeScene(
   const clusters = groupMarkerClusters(markerList);
   const clusterByMarkerId = new Map<string, GlobeMarkerCluster>();
   for (const cluster of clusters) {
-    for (const memberId of cluster.memberIds) clusterByMarkerId.set(memberId, cluster);
+    for (const memberId of cluster.memberIds)
+      clusterByMarkerId.set(memberId, cluster);
   }
 
   for (let index = 0; index < markerList.length; index += 1) {
@@ -957,31 +1067,51 @@ export function createGlobeScene(
     const city = marker.city;
     const cluster = clusterByMarkerId.get(marker.id);
     if (!cluster) {
-      throw new Error(`Marker ${marker.id} was lost during cluster aggregation.`);
+      throw new Error(
+        `Marker ${marker.id} was lost during cluster aggregation.`,
+      );
     }
 
     // Sheet selection is deterministic: a clergy role pins the pastor sheet, a
     // children/youth role pins the kid sheet, and everything else spreads
     // across all four sheets by a stable id hash. Textures are shared per
     // variant, so no per-marker allocation happens here.
-    const variant = avatarVariantForMarker(marker.id, marker.role, marker.first_name);
+    const variant = avatarVariantForMarker(
+      marker.id,
+      marker.role,
+      marker.first_name,
+    );
     const avatarTexture = spriteTextures.get(variant);
     if (!avatarTexture) {
-      throw new Error(`Avatar sheet for variant ${variant} failed to initialise.`);
+      throw new Error(
+        `Avatar sheet for variant ${variant} failed to initialise.`,
+      );
     }
 
-    const point = latLngToVector3(position.lat, position.lng, GLOBE_BASE_RADIUS);
+    const point = latLngToVector3(
+      position.lat,
+      position.lng,
+      GLOBE_BASE_RADIUS,
+    );
     const normal = new THREE.Vector3(point.x, point.y, point.z).normalize();
     // Fanned anchor: this marker's own slot on the formation polygon.
-    const fannedPosition = normal.clone().multiplyScalar(GLOBE_BASE_RADIUS + AVATAR_LIFT);
+    const fannedPosition = normal
+      .clone()
+      .multiplyScalar(GLOBE_BASE_RADIUS + AVATAR_LIFT);
     // Aggregated anchor: the cluster centroid. A standalone marker's centroid IS
     // its own coordinate, so both anchors coincide and the blend is a no-op.
     const centroidPoint = latLngToVector3(
-      cluster.centroid.lat, cluster.centroid.lng, GLOBE_BASE_RADIUS,
+      cluster.centroid.lat,
+      cluster.centroid.lng,
+      GLOBE_BASE_RADIUS,
     );
     const clusterPosition = new THREE.Vector3(
-      centroidPoint.x, centroidPoint.y, centroidPoint.z,
-    ).normalize().multiplyScalar(GLOBE_BASE_RADIUS + AVATAR_LIFT);
+      centroidPoint.x,
+      centroidPoint.y,
+      centroidPoint.z,
+    )
+      .normalize()
+      .multiplyScalar(GLOBE_BASE_RADIUS + AVATAR_LIFT);
 
     // Avatar sprite: standing upright on the surface normal
     const avatarMaterial = trackMaterial(
@@ -1017,7 +1147,10 @@ export function createGlobeScene(
     // clears the head at every latitude and zoom level).
     const badgeWidth = labelWidthForText(name);
     const { texture: badgeTexture, canvas: badgeCanvas } = createSpeechBadge(
-      name, city, badgeWidth, fontFamily,
+      name,
+      city,
+      badgeWidth,
+      fontFamily,
     );
     trackTexture(badgeTexture);
     const badgeMaterial = trackMaterial(
@@ -1043,11 +1176,23 @@ export function createGlobeScene(
     scene.add(badge);
 
     const node: MarkerNode = {
-      marker, name, city, normal,
-      avatar, avatarMaterial,
-      badge, badgeMaterial, badgeCanvas, badgeWidth, variant,
-      cluster, fannedPosition, clusterPosition,
-      summary: null, summaryMaterial: null, summaryCanvas: null,
+      marker,
+      name,
+      city,
+      normal,
+      avatar,
+      avatarMaterial,
+      badge,
+      badgeMaterial,
+      badgeCanvas,
+      badgeWidth,
+      variant,
+      cluster,
+      fannedPosition,
+      clusterPosition,
+      summary: null,
+      summaryMaterial: null,
+      summaryCanvas: null,
       aggregation: 0,
     };
 
@@ -1057,7 +1202,11 @@ export function createGlobeScene(
     // lead member, which flies the camera in and opens the formation — the same
     // selection path as tapping an individual character.
     if (!cluster.standalone && cluster.memberIds[0] === marker.id) {
-      const pill = createClusterSummaryPill(cluster.lines, cluster.width, fontFamily);
+      const pill = createClusterSummaryPill(
+        cluster.lines,
+        cluster.width,
+        fontFamily,
+      );
       trackTexture(pill.texture);
       node.summaryCanvas = pill.canvas;
       node.summaryMaterial = trackMaterial(
@@ -1133,7 +1282,11 @@ export function createGlobeScene(
   /** Redraws a badge canvas, adding the gold active stroke when selected. */
   function redrawBadge(node: MarkerNode): void {
     drawSpeechBadge(
-      node.badgeCanvas, node.name, node.city, fontFamily, node === selectedNode,
+      node.badgeCanvas,
+      node.name,
+      node.city,
+      fontFamily,
+      node === selectedNode,
     );
     const texture = node.badgeMaterial.map;
     if (texture) texture.needsUpdate = true;
@@ -1141,7 +1294,7 @@ export function createGlobeScene(
 
   function applySelection(nextId: string | null, notify: boolean): void {
     const resolved = nextId !== null && nodeById.has(nextId) ? nextId : null;
-    const next = resolved === null ? null : nodeById.get(resolved) ?? null;
+    const next = resolved === null ? null : (nodeById.get(resolved) ?? null);
     if (next !== selectedNode) {
       const previous = selectedNode;
       selectedNode = next;
@@ -1174,7 +1327,8 @@ export function createGlobeScene(
       if (selectedNode) redrawBadge(selectedNode);
     }
     markInteraction();
-    if (notify) options.onSelectMarker?.(selectedNode ? selectedNode.marker : null);
+    if (notify)
+      options.onSelectMarker?.(selectedNode ? selectedNode.marker : null);
   }
 
   function pickMarker(clientX: number, clientY: number): MarkerNode | null {
@@ -1188,7 +1342,7 @@ export function createGlobeScene(
     for (const hit of raycaster.intersectObjects(pickables, false)) {
       if (!hit.object.visible) continue;
       const markerId = hit.object.userData.markerId;
-      if (typeof markerId === 'string') {
+      if (typeof markerId === "string") {
         const node = nodeById.get(markerId);
         if (node) return node;
       }
@@ -1201,7 +1355,7 @@ export function createGlobeScene(
     const nextId = node ? node.marker.id : null;
     if (nextId === hoveredId) return;
     hoveredId = nextId;
-    canvas.style.cursor = nextId ? 'pointer' : 'grab';
+    canvas.style.cursor = nextId ? "pointer" : "grab";
     options.onHoverMarker?.(nextId);
   }
 
@@ -1214,8 +1368,12 @@ export function createGlobeScene(
   }
 
   function onPointerDown(event: PointerEvent): void {
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
-    try { canvas.setPointerCapture(event.pointerId); } catch { /* fast taps */ }
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    try {
+      canvas.setPointerCapture(event.pointerId);
+    } catch {
+      /* fast taps */
+    }
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
     if (pointers.size >= 2) {
@@ -1227,7 +1385,7 @@ export function createGlobeScene(
       drag.y = event.clientY;
       drag.travelX = 0;
       drag.travelY = 0;
-      canvas.style.cursor = 'grabbing';
+      canvas.style.cursor = "grabbing";
     }
     markInteraction();
   }
@@ -1259,7 +1417,8 @@ export function createGlobeScene(
       return;
     }
 
-    if (event.pointerType === 'mouse') updateHover(event.clientX, event.clientY);
+    if (event.pointerType === "mouse")
+      updateHover(event.clientX, event.clientY);
   }
 
   function onPointerUp(event: PointerEvent): void {
@@ -1268,10 +1427,11 @@ export function createGlobeScene(
 
     if (drag.pointerId === event.pointerId) {
       drag.pointerId = -1;
-      const tapped = tracked && !pointerTravelExceeded(drag.travelX, drag.travelY);
+      const tapped =
+        tracked && !pointerTravelExceeded(drag.travelX, drag.travelY);
       drag.travelX = 0;
       drag.travelY = 0;
-      canvas.style.cursor = hoveredId ? 'pointer' : 'grab';
+      canvas.style.cursor = hoveredId ? "pointer" : "grab";
       if (tapped) {
         const node = pickMarker(event.clientX, event.clientY);
         applySelection(node ? node.marker.id : null, true);
@@ -1336,25 +1496,33 @@ export function createGlobeScene(
     // Screen-up in world space (camera local +Y): the direction the avatar's
     // body visually extends along, and therefore the direction the badge must
     // rise along to clear the head on screen at any latitude.
-    cameraUp.set(
-      camera.matrixWorld.elements[4],
-      camera.matrixWorld.elements[5],
-      camera.matrixWorld.elements[6],
-    ).normalize();
+    cameraUp
+      .set(
+        camera.matrixWorld.elements[4],
+        camera.matrixWorld.elements[5],
+        camera.matrixWorld.elements[6],
+      )
+      .normalize();
 
     // px per world unit at the focus depth (viewport height / projected frustum).
-    const pxPerWorldUnit = viewport.height / (2 * current.distance * TAN_HALF_FOV);
+    const pxPerWorldUnit =
+      viewport.height / (2 * current.distance * TAN_HALF_FOV);
     // Compact pill baseline (~40% below the raw label metrics) keeps badges
     // crisp and unobtrusive; the px clamp then guarantees a readability floor
     // at far zoom (≤ BADGE_BOOST_MAX) and a 26px ceiling near the camera.
     const compactHeight = MARKER_LABEL_HEIGHT * BADGE_COMPACT_SCALE;
     const naturalBadgePx = compactHeight * scale * pxPerWorldUnit;
-    const boost = naturalBadgePx < BADGE_SCREEN_MIN_PX
-      ? Math.min(BADGE_SCREEN_MIN_PX / Math.max(naturalBadgePx, 1e-6), BADGE_BOOST_MAX)
-      : 1;
-    const cap = naturalBadgePx > BADGE_SCREEN_MAX_PX
-      ? BADGE_SCREEN_MAX_PX / Math.max(naturalBadgePx, 1e-6)
-      : 1;
+    const boost =
+      naturalBadgePx < BADGE_SCREEN_MIN_PX
+        ? Math.min(
+            BADGE_SCREEN_MIN_PX / Math.max(naturalBadgePx, 1e-6),
+            BADGE_BOOST_MAX,
+          )
+        : 1;
+    const cap =
+      naturalBadgePx > BADGE_SCREEN_MAX_PX
+        ? BADGE_SCREEN_MAX_PX / Math.max(naturalBadgePx, 1e-6)
+        : 1;
     const badgeScale = scale * boost * cap;
 
     // --- Aggregation blend ---------------------------------------------------
@@ -1366,16 +1534,21 @@ export function createGlobeScene(
     for (const node of nodes) {
       // A standalone ambassador never aggregates, so its blend is pinned at 0
       // and every layer stays fully visible no matter where the camera is.
-      const layers = clusterLayerOpacities(node.cluster.standalone ? 0 : aggregation);
+      const layers = clusterLayerOpacities(
+        node.cluster.standalone ? 0 : aggregation,
+      );
       // Members slide toward the centroid as they dissolve into the pill, so
       // the formation visibly gathers rather than popping out of existence.
       const collapse = 1 - layers.avatar;
-      node.avatar.position.copy(node.fannedPosition).lerp(node.clusterPosition, collapse);
+      node.avatar.position
+        .copy(node.fannedPosition)
+        .lerp(node.clusterPosition, collapse);
 
       facingVector.copy(camera.position).sub(node.avatar.position).normalize();
       const facing = node.normal.dot(facingVector);
       const facingCamera = facing > 0;
-      const avatarVisible = facingCamera && layers.avatar > LAYER_VISIBLE_EPSILON;
+      const avatarVisible =
+        facingCamera && layers.avatar > LAYER_VISIBLE_EPSILON;
       const badgeVisible = facingCamera && layers.badge > LAYER_VISIBLE_EPSILON;
       node.avatar.visible = avatarVisible;
       node.badge.visible = badgeVisible;
@@ -1390,7 +1563,8 @@ export function createGlobeScene(
       // avatar height + explicit gap). Combined with the center.y = -0.4
       // screen lift, the pill's bottom edge sits strictly above the crown —
       // it can never cover the head, face or torso.
-      node.badge.position.copy(node.avatar.position)
+      node.badge.position
+        .copy(node.avatar.position)
         .addScaledVector(cameraUp, headClearance);
       const selectedLift = node === selectedNode ? SELECTION_BADGE_LIFT : 1;
       node.badge.scale.set(
@@ -1412,16 +1586,25 @@ export function createGlobeScene(
         // pill must vanish as its city rotates past the limb.
         clusterNormal.copy(node.clusterPosition).normalize();
         const clusterFacing = clusterNormal.dot(facingVector);
-        const summaryVisible = clusterFacing > 0 && layers.summary > LAYER_VISIBLE_EPSILON;
+        const summaryVisible =
+          clusterFacing > 0 && layers.summary > LAYER_VISIBLE_EPSILON;
         summary.visible = summaryVisible;
-        summaryMaterial.opacity = markerHorizonOpacity(clusterFacing) * layers.summary;
+        summaryMaterial.opacity =
+          markerHorizonOpacity(clusterFacing) * layers.summary;
         // Floats above the assembly along the screen-up axis, so it clears the
         // converging avatars exactly like a name tag clears its own head.
-        summary.position.copy(node.clusterPosition)
-          .addScaledVector(cameraUp, CLUSTER_PILL_LIFT * CLUSTER_PILL_HEIGHT * scale);
+        summary.position
+          .copy(node.clusterPosition)
+          .addScaledVector(
+            cameraUp,
+            CLUSTER_PILL_LIFT * CLUSTER_PILL_HEIGHT * scale,
+          );
         const summaryScale = badgeScreenScaleFor(
-          CLUSTER_PILL_HEIGHT, scale, pxPerWorldUnit,
-          CLUSTER_PILL_SCREEN_MIN_PX, CLUSTER_PILL_SCREEN_MAX_PX,
+          CLUSTER_PILL_HEIGHT,
+          scale,
+          pxPerWorldUnit,
+          CLUSTER_PILL_SCREEN_MIN_PX,
+          CLUSTER_PILL_SCREEN_MAX_PX,
         );
         summary.scale.set(
           node.cluster.width * summaryScale,
@@ -1449,10 +1632,12 @@ export function createGlobeScene(
         // Half the *painted* pill's projected width: badgeWidth world units of
         // sprite width, narrowed by the canvas' transparent margin, then
         // projected. Measuring the true silhouette is what makes the cull bite.
-        halfWidthPx: (
-          node.badgeWidth * pillWidthFractionFor(node.badgeWidth)
-          * badgeScale * pxPerWorldUnit
-        ) / 2,
+        halfWidthPx:
+          (node.badgeWidth *
+            pillWidthFractionFor(node.badgeWidth) *
+            badgeScale *
+            pxPerWorldUnit) /
+          2,
         hidden: false,
       });
     }
@@ -1480,7 +1665,9 @@ export function createGlobeScene(
     }
     selectionDisc.visible = true;
     // Gentle breathing of the halo (static under reduced motion).
-    selectionMaterial.opacity = reducedMotion ? 0.9 : 0.78 + 0.12 * Math.sin(elapsed * 2.4);
+    selectionMaterial.opacity = reducedMotion
+      ? 0.9
+      : 0.78 + 0.12 * Math.sin(elapsed * 2.4);
     // Flush with the terrain, directly under the character's feet. The disc
     // rides the selected avatar's own (already aggregation-blended) position and
     // is re-projected onto the surface, so it stays planted while a cluster
@@ -1489,9 +1676,9 @@ export function createGlobeScene(
     // curvature and depth precision.
     discNormal.copy(selectedNode.avatar.position).normalize();
     if (discNormal.lengthSq() < 1e-8) discNormal.copy(selectedNode.normal);
-    selectionDisc.position.copy(discNormal).multiplyScalar(
-      GLOBE_BASE_RADIUS + SELECTION_DISC_LIFT,
-    );
+    selectionDisc.position
+      .copy(discNormal)
+      .multiplyScalar(GLOBE_BASE_RADIUS + SELECTION_DISC_LIFT);
     selectionDisc.quaternion.setFromUnitVectors(FORWARD, discNormal);
   }
 
@@ -1513,7 +1700,10 @@ export function createGlobeScene(
     lastTimestamp = timestamp;
     elapsed += dt;
 
-    if (!reducedMotion && performance.now() - lastInteractionAt > IDLE_RESUME_MS) {
+    if (
+      !reducedMotion &&
+      performance.now() - lastInteractionAt > IDLE_RESUME_MS
+    ) {
       target.theta += GLOBE_IDLE_SPIN_SPEED * dt;
     }
 
@@ -1541,12 +1731,12 @@ export function createGlobeScene(
     frameId = requestAnimationFrame(renderFrame);
   }
 
-  canvas.addEventListener('pointerdown', onPointerDown);
-  canvas.addEventListener('pointermove', onPointerMove);
-  canvas.addEventListener('pointerup', onPointerUp);
-  canvas.addEventListener('pointercancel', onPointerCancel);
-  canvas.addEventListener('wheel', onWheel, { passive: false });
-  canvas.addEventListener('webglcontextlost', onContextLost);
+  canvas.addEventListener("pointerdown", onPointerDown);
+  canvas.addEventListener("pointermove", onPointerMove);
+  canvas.addEventListener("pointerup", onPointerUp);
+  canvas.addEventListener("pointercancel", onPointerCancel);
+  canvas.addEventListener("wheel", onWheel, { passive: false });
+  canvas.addEventListener("webglcontextlost", onContextLost);
   resizeObserver.observe(container);
 
   // Paint first frame immediately
@@ -1576,12 +1766,12 @@ export function createGlobeScene(
     cancelAnimationFrame(frameId);
     resizeObserver.disconnect();
 
-    canvas.removeEventListener('pointerdown', onPointerDown);
-    canvas.removeEventListener('pointermove', onPointerMove);
-    canvas.removeEventListener('pointerup', onPointerUp);
-    canvas.removeEventListener('pointercancel', onPointerCancel);
-    canvas.removeEventListener('wheel', onWheel);
-    canvas.removeEventListener('webglcontextlost', onContextLost);
+    canvas.removeEventListener("pointerdown", onPointerDown);
+    canvas.removeEventListener("pointermove", onPointerMove);
+    canvas.removeEventListener("pointerup", onPointerUp);
+    canvas.removeEventListener("pointercancel", onPointerCancel);
+    canvas.removeEventListener("wheel", onWheel);
+    canvas.removeEventListener("webglcontextlost", onContextLost);
 
     // Sweep all geometries
     for (const geometry of geometries) geometry.dispose();
@@ -1605,17 +1795,23 @@ export function createGlobeScene(
     scene.clear();
 
     renderer.dispose();
-    try { renderer.forceContextLoss(); } catch { /* already lost */ }
+    try {
+      renderer.forceContextLoss();
+    } catch {
+      /* already lost */
+    }
     if (canvas.parentNode === container) container.removeChild(canvas);
   }
 
   return {
     selectMarker(markerId: string | null): void {
-      applySelection(typeof markerId === 'string' ? markerId : null, false);
+      applySelection(typeof markerId === "string" ? markerId : null, false);
     },
     nudgeOrbit(deltaTheta: number, deltaPhi: number): void {
       target.theta += Number.isFinite(deltaTheta) ? deltaTheta : 0;
-      target.phi = clampPitch(target.phi + (Number.isFinite(deltaPhi) ? deltaPhi : 0));
+      target.phi = clampPitch(
+        target.phi + (Number.isFinite(deltaPhi) ? deltaPhi : 0),
+      );
       markInteraction();
     },
     nudgeZoom(factor: number): void {

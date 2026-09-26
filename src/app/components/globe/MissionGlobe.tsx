@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   useCallback,
@@ -9,27 +9,35 @@ import {
   type ChangeEvent,
   type FormEvent,
   type KeyboardEvent,
-} from 'react';
+} from "react";
 
-import { GlobeIcon } from '@/app/components/icons';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogClose } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+import { GlobeIcon } from "@/app/components/icons";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogClose } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   submitGatheringInquiry,
   validateGatheringInquiryInput,
   type GatheringInquiryFieldErrors,
-} from '@/lib/gatherings';
-import { avatarStyleForSeed, normalizeMarkerName } from '@/lib/globeAvatars';
-import { GLOBE_KEY_ROTATE_STEP, GLOBE_KEY_ZOOM_FACTOR } from '@/lib/globeCamera';
+} from "@/lib/gatherings";
+import { avatarStyleForSeed, normalizeMarkerName } from "@/lib/globeAvatars";
 import {
-  HUD_GLASS_PANEL, HUD_COUNTER_BADGE, HUD_HINT, HUD_PREVIEW_CARD,
-  INTERACTION_HINT, formatGatheringCounter, formatAmbassadorName,
-} from '@/lib/globeHud';
-import type { GlobeMarker } from '@/lib/types';
-import type { GlobeSceneHandle } from './globeScene';
-import GlobeSearch from './GlobeSearch';
+  GLOBE_KEY_ROTATE_STEP,
+  GLOBE_KEY_ZOOM_FACTOR,
+} from "@/lib/globeCamera";
+import {
+  HUD_GLASS_PANEL,
+  HUD_COUNTER_BADGE,
+  HUD_HINT,
+  HUD_PREVIEW_CARD,
+  INTERACTION_HINT,
+  formatGatheringCounter,
+  formatAmbassadorName,
+} from "@/lib/globeHud";
+import type { GlobeMarker } from "@/lib/types";
+import type { GlobeSceneHandle } from "./globeScene";
+import GlobeSearch from "./GlobeSearch";
 
 /**
  * Mission Globe cinematic stage (Refero motion specification).
@@ -47,24 +55,24 @@ interface MissionGlobeProps {
   className?: string;
 }
 
-type GlobeStatus = 'loading' | 'ready' | 'unavailable';
+type GlobeStatus = "loading" | "ready" | "unavailable";
 
 const CONTROL_CLASS =
-  'inline-flex h-11 min-w-11 items-center justify-center rounded-full border border-white/12 bg-slate-900/65 px-3 text-xs font-semibold text-white backdrop-blur-xl transition hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:cursor-not-allowed disabled:opacity-40';
+  "inline-flex h-11 min-w-11 items-center justify-center rounded-full border border-white/12 bg-slate-900/65 px-3 text-xs font-semibold text-white backdrop-blur-xl transition hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:cursor-not-allowed disabled:opacity-40";
 const MARKER_BUTTON_CLASS =
-  'inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300';
-const CONNECT_NOTICE_CLASS = 'min-h-5 text-xs font-semibold text-cyan-300';
+  "inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300";
+const CONNECT_NOTICE_CLASS = "min-h-5 text-xs font-semibold text-cyan-300";
 const INQUIRY_LABEL_CLASS =
-  'block text-[10px] font-bold uppercase tracking-[0.18em] text-muted';
-const INQUIRY_ERROR_CLASS = 'mt-1 text-[11px] font-medium text-red-700';
+  "block text-[10px] font-bold uppercase tracking-[0.18em] text-muted";
+const INQUIRY_ERROR_CLASS = "mt-1 text-[11px] font-medium text-red-700";
 const INQUIRY_TEXTAREA_CLASS =
-  'min-h-11 w-full rounded-xl border bg-[#0A1118]/60 px-3.5 py-2.5 text-sm text-espresso placeholder:text-muted/60 transition-colors duration-150 border-sand hover:border-[#F59E0B]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B] focus-visible:border-transparent aria-[invalid=true]:border-red-500 aria-[invalid=true]:ring-red-500 motion-reduce:transition-none';
+  "min-h-11 w-full rounded-xl border bg-[#0A1118]/60 px-3.5 py-2.5 text-sm text-espresso placeholder:text-muted/60 transition-colors duration-150 border-sand hover:border-[#F59E0B]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B] focus-visible:border-transparent aria-[invalid=true]:border-red-500 aria-[invalid=true]:ring-red-500 motion-reduce:transition-none";
 
 /** Focus-trap cycle set for the connect dialog. */
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
 
-type ShareNoticeKind = 'copied' | 'failed';
+type ShareNoticeKind = "copied" | "failed";
 
 /** The connect-dialog inquiry form fields. */
 interface InquiryFormState {
@@ -73,9 +81,13 @@ interface InquiryFormState {
   message: string;
 }
 
-type InquirySubmitState = 'idle' | 'submitting' | 'sent' | 'failed';
+type InquirySubmitState = "idle" | "submitting" | "sent" | "failed";
 
-const EMPTY_INQUIRY_FORM: InquiryFormState = { name: '', contact: '', message: '' };
+const EMPTY_INQUIRY_FORM: InquiryFormState = {
+  name: "",
+  contact: "",
+  message: "",
+};
 
 /**
  * Privacy-safe share URL: an opaque marker id only — never coordinates,
@@ -91,10 +103,12 @@ function gatheringShareUrl(markerId: string): string {
  * only ever compared against real marker ids, never rendered or trusted as
  * data (Privacy Lens). Safe for SSR (returns null without touching `window`).
  */
-function readDeepLinkGatheringId(available: readonly GlobeMarker[]): string | null {
-  if (typeof window === 'undefined') return null;
+function readDeepLinkGatheringId(
+  available: readonly GlobeMarker[],
+): string | null {
+  if (typeof window === "undefined") return null;
   const requested =
-    new URLSearchParams(window.location.search).get('gathering')?.trim() ?? '';
+    new URLSearchParams(window.location.search).get("gathering")?.trim() ?? "";
   if (!requested || requested.length > 128) return null;
   const match = available.find((marker) => marker.id === requested);
   return match ? match.id : null;
@@ -108,18 +122,24 @@ function readDeepLinkGatheringId(available: readonly GlobeMarker[]): string | nu
  * three.js engine itself is loaded with a dynamic `import()` inside an effect, so
  * `three` never runs during SSR and `window` is only ever touched post-mount.
  */
-export default function MissionGlobe({ markers, onSelectMarker, className }: MissionGlobeProps) {
+export default function MissionGlobe({
+  markers,
+  onSelectMarker,
+  className,
+}: MissionGlobeProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<GlobeSceneHandle | null>(null);
   const notifyRef = useRef(onSelectMarker);
-  const [status, setStatus] = useState<GlobeStatus>('loading');
+  const [status, setStatus] = useState<GlobeStatus>("loading");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [connectOpen, setConnectOpen] = useState(false);
   const [shareNotice, setShareNotice] = useState<ShareNoticeKind | null>(null);
-  const [inquiryForm, setInquiryForm] = useState<InquiryFormState>(EMPTY_INQUIRY_FORM);
-  const [inquiryErrors, setInquiryErrors] = useState<GatheringInquiryFieldErrors>({});
-  const [inquiryState, setInquiryState] = useState<InquirySubmitState>('idle');
+  const [inquiryForm, setInquiryForm] =
+    useState<InquiryFormState>(EMPTY_INQUIRY_FORM);
+  const [inquiryErrors, setInquiryErrors] =
+    useState<GatheringInquiryFieldErrors>({});
+  const [inquiryState, setInquiryState] = useState<InquirySubmitState>("idle");
   const modalRef = useRef<HTMLDivElement | null>(null);
   const connectButtonRef = useRef<HTMLButtonElement | null>(null);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
@@ -148,12 +168,13 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
     let active = true;
     let handle: GlobeSceneHandle | null = null;
 
-    void import('./globeScene')
+    void import("./globeScene")
       .then((module) => {
         if (!active) return;
         handle = module.createGlobeScene(container, {
           markers,
-          reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+          reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)")
+            .matches,
           onSelectMarker: (marker) => {
             setSelectedId(marker ? marker.id : null);
           },
@@ -174,22 +195,23 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
             // the globe into view. Reduced motion skips the smooth glide
             // (motion-compliance invariant).
             const globeEl =
-              document.getElementById('mission-globe') ?? containerRef.current;
+              document.getElementById("mission-globe") ?? containerRef.current;
             globeEl?.scrollIntoView({
-              behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-                ? 'auto'
-                : 'smooth',
-              block: 'center',
+              behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
+                .matches
+                ? "auto"
+                : "smooth",
+              block: "center",
             });
           } else if (selectedIdRef.current) {
             // Replay any pending selection that landed before the boot resolved.
             handle.selectMarker(selectedIdRef.current);
           }
         }
-        setStatus('ready');
+        setStatus("ready");
       })
       .catch(() => {
-        if (active) setStatus('unavailable');
+        if (active) setStatus("unavailable");
       });
 
     return () => {
@@ -210,31 +232,43 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
   // Live reduced-motion sync: camera damping/idle spin honor the OS preference
   // without rebuilding the WebGL context (React & WebGL Hygiene Lens).
   useEffect(() => {
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
     const sync = () => sceneRef.current?.setReducedMotion(query.matches);
     sync();
-    query.addEventListener('change', sync);
-    return () => query.removeEventListener('change', sync);
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
   }, []);
 
   const selected = useMemo(
-    () => (selectedId ? markers.find((marker) => marker.id === selectedId) ?? null : null),
+    () =>
+      selectedId
+        ? (markers.find((marker) => marker.id === selectedId) ?? null)
+        : null,
     [markers, selectedId],
   );
   const hovered = useMemo(
-    () => (hoveredId ? markers.find((marker) => marker.id === hoveredId) ?? null : null),
+    () =>
+      hoveredId
+        ? (markers.find((marker) => marker.id === hoveredId) ?? null)
+        : null,
     [markers, hoveredId],
   );
 
-  const cityCount = useMemo(() => new Set(
-    markers.map((marker) => marker.city.trim().toLocaleLowerCase()).filter(Boolean),
-  ).size, [markers]);
+  const cityCount = useMemo(
+    () =>
+      new Set(
+        markers
+          .map((marker) => marker.city.trim().toLocaleLowerCase())
+          .filter(Boolean),
+      ).size,
+    [markers],
+  );
 
   useEffect(() => {
     notifyRef.current?.(selected);
   }, [selected]);
 
-  const ready = status === 'ready';
+  const ready = status === "ready";
 
   const toggleSelection = useCallback((markerId: string) => {
     setSelectedId((previous) => (previous === markerId ? null : markerId));
@@ -243,7 +277,8 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
   // --- Share (Web Share API -> clipboard fallback) ---------------------------
   const showShareNotice = useCallback((kind: ShareNoticeKind) => {
     setShareNotice(kind);
-    if (shareNoticeTimerRef.current !== null) window.clearTimeout(shareNoticeTimerRef.current);
+    if (shareNoticeTimerRef.current !== null)
+      window.clearTimeout(shareNoticeTimerRef.current);
     shareNoticeTimerRef.current = window.setTimeout(() => {
       shareNoticeTimerRef.current = null;
       setShareNotice(null);
@@ -252,7 +287,8 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
 
   useEffect(
     () => () => {
-      if (shareNoticeTimerRef.current !== null) window.clearTimeout(shareNoticeTimerRef.current);
+      if (shareNoticeTimerRef.current !== null)
+        window.clearTimeout(shareNoticeTimerRef.current);
     },
     [],
   );
@@ -260,23 +296,24 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
   const shareGathering = useCallback(
     async (markerId: string): Promise<void> => {
       const url = gatheringShareUrl(markerId);
-      if (typeof navigator.share === 'function') {
+      if (typeof navigator.share === "function") {
         try {
-          await navigator.share({ title: 'Jesus United gathering', url });
+          await navigator.share({ title: "Jesus United gathering", url });
           return; // handed to the OS share sheet — it shows its own feedback.
         } catch (error) {
           // A user-cancelled share sheet is a deliberate no-op, not a failure.
-          if (error instanceof DOMException && error.name === 'AbortError') return;
+          if (error instanceof DOMException && error.name === "AbortError")
+            return;
           // Any other rejection falls through to the clipboard fallback.
         }
       }
       try {
-        if (!navigator.clipboard) throw new Error('Clipboard API unavailable');
+        if (!navigator.clipboard) throw new Error("Clipboard API unavailable");
         await navigator.clipboard.writeText(url);
-        showShareNotice('copied');
+        showShareNotice("copied");
       } catch {
         // Permission denied / insecure context: degrade visibly, never throw.
-        showShareNotice('failed');
+        showShareNotice("failed");
       }
     },
     [showShareNotice],
@@ -285,11 +322,13 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
   // --- Connect dialog (focus trap / Escape / backdrop / restore) -------------
   const openConnectModal = useCallback(() => {
     lastFocusedRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     // Fresh form per visit: never show the previous visitor's draft.
     setInquiryForm(EMPTY_INQUIRY_FORM);
     setInquiryErrors({});
-    setInquiryState('idle');
+    setInquiryState("idle");
     setConnectOpen(true);
   }, []);
 
@@ -323,7 +362,7 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
   // Success confirmation auto-dismisses after four seconds and restores focus
   // to the Connect trigger. Closing early clears the timer via the cleanup.
   useEffect(() => {
-    if (!connectOpen || inquiryState !== 'sent') return;
+    if (!connectOpen || inquiryState !== "sent") return;
     const timer = window.setTimeout(() => closeConnectModal(), 4000);
     return () => window.clearTimeout(timer);
   }, [connectOpen, inquiryState, closeConnectModal]);
@@ -341,7 +380,8 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
 
   const handleInquirySubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!selected || inquiryState === 'submitting' || inquiryState === 'sent') return;
+    if (!selected || inquiryState === "submitting" || inquiryState === "sent")
+      return;
     const errors = validateGatheringInquiryInput(inquiryForm);
     setInquiryErrors(errors);
     if (errors.name) {
@@ -356,7 +396,7 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
       messageInputRef.current?.focus();
       return;
     }
-    setInquiryState('submitting');
+    setInquiryState("submitting");
     const result = await submitGatheringInquiry({
       gathering_id: selected.id,
       visitor_name: inquiryForm.name,
@@ -365,21 +405,21 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
     });
     if (!connectOpenRef.current) return; // dismissed mid-flight — do not update
     if (result.ok) {
-      setInquiryState('sent');
+      setInquiryState("sent");
       setInquiryErrors({});
       return;
     }
-    setInquiryState('failed');
+    setInquiryState("failed");
   };
 
   const handleModalKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
+    if (event.key === "Escape") {
       // Close the dialog only — never let the stage deselect the ambassador.
       event.stopPropagation();
       closeConnectModal();
       return;
     }
-    if (event.key !== 'Tab') return;
+    if (event.key !== "Tab") return;
     const modal = modalRef.current;
     if (!modal) return;
     const focusables = Array.from(
@@ -407,7 +447,7 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
   );
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
+    if (event.key === "Escape") {
       setSelectedId(null);
       return;
     }
@@ -416,27 +456,27 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
     if (!handle) return;
 
     switch (event.key) {
-      case 'ArrowLeft':
+      case "ArrowLeft":
         handle.nudgeOrbit(-GLOBE_KEY_ROTATE_STEP, 0);
         break;
-      case 'ArrowRight':
+      case "ArrowRight":
         handle.nudgeOrbit(GLOBE_KEY_ROTATE_STEP, 0);
         break;
-      case 'ArrowUp':
+      case "ArrowUp":
         handle.nudgeOrbit(0, GLOBE_KEY_ROTATE_STEP);
         break;
-      case 'ArrowDown':
+      case "ArrowDown":
         handle.nudgeOrbit(0, -GLOBE_KEY_ROTATE_STEP);
         break;
-      case '+':
-      case '=':
+      case "+":
+      case "=":
         handle.nudgeZoom(1 / GLOBE_KEY_ZOOM_FACTOR);
         break;
-      case '-':
-      case '_':
+      case "-":
+      case "_":
         handle.nudgeZoom(GLOBE_KEY_ZOOM_FACTOR);
         break;
-      case 'Escape':
+      case "Escape":
         setSelectedId(null);
         break;
       default:
@@ -449,13 +489,16 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
     <div
       id="mission-globe"
       className={[
-        'overflow-hidden rounded-3xl bg-black text-white',
-        className ?? '',
+        "overflow-hidden rounded-3xl bg-black text-white",
+        className ?? "",
       ]
-        .join(' ')
+        .join(" ")
         .trim()}
     >
-      <div className="relative isolate min-h-[85vh] overflow-hidden bg-black" onKeyDown={handleKeyDown}>
+      <div
+        className="relative isolate min-h-[85vh] overflow-hidden bg-black"
+        onKeyDown={handleKeyDown}
+      >
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-wrap items-start justify-between gap-3 p-4 sm:p-6">
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -478,15 +521,21 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
                 setSelectedId(active.id);
               }}
               disabled={!ready || markers.length === 0}
-              title={`Status: ${markers.length} active micro-gathering${markers.length === 1 ? '' : 's'} connected. Click to fly to the active gathering.`}
-              aria-label={`Status: ${markers.length} active micro-gathering${markers.length === 1 ? '' : 's'} connected — fly to the active gathering`}
+              title={`Status: ${markers.length} active micro-gathering${markers.length === 1 ? "" : "s"} connected. Click to fly to the active gathering.`}
+              aria-label={`Status: ${markers.length} active micro-gathering${markers.length === 1 ? "" : "s"} connected — fly to the active gathering`}
               className={`${HUD_COUNTER_BADGE} pointer-events-auto cursor-pointer transition active:scale-95 hover:bg-white/15 motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60`}
             >
-              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-cyan-300" />
+              <span
+                aria-hidden="true"
+                className="h-1.5 w-1.5 rounded-full bg-cyan-300"
+              />
               {formatGatheringCounter(markers.length, cityCount)}
             </button>
             {hovered ? (
-              <span aria-hidden="true" className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-[0_8px_32px_0_rgba(0,0,0,0.45)]">
+              <span
+                aria-hidden="true"
+                className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-[0_8px_32px_0_rgba(0,0,0,0.45)]"
+              >
                 {normalizeMarkerName(hovered.first_name)}
               </span>
             ) : null}
@@ -508,7 +557,9 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
           <div className="pointer-events-auto flex items-center gap-2">
             <button
               type="button"
-              onClick={() => sceneRef.current?.nudgeZoom(1 / GLOBE_KEY_ZOOM_FACTOR)}
+              onClick={() =>
+                sceneRef.current?.nudgeZoom(1 / GLOBE_KEY_ZOOM_FACTOR)
+              }
               disabled={!ready}
               aria-label="Zoom in"
               className={CONTROL_CLASS}
@@ -539,10 +590,11 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
         </div>
 
         <p id="mission-globe-instructions" className="sr-only">
-          Drag to spin the globe, scroll or pinch to zoom, then tap a character to meet that gathering.
-          Arrow keys orbit, <span className="font-bold">+</span> and{' '}
-          <span className="font-bold">&minus;</span> zoom. Every marker is a privacy-safe centroid
-          &mdash; never a street address.
+          Drag to spin the globe, scroll or pinch to zoom, then tap a character
+          to meet that gathering. Arrow keys orbit,{" "}
+          <span className="font-bold">+</span> and{" "}
+          <span className="font-bold">&minus;</span> zoom. Every marker is a
+          privacy-safe centroid &mdash; never a street address.
         </p>
 
         <div
@@ -553,7 +605,7 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
           tabIndex={0}
           className="absolute inset-0 touch-none overflow-hidden bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-300 [&>canvas]:absolute [&>canvas]:inset-0 [&>canvas]:h-full [&>canvas]:w-full"
         >
-          {status === 'loading' ? (
+          {status === "loading" ? (
             <div
               role="status"
               className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center"
@@ -568,7 +620,7 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
             </div>
           ) : null}
 
-          {status === 'unavailable' ? (
+          {status === "unavailable" ? (
             <div
               role="status"
               className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center"
@@ -577,8 +629,8 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
                 This device could not start the 3D globe.
               </p>
               <p className="text-xs leading-5 text-slate-400">
-                Every gathering is still listed below &mdash; the storybook roster works without
-                WebGL.
+                Every gathering is still listed below &mdash; the storybook
+                roster works without WebGL.
               </p>
             </div>
           ) : null}
@@ -587,7 +639,9 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 p-4 sm:p-6">
           <p className={`${HUD_HINT} mb-3 text-center`}>{INTERACTION_HINT}</p>
           {!selected ? (
-            <p className="text-center text-xs text-slate-400">Tap a character or choose a gathering below.</p>
+            <p className="text-center text-xs text-slate-400">
+              Tap a character or choose a gathering below.
+            </p>
           ) : null}
         </div>
 
@@ -602,29 +656,45 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
           inert={!selected}
           className={[
             HUD_PREVIEW_CARD,
-            'pointer-events-auto absolute bottom-6 left-6 right-6 z-30 max-w-75 rounded-3xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none sm:right-auto sm:w-75',
-            selected ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-6 opacity-0',
-          ].join(' ')}
+            "pointer-events-auto absolute bottom-6 left-6 right-6 z-30 max-w-75 rounded-3xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none sm:right-auto sm:w-75",
+            selected
+              ? "translate-y-0 opacity-100"
+              : "pointer-events-none translate-y-6 opacity-0",
+          ].join(" ")}
         >
           {selected ? (
             <div className="flex items-start gap-3">
               <span
                 aria-hidden="true"
                 className="h-12 w-12 shrink-0 rounded-full border border-white/12 bg-cover bg-center"
-                style={{ backgroundImage: `url(${avatarStyleForSeed(selected.id).file})` }}
+                style={{
+                  backgroundImage: `url(${avatarStyleForSeed(selected.id).file})`,
+                }}
               />
               <div className="min-w-0 flex-1" role="status" aria-live="polite">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300">Gathering ambassador</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300">
+                  Gathering ambassador
+                </p>
                 <h3 className="mt-1 wrap-break-word text-lg font-bold tracking-tight">
-                  {formatAmbassadorName(normalizeMarkerName(selected.first_name))}
+                  {formatAmbassadorName(
+                    normalizeMarkerName(selected.first_name),
+                  )}
                 </h3>
                 <p className="mt-1 wrap-break-word text-xs text-slate-300">
-                  {selected.city || 'Community gathering'} &middot; {selected.member_count}{' '}
-                  {selected.member_count === 1 ? 'believer' : 'believers'}
+                  {selected.city || "Community gathering"} &middot;{" "}
+                  {selected.member_count}{" "}
+                  {selected.member_count === 1 ? "believer" : "believers"}
                 </p>
               </div>
-              <button type="button" className={CONTROL_CLASS} aria-label="Close ambassador preview"
-                onClick={() => { setSelectedId(null); containerRef.current?.focus(); }}>
+              <button
+                type="button"
+                className={CONTROL_CLASS}
+                aria-label="Close ambassador preview"
+                onClick={() => {
+                  setSelectedId(null);
+                  containerRef.current?.focus();
+                }}
+              >
                 <span aria-hidden="true">&times;</span>
               </button>
             </div>
@@ -646,12 +716,16 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
               >
                 Share
               </Button>
-              <span aria-live="polite" role="status" className={CONNECT_NOTICE_CLASS}>
-                {shareNotice === 'copied'
-                  ? 'Copied!'
-                  : shareNotice === 'failed'
-                    ? 'Copy blocked — copy the link from the address bar.'
-                    : ''}
+              <span
+                aria-live="polite"
+                role="status"
+                className={CONNECT_NOTICE_CLASS}
+              >
+                {shareNotice === "copied"
+                  ? "Copied!"
+                  : shareNotice === "failed"
+                    ? "Copy blocked — copy the link from the address bar."
+                    : ""}
               </span>
             </div>
           ) : null}
@@ -667,40 +741,69 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
           ariaDescribedBy="connect-dialog-description"
         >
           {selected ? (
-            <div ref={modalRef} onKeyDown={handleModalKeyDown} className="text-left">
+            <div
+              ref={modalRef}
+              onKeyDown={handleModalKeyDown}
+              className="text-left"
+            >
               <DialogClose onClose={closeConnectModal} />
               <div className="flex items-start gap-3 pr-10">
                 <span
                   aria-hidden="true"
                   className="h-12 w-12 shrink-0 rounded-full border border-sand bg-pill bg-cover bg-center"
-                  style={{ backgroundImage: `url(${avatarStyleForSeed(selected.id).file})` }}
+                  style={{
+                    backgroundImage: `url(${avatarStyleForSeed(selected.id).file})`,
+                  }}
                 />
                 <div className="min-w-0 flex-1">
-                  <h2 id="connect-dialog-title" className="text-lg font-bold tracking-tight">
-                    Connect with {formatAmbassadorName(normalizeMarkerName(selected.first_name))}
+                  <h2
+                    id="connect-dialog-title"
+                    className="text-lg font-bold tracking-tight"
+                  >
+                    Connect with{" "}
+                    {formatAmbassadorName(
+                      normalizeMarkerName(selected.first_name),
+                    )}
                   </h2>
                   <Badge variant="gold" size="sm" className="mt-1">
-                    {selected.member_count}{' '}
-                    {selected.member_count === 1 ? 'believer' : 'believers'}
+                    {selected.member_count}{" "}
+                    {selected.member_count === 1 ? "believer" : "believers"}
                   </Badge>
                 </div>
               </div>
-              <p id="connect-dialog-description" className="mt-3 text-xs leading-5 text-muted">
-                {selected.city || 'Community gathering'} &middot; Your details go straight to
-                the host &mdash; never published on the globe.
+              <p
+                id="connect-dialog-description"
+                className="mt-3 text-xs leading-5 text-muted"
+              >
+                {selected.city || "Community gathering"} &middot; Your details
+                go straight to the host &mdash; never published on the globe.
               </p>
-              {inquiryState === 'sent' ? (
-                <div role="status" className="mt-5 rounded-2xl border border-gold/30 bg-pill p-4">
+              {inquiryState === "sent" ? (
+                <div
+                  role="status"
+                  className="mt-5 rounded-2xl border border-gold/30 bg-pill p-4"
+                >
                   <p className="text-sm font-semibold leading-5 text-espresso">
-                    Inquiry sent to {formatAmbassadorName(normalizeMarkerName(selected.first_name))}!{' '}
-                    They will reach out to welcome you.
+                    Inquiry sent to{" "}
+                    {formatAmbassadorName(
+                      normalizeMarkerName(selected.first_name),
+                    )}
+                    ! They will reach out to welcome you.
                   </p>
-                  <Button type="button" className="mt-4" onClick={closeConnectModal}>
+                  <Button
+                    type="button"
+                    className="mt-4"
+                    onClick={closeConnectModal}
+                  >
                     Done
                   </Button>
                 </div>
               ) : (
-                <form className="mt-5" onSubmit={handleInquirySubmit} noValidate>
+                <form
+                  className="mt-5"
+                  onSubmit={handleInquirySubmit}
+                  noValidate
+                >
                   <label
                     htmlFor="connect-inquiry-name"
                     className={INQUIRY_LABEL_CLASS}
@@ -713,15 +816,22 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
                     name="name"
                     autoComplete="name"
                     value={inquiryForm.name}
-                    onChange={updateInquiryField('name')}
+                    onChange={updateInquiryField("name")}
                     aria-required="true"
                     aria-invalid={inquiryErrors.name ? true : undefined}
-                    aria-describedby={inquiryErrors.name ? 'connect-inquiry-name-error' : undefined}
+                    aria-describedby={
+                      inquiryErrors.name
+                        ? "connect-inquiry-name-error"
+                        : undefined
+                    }
                     error={Boolean(inquiryErrors.name)}
                     placeholder="e.g. Ada Lovelace"
                   />
                   {inquiryErrors.name ? (
-                    <p id="connect-inquiry-name-error" className={INQUIRY_ERROR_CLASS}>
+                    <p
+                      id="connect-inquiry-name-error"
+                      className={INQUIRY_ERROR_CLASS}
+                    >
                       {inquiryErrors.name}
                     </p>
                   ) : null}
@@ -739,15 +849,22 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
                     inputMode="email"
                     autoComplete="email"
                     value={inquiryForm.contact}
-                    onChange={updateInquiryField('contact')}
+                    onChange={updateInquiryField("contact")}
                     aria-required="true"
                     aria-invalid={inquiryErrors.contact ? true : undefined}
-                    aria-describedby={inquiryErrors.contact ? 'connect-inquiry-contact-error' : undefined}
+                    aria-describedby={
+                      inquiryErrors.contact
+                        ? "connect-inquiry-contact-error"
+                        : undefined
+                    }
                     error={Boolean(inquiryErrors.contact)}
                     placeholder="you@example.com or +1 555 000 1234"
                   />
                   {inquiryErrors.contact ? (
-                    <p id="connect-inquiry-contact-error" className={INQUIRY_ERROR_CLASS}>
+                    <p
+                      id="connect-inquiry-contact-error"
+                      className={INQUIRY_ERROR_CLASS}
+                    >
                       {inquiryErrors.contact}
                     </p>
                   ) : null}
@@ -755,8 +872,10 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
                     htmlFor="connect-inquiry-message"
                     className={`mt-4 ${INQUIRY_LABEL_CLASS}`}
                   >
-                    Message{' '}
-                    <span className="normal-case tracking-normal text-muted">(optional)</span>
+                    Message{" "}
+                    <span className="normal-case tracking-normal text-muted">
+                      (optional)
+                    </span>
                   </label>
                   <textarea
                     ref={messageInputRef}
@@ -764,31 +883,42 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
                     name="message"
                     rows={3}
                     value={inquiryForm.message}
-                    onChange={updateInquiryField('message')}
+                    onChange={updateInquiryField("message")}
                     aria-invalid={inquiryErrors.message ? true : undefined}
-                    aria-describedby={inquiryErrors.message ? 'connect-inquiry-message-error' : undefined}
+                    aria-describedby={
+                      inquiryErrors.message
+                        ? "connect-inquiry-message-error"
+                        : undefined
+                    }
                     className={INQUIRY_TEXTAREA_CLASS}
                     placeholder="Say hello, ask about meeting times…"
                   />
                   {inquiryErrors.message ? (
-                    <p id="connect-inquiry-message-error" className={INQUIRY_ERROR_CLASS}>
+                    <p
+                      id="connect-inquiry-message-error"
+                      className={INQUIRY_ERROR_CLASS}
+                    >
                       {inquiryErrors.message}
                     </p>
                   ) : null}
 
-                  {inquiryState === 'failed' ? (
-                    <p role="alert" className="mt-3 text-xs font-semibold text-red-700">
-                      We could not send that just now. Please try again in a moment.
+                  {inquiryState === "failed" ? (
+                    <p
+                      role="alert"
+                      className="mt-3 text-xs font-semibold text-red-700"
+                    >
+                      We could not send that just now. Please try again in a
+                      moment.
                     </p>
                   ) : null}
 
                   <div className="mt-5 flex flex-wrap items-center gap-2">
                     <Button
                       type="submit"
-                      disabled={inquiryState === 'submitting'}
+                      disabled={inquiryState === "submitting"}
                       className="px-5"
                     >
-                      {inquiryState === 'submitting' ? (
+                      {inquiryState === "submitting" ? (
                         <>
                           <span
                             aria-hidden="true"
@@ -797,7 +927,7 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
                           Sending…
                         </>
                       ) : (
-                        'Send inquiry'
+                        "Send inquiry"
                       )}
                     </Button>
                     <Button
@@ -807,12 +937,14 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
                     >
                       Copy gathering link
                     </Button>
-                    <span className={`min-h-5 text-xs font-semibold text-[#E2E8F0]`}>
-                      {shareNotice === 'copied'
-                        ? 'Copied!'
-                        : shareNotice === 'failed'
-                          ? 'Copy blocked — copy the link from the address bar.'
-                          : ''}
+                    <span
+                      className={`min-h-5 text-xs font-semibold text-[#E2E8F0]`}
+                    >
+                      {shareNotice === "copied"
+                        ? "Copied!"
+                        : shareNotice === "failed"
+                          ? "Copy blocked — copy the link from the address bar."
+                          : ""}
                     </span>
                   </div>
                 </form>
@@ -829,8 +961,8 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
 
         {markers.length === 0 ? (
           <p className="mt-2 rounded-2xl border border-dashed border-white/12 bg-slate-900/65 p-4 text-center text-xs leading-5 text-slate-400">
-            No approved gatherings are on the globe yet. Approved gatherings appear here as
-            storybook characters.
+            No approved gatherings are on the globe yet. Approved gatherings
+            appear here as storybook characters.
           </p>
         ) : (
           <ul className="mt-2 flex flex-wrap gap-2">
@@ -845,20 +977,26 @@ export default function MissionGlobe({ markers, onSelectMarker, className }: Mis
                     className={[
                       MARKER_BUTTON_CLASS,
                       isSelected
-                        ? 'border-cyan-300/60 bg-cyan-300/15 text-cyan-100'
-                        : 'border-white/12 bg-slate-900/65 text-white hover:border-cyan-300/60 hover:bg-slate-800',
-                    ].join(' ')}
+                        ? "border-cyan-300/60 bg-cyan-300/15 text-cyan-100"
+                        : "border-white/12 bg-slate-900/65 text-white hover:border-cyan-300/60 hover:bg-slate-800",
+                    ].join(" ")}
                   >
                     <span
                       aria-hidden="true"
                       className="h-6 w-6 shrink-0 rounded-full border border-white/12 bg-cover bg-center"
-                      style={{ backgroundImage: `url(${avatarStyleForSeed(marker.id).file})` }}
+                      style={{
+                        backgroundImage: `url(${avatarStyleForSeed(marker.id).file})`,
+                      }}
                     />
                     <span>{normalizeMarkerName(marker.first_name)}</span>
                     {marker.city ? (
-                      <span className="font-medium text-slate-400">{marker.city}</span>
+                      <span className="font-medium text-slate-400">
+                        {marker.city}
+                      </span>
                     ) : null}
-                    <span className="tabular-nums text-slate-400">{marker.member_count}</span>
+                    <span className="tabular-nums text-slate-400">
+                      {marker.member_count}
+                    </span>
                   </button>
                 </li>
               );
