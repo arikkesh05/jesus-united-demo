@@ -42,3 +42,11 @@ next-env.d.ts
 
 # Cline agent local skill payloads
 .cline/skills/
+
+# Local 3D verification artifacts (scripts/verifyHeroRender.mjs writes to /tmp by default).
+# Screenshots are throwaway evidence of one render, not shipped assets.
+test-render*.png
+
+# Orphaned avatar scratch: the globe loads /assets/avatars/ (tracked), never /avatars/.
+# Kept on disk as source material, deliberately out of history.
+public/avatars/
